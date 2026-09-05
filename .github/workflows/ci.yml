@@ -1,0 +1,38 @@
+name: Runtime CI
+
+on:
+  push:
+    paths:
+      - "apps/prometheus-runtime/**"
+      - "Makefile"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "apps/prometheus-runtime/**"
+      - "Makefile"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.18"
+          enable-cache: true
+          cache-dependency-glob: "apps/prometheus-runtime/uv.lock"
+      - name: Install Python and dependencies
+        run: uv sync --frozen --project apps/prometheus-runtime
+      - name: Lint
+        run: make lint
+      - name: Typecheck
+        run: make typecheck
+      - name: Architecture contracts
+        run: make arch
+      - name: Test
+        run: make test

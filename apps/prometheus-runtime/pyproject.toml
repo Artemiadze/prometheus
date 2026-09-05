@@ -1,0 +1,98 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prometheus-runtime"
+version = "0.1.0"
+description = "Local RAG runtime for the Prometheus Obsidian plugin"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.7,<3",
+    "typer>=0.15,<1",
+    "uvicorn[standard]>=0.34,<1",
+]
+
+[project.scripts]
+prometheus-runtime = "prometheus_runtime.bootstrap.cli:main"
+
+[dependency-groups]
+dev = [
+    "black>=25.1,<26",
+    "httpx>=0.28,<1",
+    "import-linter>=2.2,<3",
+    "mypy>=1.14,<2",
+    "pytest>=8.3,<9",
+    "pytest-cov>=6,<7",
+    "ruff>=0.9,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prometheus_runtime"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.black]
+target-version = ["py312"]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"
+
+[tool.importlinter]
+root_packages = ["prometheus_runtime"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Clean Architecture layers"
+type = "layers"
+layers = [
+    "prometheus_runtime.bootstrap",
+    "prometheus_runtime.adapters",
+    "prometheus_runtime.application",
+    "prometheus_runtime.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain has no framework dependencies"
+type = "forbidden"
+source_modules = ["prometheus_runtime.domain"]
+forbidden_modules = [
+    "fastapi",
+    "fastembed",
+    "httpx",
+    "pydantic_settings",
+    "qdrant_client",
+    "uvicorn",
+]
+
+[[tool.importlinter.contracts]]
+name = "Application has no adapter dependencies"
+type = "forbidden"
+source_modules = ["prometheus_runtime.application"]
+forbidden_modules = [
+    "fastapi",
+    "fastembed",
+    "httpx",
+    "pydantic_settings",
+    "qdrant_client",
+    "uvicorn",
+]
