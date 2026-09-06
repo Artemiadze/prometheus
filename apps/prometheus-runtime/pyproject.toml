@@ -79,6 +79,7 @@ forbidden_modules = [
     "fastapi",
     "fastembed",
     "httpx",
+    "pydantic",
     "pydantic_settings",
     "qdrant_client",
     "uvicorn",
