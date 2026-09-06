@@ -7,8 +7,8 @@ import os
 import pytest
 from pydantic import ValidationError
 
-from prometheus_runtime.bootstrap.config import RuntimeSettings, load_settings
-from prometheus_runtime.domain.errors import ConfigurationError
+from bootstrap.config import RuntimeSettings, load_settings
+from domain.errors import ConfigurationError
 
 
 @pytest.fixture(autouse=True)

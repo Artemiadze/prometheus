@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from prometheus_runtime.adapters.outbound.filesystem.data_dir import (
+from adapters.outbound.filesystem.data_dir import (
     ensure_layout,
     resolve_data_dir,
     vault_dir,

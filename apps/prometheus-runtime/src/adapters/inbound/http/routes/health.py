@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from prometheus_runtime import __version__
+from adapters.inbound.http.package_version import package_version
 
 router = APIRouter()
 
@@ -11,4 +11,4 @@ router = APIRouter()
 def health() -> dict[str, str]:
     """Report process readiness without initializing heavy adapters."""
 
-    return {"status": "ok", "version": __version__}
+    return {"status": "ok", "version": package_version()}

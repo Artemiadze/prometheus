@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import cached_property
 
-from prometheus_runtime.adapters.outbound.filesystem.data_dir import DataDirLayout
-from prometheus_runtime.application.ports.document_repository import DocumentRepository
-from prometheus_runtime.application.ports.embedder import Embedder
-from prometheus_runtime.application.ports.language_model import LanguageModel
-from prometheus_runtime.application.ports.vector_index import VectorIndex
-from prometheus_runtime.bootstrap.config import RuntimeSettings
-from prometheus_runtime.domain.errors import AdapterNotConfiguredError
+from adapters.outbound.filesystem.data_dir import DataDirLayout
+from application.ports.document_repository import DocumentRepository
+from application.ports.embedder import Embedder
+from application.ports.language_model import LanguageModel
+from application.ports.vector_index import VectorIndex
+from bootstrap.config import RuntimeSettings
+from domain.errors import AdapterNotConfiguredError
 
 
 def _resolve[T](factory: Callable[[], T] | None, port_name: str) -> T:

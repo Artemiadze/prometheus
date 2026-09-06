@@ -2,8 +2,8 @@
 
 from fastapi.testclient import TestClient
 
-from prometheus_runtime import __version__
-from prometheus_runtime.adapters.inbound.http.app import create_app
+from adapters.inbound.http.app import create_app
+from bootstrap import __version__
 
 
 def test_health_is_ready_without_runtime_adapters() -> None:

@@ -8,12 +8,12 @@ from typing import cast
 import pytest
 from fastapi.testclient import TestClient
 
-from prometheus_runtime.adapters.inbound.http.app import create_app
-from prometheus_runtime.adapters.outbound.filesystem.data_dir import ensure_layout
-from prometheus_runtime.application.ports.embedder import Embedder
-from prometheus_runtime.bootstrap.config import RuntimeSettings
-from prometheus_runtime.bootstrap.container import Container
-from prometheus_runtime.domain.errors import AdapterNotConfiguredError
+from adapters.inbound.http.app import create_app
+from adapters.outbound.filesystem.data_dir import ensure_layout
+from application.ports.embedder import Embedder
+from bootstrap.config import RuntimeSettings
+from bootstrap.container import Container
+from domain.errors import AdapterNotConfiguredError
 
 
 def test_health_does_not_initialize_embedder(tmp_path: Path) -> None:

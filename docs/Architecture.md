@@ -244,7 +244,7 @@ Runtime отвечает за:
 
 ```text
 apps/prometheus-runtime/
-├── src/prometheus_runtime/
+├── src/
 │   ├── domain/
 │   │   ├── entities/
 │   │   │   ├── document.py

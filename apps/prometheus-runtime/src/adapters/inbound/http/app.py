@@ -7,9 +7,9 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 
-from prometheus_runtime import __version__
-from prometheus_runtime.adapters.inbound.http.routes.health import router as health_router
-from prometheus_runtime.adapters.outbound.filesystem.logging_setup import log_context
+from adapters.inbound.http.package_version import package_version
+from adapters.inbound.http.routes.health import router as health_router
+from adapters.outbound.filesystem.logging_setup import log_context
 
 
 def create_app(container: object | None = None) -> FastAPI:
@@ -17,7 +17,7 @@ def create_app(container: object | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Prometheus Runtime",
-        version=__version__,
+        version=package_version(),
         docs_url=None,
         redoc_url=None,
     )

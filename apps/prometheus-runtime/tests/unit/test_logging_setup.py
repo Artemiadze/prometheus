@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from prometheus_runtime.adapters.outbound.filesystem.data_dir import ensure_layout
-from prometheus_runtime.adapters.outbound.filesystem.logging_setup import (
+from adapters.outbound.filesystem.data_dir import ensure_layout
+from adapters.outbound.filesystem.logging_setup import (
     configure_logging,
     log_context,
 )

@@ -13,7 +13,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Final
 
-from prometheus_runtime.adapters.outbound.filesystem.data_dir import DataDirLayout
+from adapters.outbound.filesystem.data_dir import DataDirLayout
 
 request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
 vault_id_context: ContextVar[str | None] = ContextVar("vault_id", default=None)

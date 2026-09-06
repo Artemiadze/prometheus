@@ -9,13 +9,13 @@ from typing import Annotated
 import typer
 import uvicorn
 
-from prometheus_runtime import __version__
-from prometheus_runtime.adapters.inbound.http.app import create_app
-from prometheus_runtime.adapters.outbound.filesystem.data_dir import ensure_layout, resolve_data_dir
-from prometheus_runtime.adapters.outbound.filesystem.logging_setup import configure_logging
-from prometheus_runtime.bootstrap.config import LogLevel, load_settings
-from prometheus_runtime.bootstrap.container import Container
-from prometheus_runtime.domain.errors import ConfigurationError
+from adapters.inbound.http.app import create_app
+from adapters.outbound.filesystem.data_dir import ensure_layout, resolve_data_dir
+from adapters.outbound.filesystem.logging_setup import configure_logging
+from bootstrap import __version__
+from bootstrap.config import LogLevel, load_settings
+from bootstrap.container import Container
+from domain.errors import ConfigurationError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, pretty_exceptions_enable=False)
 

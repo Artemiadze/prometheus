@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-prometheus-runtime = "prometheus_runtime.bootstrap.cli:main"
+prometheus-runtime = "bootstrap.cli:main"
 
 [dependency-groups]
 dev = [
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/prometheus_runtime"]
+packages = ["src/domain", "src/application", "src/adapters", "src/bootstrap"]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -58,23 +58,23 @@ testpaths = ["tests"]
 addopts = "--strict-markers --strict-config"
 
 [tool.importlinter]
-root_packages = ["prometheus_runtime"]
+root_packages = ["domain", "application", "adapters", "bootstrap"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Clean Architecture layers"
 type = "layers"
 layers = [
-    "prometheus_runtime.bootstrap",
-    "prometheus_runtime.adapters",
-    "prometheus_runtime.application",
-    "prometheus_runtime.domain",
+    "bootstrap",
+    "adapters",
+    "application",
+    "domain",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Domain has no framework dependencies"
 type = "forbidden"
-source_modules = ["prometheus_runtime.domain"]
+source_modules = ["domain"]
 forbidden_modules = [
     "fastapi",
     "fastembed",
@@ -87,7 +87,7 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "Application has no adapter dependencies"
 type = "forbidden"
-source_modules = ["prometheus_runtime.application"]
+source_modules = ["application"]
 forbidden_modules = [
     "fastapi",
     "fastembed",

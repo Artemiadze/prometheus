@@ -7,8 +7,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from prometheus_runtime import __version__
-from prometheus_runtime.bootstrap.cli import app
+from bootstrap import __version__
+from bootstrap.cli import app
 
 runner = CliRunner()
 
