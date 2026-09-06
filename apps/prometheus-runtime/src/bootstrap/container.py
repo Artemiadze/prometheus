@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import cached_property
 
+from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import DataDirLayout
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
@@ -37,10 +38,23 @@ class Container:
     ) -> None:
         self.settings = settings
         self.layout = layout
-        self._embedder_factory = embedder_factory
+        self._embedder_factory = embedder_factory or self._build_embedder
         self._vector_index_factory = vector_index_factory
         self._language_model_factory = language_model_factory
         self._document_repository_factory = document_repository_factory
+
+    def _build_embedder(self) -> Embedder:
+        if self.settings.embedding_provider.casefold() != "fastembed":
+            raise AdapterNotConfiguredError(
+                f"Embedding provider {self.settings.embedding_provider!r} is not configured"
+            )
+        return FastEmbedAdapter(
+            model_id=self.settings.embedding_model,
+            cache_dir=self.layout.embeddings,
+            batch_size=self.settings.embedding_batch_size,
+            threads=self.settings.embedding_threads,
+            allow_download=self.settings.embedding_allow_download,
+        )
 
     @cached_property
     def embedder(self) -> Embedder:

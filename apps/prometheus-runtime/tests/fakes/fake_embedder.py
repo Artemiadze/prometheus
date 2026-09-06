@@ -3,6 +3,7 @@
 import hashlib
 from collections.abc import Sequence
 
+from application.dto.embedding import EmbeddingFingerprint
 from domain.entities.chunk import Chunk
 from domain.entities.document import normalize_content
 
@@ -17,12 +18,20 @@ class FakeEmbedder:
         self._model_id = model_id
 
     @property
+    def provider(self) -> str:
+        return "fake"
+
+    @property
     def dimension(self) -> int:
         return self._dimension
 
     @property
     def model_id(self) -> str:
         return self._model_id
+
+    @property
+    def fingerprint(self) -> EmbeddingFingerprint:
+        return EmbeddingFingerprint(self.provider, self.model_id, self.dimension)
 
     def _embed(self, text: str) -> tuple[float, ...]:
         seed = normalize_content(text).encode("utf-8")

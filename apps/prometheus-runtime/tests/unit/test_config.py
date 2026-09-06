@@ -23,6 +23,9 @@ def test_defaults_match_product_settings() -> None:
 
     assert settings.host == "127.0.0.1"
     assert settings.port == 8765
+    assert settings.embedding_batch_size == 64
+    assert settings.embedding_threads is None
+    assert not settings.embedding_allow_download
     assert settings.chunk_size == 700
     assert settings.chunk_overlap == 80
     assert settings.top_k == 10
@@ -53,6 +56,20 @@ def test_invalid_chunk_overlap_has_safe_startup_error() -> None:
 def test_non_loopback_host_is_rejected() -> None:
     with pytest.raises(ConfigurationError, match="loopback"):
         load_settings({"host": "0.0.0.0"})
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"embedding_batch_size": 0},
+        {"embedding_threads": 0},
+    ],
+)
+def test_invalid_embedding_limits_have_safe_startup_error(
+    overrides: dict[str, object],
+) -> None:
+    with pytest.raises(ConfigurationError):
+        load_settings(overrides)
 
 
 def test_settings_are_immutable() -> None:

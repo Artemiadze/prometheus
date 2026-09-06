@@ -31,6 +31,9 @@ class RuntimeSettings(BaseSettings):
     session_token: SecretStr | None = None
     embedding_provider: str = "fastembed"
     embedding_model: str = "intfloat/multilingual-e5-large"
+    embedding_batch_size: int = Field(default=64, gt=0)
+    embedding_threads: int | None = Field(default=None, gt=0)
+    embedding_allow_download: bool = False
     chunk_size: int = Field(default=700, gt=0)
     chunk_overlap: int = Field(default=80, ge=0)
     top_k: int = Field(default=10, gt=0)

@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from adapters.inbound.http.app import create_app
+from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import ensure_layout
 from application.ports.embedder import Embedder
 from bootstrap.config import RuntimeSettings
@@ -61,3 +62,12 @@ def test_unconfigured_provider_has_explicit_error(tmp_path: Path) -> None:
 
     with pytest.raises(AdapterNotConfiguredError, match="VectorIndex adapter is not configured"):
         _ = container.vector_index
+
+
+def test_default_embedder_is_wired_without_loading_model(tmp_path: Path) -> None:
+    container = Container(RuntimeSettings(data_dir=tmp_path), ensure_layout(tmp_path))
+
+    embedder = container.embedder
+
+    assert isinstance(embedder, FastEmbedAdapter)
+    assert embedder.dimension == 1024
