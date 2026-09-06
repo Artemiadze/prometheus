@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from domain.entities.chunk import Chunk
+
 
 class LanguageModel(Protocol):
     """Generate an answer using only explicitly supplied local context."""
@@ -10,7 +12,7 @@ class LanguageModel(Protocol):
     def generate(
         self,
         question: str,
-        context: Sequence[str],
+        context: Sequence[Chunk],
         *,
         temperature: float,
         context_size: int,

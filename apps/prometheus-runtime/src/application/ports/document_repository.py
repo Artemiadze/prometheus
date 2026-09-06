@@ -3,10 +3,14 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from domain.entities.document import Document
+from domain.value_objects.document_id import DocumentId
+from domain.value_objects.relative_path import RelativePath
+
 
 class DocumentRepository(Protocol):
-    """Read persisted document state within one already-scoped Vault."""
+    """Read document state within one already-scoped Vault."""
 
-    def get_revision(self, document_id: str) -> str | None: ...
+    def get(self, document_id: DocumentId) -> Document | None: ...
 
-    def list_paths(self) -> Sequence[str]: ...
+    def list_relative_paths(self) -> Sequence[RelativePath]: ...

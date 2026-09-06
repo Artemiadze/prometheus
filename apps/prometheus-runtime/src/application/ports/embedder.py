@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from domain.entities.chunk import Chunk
+
 
 class Embedder(Protocol):
     """Generate deterministic vectors without exposing provider-specific types."""
@@ -13,6 +15,6 @@ class Embedder(Protocol):
     @property
     def model_id(self) -> str: ...
 
-    def embed_documents(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
+    def embed_documents(self, chunks: Sequence[Chunk]) -> Sequence[Sequence[float]]: ...
 
     def embed_query(self, text: str) -> Sequence[float]: ...
