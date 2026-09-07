@@ -6,13 +6,15 @@ from collections.abc import Callable
 from functools import cached_property
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
-from adapters.outbound.filesystem.data_dir import DataDirLayout
+from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
+from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
 from application.ports.language_model import LanguageModel
 from application.ports.vector_index import VectorIndex
 from bootstrap.config import RuntimeSettings
 from domain.errors import AdapterNotConfiguredError
+from domain.value_objects.vault_id import VaultId
 
 
 def _resolve[T](factory: Callable[[], T] | None, port_name: str) -> T:
@@ -31,6 +33,7 @@ class Container:
         settings: RuntimeSettings,
         layout: DataDirLayout,
         *,
+        vault_id: VaultId | None = None,
         embedder_factory: Callable[[], Embedder] | None = None,
         vector_index_factory: Callable[[], VectorIndex] | None = None,
         language_model_factory: Callable[[], LanguageModel] | None = None,
@@ -38,8 +41,9 @@ class Container:
     ) -> None:
         self.settings = settings
         self.layout = layout
+        self._vault_id = vault_id
         self._embedder_factory = embedder_factory or self._build_embedder
-        self._vector_index_factory = vector_index_factory
+        self._vector_index_factory = vector_index_factory or self._build_vector_index
         self._language_model_factory = language_model_factory
         self._document_repository_factory = document_repository_factory
 
@@ -54,6 +58,16 @@ class Container:
             batch_size=self.settings.embedding_batch_size,
             threads=self.settings.embedding_threads,
             allow_download=self.settings.embedding_allow_download,
+        )
+
+    def _build_vector_index(self) -> VectorIndex:
+        if self._vault_id is None:
+            raise AdapterNotConfiguredError(
+                "VectorIndex adapter is not configured; provide a vault_id to Container"
+            )
+        return QdrantLocalVectorIndex(
+            vault_dir=vault_dir(self.layout, self._vault_id.value),
+            embedding_fingerprint=self.embedder.fingerprint,
         )
 
     @cached_property

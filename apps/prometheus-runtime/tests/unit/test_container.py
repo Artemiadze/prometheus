@@ -11,10 +11,12 @@ from fastapi.testclient import TestClient
 from adapters.inbound.http.app import create_app
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import ensure_layout
+from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from application.ports.embedder import Embedder
 from bootstrap.config import RuntimeSettings
 from bootstrap.container import Container
 from domain.errors import AdapterNotConfiguredError
+from domain.value_objects.vault_id import VaultId
 
 
 def test_health_does_not_initialize_embedder(tmp_path: Path) -> None:
@@ -71,3 +73,17 @@ def test_default_embedder_is_wired_without_loading_model(tmp_path: Path) -> None
 
     assert isinstance(embedder, FastEmbedAdapter)
     assert embedder.dimension == 1024
+
+
+def test_default_vector_index_is_scoped_to_configured_vault(tmp_path: Path) -> None:
+    container = Container(
+        RuntimeSettings(data_dir=tmp_path),
+        ensure_layout(tmp_path),
+        vault_id=VaultId("vault-01"),
+    )
+
+    vector_index = container.vector_index
+
+    assert isinstance(vector_index, QdrantLocalVectorIndex)
+    assert (tmp_path / "vaults" / "vault-01" / "qdrant").is_dir()
+    vector_index.close()

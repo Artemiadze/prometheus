@@ -8,3 +8,10 @@ class IndexRebuildRequiredError(PrometheusError):
 
     code = "INDEX_REBUILD_REQUIRED"
     default_message = "Embedding configuration changed; rebuild the index before writing vectors"
+
+
+class IndexCorruptedError(PrometheusError):
+    """Raised when a recreated index still requires a full reindex."""
+
+    code = "INDEX_CORRUPTED"
+    default_message = "Vector index was corrupted or incompatible; reindex the Vault"

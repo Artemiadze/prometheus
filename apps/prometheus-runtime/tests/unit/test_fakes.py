@@ -116,14 +116,14 @@ def test_fake_vector_index_searches_and_replaces_documents() -> None:
     first = _chunk(0, "first")
     second = _chunk(1, "second")
     index = FakeVectorIndex()
-    index.upsert(first.document_id, (first, second), ((1.0, 0.0), (0.0, 1.0)))
+    index.upsert(_document(), (first, second), ((1.0, 0.0), (0.0, 1.0)))
 
     hits = index.search((1.0, 0.0), limit=2)
 
     assert [hit.chunk for hit in hits] == [first, second]
     assert [hit.score for hit in hits] == [1.0, 0.0]
 
-    index.upsert(first.document_id, (second,), ((0.0, 1.0),))
+    index.upsert(_document(), (second,), ((0.0, 1.0),))
     assert [hit.chunk for hit in index.search((1.0, 0.0), 10)] == [second]
 
 

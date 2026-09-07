@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
+from application.dto.index_status import IndexStatus
 from domain.entities.chunk import Chunk
+from domain.entities.document import Document
 from domain.entities.search_hit import SearchHit, sort_by_score
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
@@ -15,33 +17,36 @@ from domain.value_objects.search_scope import ScopeMode, SearchScope
 class FakeVectorIndex:
     """Vault-scoped vector index for deterministic use-case tests."""
 
-    def __init__(
-        self,
-        document_paths: Mapping[DocumentId, RelativePath] | None = None,
-    ) -> None:
+    def __init__(self) -> None:
         self._documents: dict[
             DocumentId,
             tuple[tuple[Chunk, ...], tuple[tuple[float, ...], ...]],
         ] = {}
-        self.document_paths = dict(document_paths or {})
+        self._document_paths: dict[DocumentId, RelativePath] = {}
+
+    @property
+    def status(self) -> IndexStatus:
+        return IndexStatus.READY
 
     def upsert(
         self,
-        document_id: DocumentId,
+        document: Document,
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],
     ) -> None:
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must have the same length")
-        if any(chunk.document_id != document_id for chunk in chunks):
-            raise ValueError("all chunks must belong to document_id")
-        self._documents[document_id] = (
+        if any(chunk.document_id != document.id for chunk in chunks):
+            raise ValueError("all chunks must belong to document")
+        self._documents[document.id] = (
             tuple(chunks),
             tuple(tuple(vector) for vector in vectors),
         )
+        self._document_paths[document.id] = document.relative_path
 
     def delete_by_document(self, document_id: DocumentId) -> None:
         self._documents.pop(document_id, None)
+        self._document_paths.pop(document_id, None)
 
     def search(
         self,
@@ -67,7 +72,7 @@ class FakeVectorIndex:
     ) -> bool:
         if scope is None or scope.mode is ScopeMode.ENTIRE_VAULT:
             return True
-        path = self.document_paths.get(document_id)
+        path = self._document_paths.get(document_id)
         if path is None:
             return False
         if scope.mode is ScopeMode.CURRENT_NOTE:

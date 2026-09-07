@@ -3,7 +3,9 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from application.dto.index_status import IndexStatus
 from domain.entities.chunk import Chunk
+from domain.entities.document import Document
 from domain.entities.search_hit import SearchHit
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.search_scope import SearchScope
@@ -12,9 +14,12 @@ from domain.value_objects.search_scope import SearchScope
 class VectorIndex(Protocol):
     """Store and retrieve vectors within one already-scoped Vault."""
 
+    @property
+    def status(self) -> IndexStatus: ...
+
     def upsert(
         self,
-        document_id: DocumentId,
+        document: Document,
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],
     ) -> None: ...
