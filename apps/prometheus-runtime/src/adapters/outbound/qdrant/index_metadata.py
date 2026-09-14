@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from application.dto.embedding import EmbeddingFingerprint
+from application.dto.index_fingerprint import PAYLOAD_SCHEMA_VERSION
 
-PAYLOAD_SCHEMA_VERSION = 1
+__all__ = ["PAYLOAD_SCHEMA_VERSION", "IndexMetadata", "read_index_metadata", "write_index_metadata"]
 
 
 @dataclass(frozen=True, slots=True)

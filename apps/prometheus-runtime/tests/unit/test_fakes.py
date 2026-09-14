@@ -2,10 +2,15 @@
 
 from datetime import UTC, datetime
 
+from application.dto.embedding import EmbeddingFingerprint
+from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.job import Job, JobStatus
+from application.dto.statistics import IndexStatistics
 from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
+from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.index_statistics_reader import IndexStatisticsReader
 from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
 from application.ports.markdown_parser import MarkdownParser
@@ -24,6 +29,8 @@ from fakes import (
     FakeChunker,
     FakeDocumentRepository,
     FakeEmbedder,
+    FakeIndexMetadataStore,
+    FakeIndexStatisticsReader,
     FakeJobStore,
     FakeLanguageModel,
     FakeMarkdownParser,
@@ -72,6 +79,8 @@ def test_fakes_structurally_satisfy_all_ports() -> None:
     jobs: JobStore = FakeJobStore()
     progress: ProgressReporter = FakeProgressReporter()
     language_model: LanguageModel = FakeLanguageModel()
+    metadata_store: IndexMetadataStore = FakeIndexMetadataStore()
+    statistics_reader: IndexStatisticsReader = FakeIndexStatisticsReader()
 
     assert all(
         dependency is not None
@@ -87,6 +96,8 @@ def test_fakes_structurally_satisfy_all_ports() -> None:
             jobs,
             progress,
             language_model,
+            metadata_store,
+            statistics_reader,
         )
     )
 
@@ -127,13 +138,45 @@ def test_fake_vector_index_searches_and_replaces_documents() -> None:
     assert [hit.chunk for hit in index.search((1.0, 0.0), 10)] == [second]
 
 
-def test_fake_repository_reads_documents_and_paths() -> None:
+def test_fake_repository_reads_state_and_paths() -> None:
     document = _document()
+    chunk = _chunk(0, "Deterministic fake content")
     repository = FakeDocumentRepository()
-    repository.save(document)
+    indexed_at = datetime(2026, 1, 2, tzinfo=UTC)
 
-    assert repository.get(document.id) == document
+    repository.save_indexed(document, (chunk,), indexed_at)
+
+    state = repository.get_state(document.id)
+    assert state is not None
+    assert state.relative_path == document.relative_path
+    assert state.content_hash == document.content_hash
+    assert state.indexed_at == indexed_at
+    assert state.chunk_count == 1
     assert repository.list_relative_paths() == (document.relative_path,)
+    assert repository.list_states() == (state,)
+
+    repository.delete(document.id)
+    assert repository.get_state(document.id) is None
+    repository.delete(document.id)  # idempotent
+
+
+def test_fake_index_metadata_store_and_statistics_reader_hold_fixed_state() -> None:
+    metadata_store = FakeIndexMetadataStore()
+    assert metadata_store.load() is None
+
+    fingerprint = IndexFingerprint(
+        embedding=EmbeddingFingerprint("fastembed", "test/model", 4),
+        parser_version=1,
+        chunker_version=1,
+        payload_schema_version=1,
+        chunk_size=700,
+        chunk_overlap=80,
+    )
+    metadata_store.save(fingerprint)
+    assert metadata_store.load() == fingerprint
+
+    statistics_reader = FakeIndexStatisticsReader()
+    assert statistics_reader.read() == IndexStatistics(0, 0, None, 0)
 
 
 def test_fake_language_model_echoes_context_without_network() -> None:

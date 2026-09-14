@@ -3,6 +3,8 @@
 from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
+from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.index_statistics_reader import IndexStatisticsReader
 from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
 from application.ports.markdown_parser import MarkdownParser
@@ -16,6 +18,8 @@ __all__ = [
     "Chunker",
     "DocumentRepository",
     "Embedder",
+    "IndexMetadataStore",
+    "IndexStatisticsReader",
     "JobStore",
     "LanguageModel",
     "MarkdownParser",

@@ -85,6 +85,7 @@ forbidden_modules = [
     "pydantic",
     "pydantic_settings",
     "qdrant_client",
+    "sqlite3",
     "uvicorn",
 ]
 
@@ -98,5 +99,6 @@ forbidden_modules = [
     "httpx",
     "pydantic_settings",
     "qdrant_client",
+    "sqlite3",
     "uvicorn",
 ]

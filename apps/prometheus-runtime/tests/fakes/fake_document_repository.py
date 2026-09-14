@@ -1,35 +1,53 @@
 """In-memory DocumentRepository for unit tests."""
 
-from collections.abc import Iterable, Sequence
+from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
+from datetime import datetime
+
+from application.dto.document_state import DocumentState
+from domain.entities.chunk import Chunk
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 
 
 class FakeDocumentRepository:
-    """Store documents in a dictionary scoped to one test Vault."""
+    """Store manifest state in a dictionary scoped to one test Vault."""
 
-    def __init__(self, documents: Iterable[Document] = ()) -> None:
-        self.documents = {document.id: document for document in documents}
+    def __init__(self, states: Iterable[DocumentState] = ()) -> None:
+        self._states: dict[DocumentId, DocumentState] = {
+            state.document_id: state for state in states
+        }
 
-    def get(self, document_id: DocumentId) -> Document | None:
-        return self.documents.get(document_id)
+    def get_state(self, document_id: DocumentId) -> DocumentState | None:
+        return self._states.get(document_id)
+
+    def list_states(self) -> Sequence[DocumentState]:
+        return tuple(sorted(self._states.values(), key=lambda state: state.relative_path.value))
 
     def list_relative_paths(self) -> Sequence[RelativePath]:
-        return tuple(
-            sorted(
-                (document.relative_path for document in self.documents.values()),
-                key=lambda path: path.value,
-            )
+        return tuple(state.relative_path for state in self.list_states())
+
+    def save_indexed(
+        self,
+        document: Document,
+        chunks: Sequence[Chunk],
+        indexed_at: datetime,
+    ) -> None:
+        """Persist manifest state derived from a successfully indexed Document."""
+
+        self._states[document.id] = DocumentState(
+            document_id=document.id,
+            relative_path=document.relative_path,
+            revision=document.revision,
+            content_hash=document.content_hash,
+            modified_at=document.modified_at,
+            indexed_at=indexed_at,
+            chunk_count=len(chunks),
         )
 
-    def save(self, document: Document) -> None:
-        """Seed or update state in a test setup."""
-
-        self.documents[document.id] = document
-
     def delete(self, document_id: DocumentId) -> None:
-        """Remove state in a test setup."""
+        """Remove state in a test setup; missing IDs are a no-op."""
 
-        self.documents.pop(document_id, None)
+        self._states.pop(document_id, None)
