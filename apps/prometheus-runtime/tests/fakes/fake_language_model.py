@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from domain.entities.chunk import Chunk
+from application.dto.llm import LlmGeneration, LocalLlmModel
 
 
 class FakeLanguageModel:
@@ -10,29 +10,28 @@ class FakeLanguageModel:
 
     def __init__(
         self,
-        models: Sequence[str] = ("fake-model",),
+        models: Sequence[LocalLlmModel] = (LocalLlmModel("fake-model", 0),),
         *,
         available: bool = True,
     ) -> None:
         self.models = tuple(models)
         self.available = available
-        self.calls: list[tuple[str, tuple[Chunk, ...], float, int]] = []
+        self.calls: list[tuple[str, float, int, int]] = []
 
-    def generate(
+    async def generate(
         self,
-        question: str,
-        context: Sequence[Chunk],
+        prompt: str,
         *,
         temperature: float,
         context_size: int,
-    ) -> str:
-        chunks = tuple(context)
-        self.calls.append((question, chunks, temperature, context_size))
-        context_text = "\n".join(chunk.text for chunk in chunks)
-        return f"Question: {question}\nContext:\n{context_text}"
+        max_output_tokens: int,
+    ) -> LlmGeneration:
+        self.calls.append((prompt, temperature, context_size, max_output_tokens))
+        model = self.models[0].name if self.models else "fake-model"
+        return LlmGeneration(prompt, model)
 
-    def list_models(self) -> Sequence[str]:
+    async def list_models(self) -> Sequence[LocalLlmModel]:
         return self.models
 
-    def is_available(self) -> bool:
+    async def is_available(self) -> bool:
         return self.available

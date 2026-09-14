@@ -1,10 +1,12 @@
 """Contract-oriented tests for application-port fakes."""
 
+import asyncio
 from datetime import UTC, datetime
 
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.job import Job, JobStatus
+from application.dto.llm import LocalLlmModel
 from application.dto.statistics import IndexStatistics
 from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
@@ -180,20 +182,21 @@ def test_fake_index_metadata_store_and_statistics_reader_hold_fixed_state() -> N
 
 
 def test_fake_language_model_echoes_context_without_network() -> None:
-    chunk = _chunk(0, "Vault evidence")
     model = FakeLanguageModel()
 
-    answer = model.generate(
-        "What is in the Vault?",
-        (chunk,),
-        temperature=0.1,
-        context_size=2048,
+    generation = asyncio.run(
+        model.generate(
+            "Question: What is in the Vault?\nContext: Vault evidence",
+            temperature=0.1,
+            context_size=2048,
+            max_output_tokens=256,
+        )
     )
 
-    assert "What is in the Vault?" in answer
-    assert "Vault evidence" in answer
-    assert model.is_available()
-    assert model.list_models() == ("fake-model",)
+    assert "What is in the Vault?" in generation.text
+    assert "Vault evidence" in generation.text
+    assert asyncio.run(model.is_available())
+    assert asyncio.run(model.list_models()) == (LocalLlmModel("fake-model", 0),)
 
 
 def test_remaining_stateful_fakes_record_calls() -> None:

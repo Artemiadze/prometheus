@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -12,6 +13,7 @@ from fastapi.testclient import TestClient
 from adapters.inbound.http.app import create_app
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import ensure_layout
+from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.document_repository import SqliteDocumentRepository
 from application.ports.embedder import Embedder
@@ -77,6 +79,15 @@ def test_default_embedder_is_wired_without_loading_model(tmp_path: Path) -> None
 
     assert isinstance(embedder, FastEmbedAdapter)
     assert embedder.dimension == 1024
+
+
+def test_default_language_model_is_wired_without_network_request(tmp_path: Path) -> None:
+    container = Container(RuntimeSettings(data_dir=tmp_path), ensure_layout(tmp_path))
+
+    language_model = container.language_model
+
+    assert isinstance(language_model, OllamaLanguageModel)
+    asyncio.run(language_model.aclose())
 
 
 def test_default_vector_index_is_scoped_to_configured_vault(tmp_path: Path) -> None:

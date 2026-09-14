@@ -6,6 +6,7 @@ import ipaddress
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,6 +41,9 @@ class RuntimeSettings(BaseSettings):
     llm_host: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen3:4b"
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    llm_context_size: int = Field(default=8192, gt=0)
+    llm_output_reserve: int = Field(default=1024, gt=0)
+    llm_timeout_seconds: float = Field(default=120.0, gt=0)
     log_level: LogLevel = "INFO"
 
     @field_validator("host")
@@ -62,12 +66,38 @@ class RuntimeSettings(BaseSettings):
 
         return value.upper() if isinstance(value, str) else value
 
+    @field_validator("llm_host")
+    @classmethod
+    def validate_llm_host(cls, value: str) -> str:
+        """Allow Ollama only over an uncredentialed HTTP loopback URL."""
+
+        parsed = urlsplit(value.strip())
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname is None
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or parsed.path.rstrip("/") not in {"", "/api"}
+        ):
+            raise ValueError("llm_host must be an HTTP loopback URL")
+        try:
+            is_loopback = ipaddress.ip_address(parsed.hostname).is_loopback
+        except ValueError:
+            is_loopback = parsed.hostname.casefold() == "localhost"
+        if not is_loopback:
+            raise ValueError("llm_host must be an HTTP loopback URL")
+        return value.strip()
+
     @model_validator(mode="after")
     def validate_chunking(self) -> RuntimeSettings:
-        """Require overlap to be smaller than the target chunk size."""
+        """Validate paired chunking and LLM budget settings."""
 
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
+        if self.llm_output_reserve >= self.llm_context_size:
+            raise ValueError("llm_output_reserve must be smaller than llm_context_size")
         return self
 
 

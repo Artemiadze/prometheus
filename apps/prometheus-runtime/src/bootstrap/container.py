@@ -7,6 +7,7 @@ from functools import cached_property
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
+from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.database import MetadataDatabase
 from application.dto.index_fingerprint import (
@@ -57,7 +58,7 @@ class Container:
         self._vault_id = vault_id
         self._embedder_factory = embedder_factory or self._build_embedder
         self._vector_index_factory = vector_index_factory or self._build_vector_index
-        self._language_model_factory = language_model_factory
+        self._language_model_factory = language_model_factory or self._build_language_model
         self._document_repository_factory = (
             document_repository_factory or self._build_document_repository
         )
@@ -88,6 +89,13 @@ class Container:
         return QdrantLocalVectorIndex(
             vault_dir=vault_dir(self.layout, self._vault_id.value),
             embedding_fingerprint=self.embedder.fingerprint,
+        )
+
+    def _build_language_model(self) -> LanguageModel:
+        return OllamaLanguageModel(
+            base_url=self.settings.llm_host,
+            model=self.settings.llm_model,
+            timeout_seconds=self.settings.llm_timeout_seconds,
         )
 
     @cached_property

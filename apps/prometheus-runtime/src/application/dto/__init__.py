@@ -2,6 +2,7 @@
 
 from application.dto.document_state import DocumentState
 from application.dto.embedding import EmbeddingFingerprint
+from application.dto.grounded_prompt import GroundedPrompt
 from application.dto.index_fingerprint import (
     CHUNKER_ALGORITHM_VERSION,
     PARSER_SCHEMA_VERSION,
@@ -10,6 +11,7 @@ from application.dto.index_fingerprint import (
 )
 from application.dto.index_status import IndexStatus
 from application.dto.job import Job, JobId, JobStatus
+from application.dto.llm import LlmGeneration, LocalLlmModel
 from application.dto.parsed_document import (
     BlockKind,
     ParsedBlock,
@@ -25,12 +27,15 @@ __all__ = [
     "BlockKind",
     "DocumentState",
     "EmbeddingFingerprint",
+    "GroundedPrompt",
     "IndexFingerprint",
     "IndexStatistics",
     "IndexStatus",
     "Job",
     "JobId",
     "JobStatus",
+    "LlmGeneration",
+    "LocalLlmModel",
     "ParsedBlock",
     "ParsedDocument",
     "ParsedSection",

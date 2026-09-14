@@ -3,21 +3,21 @@
 from collections.abc import Sequence
 from typing import Protocol
 
-from domain.entities.chunk import Chunk
+from application.dto.llm import LlmGeneration, LocalLlmModel
 
 
 class LanguageModel(Protocol):
     """Generate an answer using only explicitly supplied local context."""
 
-    def generate(
+    async def generate(
         self,
-        question: str,
-        context: Sequence[Chunk],
+        prompt: str,
         *,
         temperature: float,
         context_size: int,
-    ) -> str: ...
+        max_output_tokens: int,
+    ) -> LlmGeneration: ...
 
-    def list_models(self) -> Sequence[str]: ...
+    async def list_models(self) -> Sequence[LocalLlmModel]: ...
 
-    def is_available(self) -> bool: ...
+    async def is_available(self) -> bool: ...
