@@ -10,6 +10,12 @@ from application.dto.index_fingerprint import (
     IndexFingerprint,
 )
 from application.dto.index_status import IndexStatus
+from application.dto.indexing import (
+    IndexDocumentResult,
+    IndexingProgress,
+    ReindexResult,
+    RemoveDocumentResult,
+)
 from application.dto.job import Job, JobId, JobStatus
 from application.dto.llm import LlmGeneration, LocalLlmModel
 from application.dto.parsed_document import (
@@ -18,7 +24,10 @@ from application.dto.parsed_document import (
     ParsedDocument,
     ParsedSection,
 )
+from application.dto.runtime_status import IndexState, RuntimeStatus
+from application.dto.search_result import SearchResult
 from application.dto.statistics import IndexStatistics
+from application.dto.vault_sync import VaultSnapshot, VaultSnapshotEntry, VaultSyncSummary
 
 __all__ = [
     "CHUNKER_ALGORITHM_VERSION",
@@ -28,9 +37,12 @@ __all__ = [
     "DocumentState",
     "EmbeddingFingerprint",
     "GroundedPrompt",
+    "IndexDocumentResult",
     "IndexFingerprint",
+    "IndexState",
     "IndexStatistics",
     "IndexStatus",
+    "IndexingProgress",
     "Job",
     "JobId",
     "JobStatus",
@@ -39,4 +51,11 @@ __all__ = [
     "ParsedBlock",
     "ParsedDocument",
     "ParsedSection",
+    "ReindexResult",
+    "RemoveDocumentResult",
+    "RuntimeStatus",
+    "SearchResult",
+    "VaultSnapshot",
+    "VaultSnapshotEntry",
+    "VaultSyncSummary",
 ]

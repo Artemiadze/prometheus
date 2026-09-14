@@ -12,6 +12,7 @@ from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import Document, compute_content_hash
 from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
+from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.vault_id import VaultId
 
 
@@ -114,3 +115,18 @@ def test_delete_cascades_chunks_and_is_idempotent(tmp_path: Path) -> None:
 
     assert repository.get_state(document.id) is None
     assert repository.list_relative_paths() == ()
+
+
+def test_update_path_preserves_manifest_bookkeeping(tmp_path: Path) -> None:
+    repository = _repository(tmp_path)
+    document = _document()
+    indexed_at = datetime(2026, 1, 2, tzinfo=UTC)
+    repository.save_indexed(document, (_chunk(document, 0, "chunk"),), indexed_at)
+
+    repository.update_path(document.id, RelativePath("Archive/One.md"))
+
+    state = repository.get_state(document.id)
+    assert state is not None
+    assert state.relative_path == RelativePath("Archive/One.md")
+    assert state.content_hash == document.content_hash
+    assert state.chunk_count == 1

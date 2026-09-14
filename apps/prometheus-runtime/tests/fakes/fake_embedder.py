@@ -16,6 +16,8 @@ class FakeEmbedder:
             raise ValueError("dimension must be positive")
         self._dimension = dimension
         self._model_id = model_id
+        self.document_calls = 0
+        self.query_calls = 0
 
     @property
     def provider(self) -> str:
@@ -43,7 +45,9 @@ class FakeEmbedder:
         return tuple((value - 127.5) / 127.5 for value in values[: self.dimension])
 
     def embed_documents(self, chunks: Sequence[Chunk]) -> Sequence[Sequence[float]]:
+        self.document_calls += 1
         return tuple(self._embed(chunk.text) for chunk in chunks)
 
     def embed_query(self, text: str) -> Sequence[float]:
+        self.query_calls += 1
         return self._embed(text)

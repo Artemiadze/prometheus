@@ -34,4 +34,10 @@ class DocumentRepository(Protocol):
         indexed_at: datetime,
     ) -> None: ...
 
+    def update_path(
+        self,
+        document_id: DocumentId,
+        relative_path: RelativePath,
+    ) -> None: ...
+
     def delete(self, document_id: DocumentId) -> None: ...

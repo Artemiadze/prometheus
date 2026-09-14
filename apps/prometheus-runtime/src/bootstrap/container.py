@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import cached_property
+from importlib.metadata import version
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
@@ -16,15 +17,31 @@ from application.dto.index_fingerprint import (
     PAYLOAD_SCHEMA_VERSION,
     IndexFingerprint,
 )
+from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
 from application.ports.index_metadata_store import IndexMetadataStore
 from application.ports.index_statistics_reader import IndexStatisticsReader
+from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
+from application.ports.markdown_parser import MarkdownParser
+from application.ports.progress_reporter import ProgressReporter
+from application.ports.reranker import Reranker
+from application.ports.token_counter import TokenCounter
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
+from application.services.retrieval import RetrievalService
+from application.use_cases.answer_question import AnswerQuestion
+from application.use_cases.get_runtime_status import GetRuntimeStatus
+from application.use_cases.index_document import IndexDocument
+from application.use_cases.reindex_vault import ReindexVault
+from application.use_cases.remove_document import RemoveDocument
+from application.use_cases.rename_document import RenameDocument
+from application.use_cases.search_notes import SearchNotes
+from application.use_cases.synchronize_vault import SynchronizeVault
 from bootstrap.config import RuntimeSettings
 from domain.errors import AdapterNotConfiguredError
+from domain.services.grounding_policy import GroundingPolicy
 from domain.value_objects.vault_id import VaultId
 
 
@@ -52,6 +69,12 @@ class Container:
         unit_of_work_factory: Callable[[], UnitOfWork] | None = None,
         index_metadata_store_factory: Callable[[], IndexMetadataStore] | None = None,
         index_statistics_factory: Callable[[], IndexStatisticsReader] | None = None,
+        markdown_parser_factory: Callable[[], MarkdownParser] | None = None,
+        chunker_factory: Callable[[], Chunker] | None = None,
+        token_counter_factory: Callable[[], TokenCounter] | None = None,
+        reranker_factory: Callable[[], Reranker] | None = None,
+        job_store_factory: Callable[[], JobStore] | None = None,
+        progress_reporter_factory: Callable[[], ProgressReporter] | None = None,
     ) -> None:
         self.settings = settings
         self.layout = layout
@@ -67,6 +90,12 @@ class Container:
             index_metadata_store_factory or self._build_index_metadata_store
         )
         self._index_statistics_factory = index_statistics_factory or self._build_index_statistics
+        self._markdown_parser_factory = markdown_parser_factory
+        self._chunker_factory = chunker_factory
+        self._token_counter_factory = token_counter_factory
+        self._reranker_factory = reranker_factory
+        self._job_store_factory = job_store_factory
+        self._progress_reporter_factory = progress_reporter_factory
 
     def _build_embedder(self) -> Embedder:
         if self.settings.embedding_provider.casefold() != "fastembed":
@@ -147,6 +176,30 @@ class Container:
         return _resolve(self._index_statistics_factory, "IndexStatisticsReader")
 
     @cached_property
+    def markdown_parser(self) -> MarkdownParser:
+        return _resolve(self._markdown_parser_factory, "MarkdownParser")
+
+    @cached_property
+    def chunker(self) -> Chunker:
+        return _resolve(self._chunker_factory, "Chunker")
+
+    @cached_property
+    def token_counter(self) -> TokenCounter:
+        return _resolve(self._token_counter_factory, "TokenCounter")
+
+    @cached_property
+    def reranker(self) -> Reranker | None:
+        return None if self._reranker_factory is None else self._reranker_factory()
+
+    @cached_property
+    def job_store(self) -> JobStore:
+        return _resolve(self._job_store_factory, "JobStore")
+
+    @cached_property
+    def progress_reporter(self) -> ProgressReporter:
+        return _resolve(self._progress_reporter_factory, "ProgressReporter")
+
+    @cached_property
     def active_index_fingerprint(self) -> IndexFingerprint:
         """Assemble the fingerprint of the runtime's currently active settings."""
 
@@ -157,4 +210,95 @@ class Container:
             payload_schema_version=PAYLOAD_SCHEMA_VERSION,
             chunk_size=self.settings.chunk_size,
             chunk_overlap=self.settings.chunk_overlap,
+        )
+
+    @cached_property
+    def rename_document(self) -> RenameDocument:
+        return RenameDocument(
+            document_repository=self.document_repository,
+            vector_index=self.vector_index,
+            unit_of_work=self.unit_of_work,
+        )
+
+    @cached_property
+    def index_document(self) -> IndexDocument:
+        if self._vault_id is None:
+            raise AdapterNotConfiguredError("IndexDocument requires a vault_id")
+        return IndexDocument(
+            vault_id=self._vault_id,
+            parser=self.markdown_parser,
+            chunker=self.chunker,
+            embedder=self.embedder,
+            vector_index=self.vector_index,
+            document_repository=self.document_repository,
+            unit_of_work=self.unit_of_work,
+            index_metadata_store=self.index_metadata_store,
+            active_fingerprint=self.active_index_fingerprint,
+            rename_document=self.rename_document,
+        )
+
+    @cached_property
+    def remove_document(self) -> RemoveDocument:
+        return RemoveDocument(
+            document_repository=self.document_repository,
+            vector_index=self.vector_index,
+            unit_of_work=self.unit_of_work,
+        )
+
+    @cached_property
+    def synchronize_vault(self) -> SynchronizeVault:
+        return SynchronizeVault(
+            document_repository=self.document_repository,
+            remove_document=self.remove_document,
+            rename_document=self.rename_document,
+        )
+
+    @cached_property
+    def retrieval(self) -> RetrievalService:
+        return RetrievalService(
+            embedder=self.embedder,
+            vector_index=self.vector_index,
+            document_repository=self.document_repository,
+            index_metadata_store=self.index_metadata_store,
+            reranker=self.reranker,
+        )
+
+    @cached_property
+    def search_notes(self) -> SearchNotes:
+        return SearchNotes(self.retrieval)
+
+    @cached_property
+    def answer_question(self) -> AnswerQuestion:
+        return AnswerQuestion(
+            retrieval=self.retrieval,
+            grounding_policy=GroundingPolicy(),
+            token_counter=self.token_counter,
+            language_model=self.language_model,
+            context_size=self.settings.llm_context_size,
+            response_token_reserve=self.settings.llm_output_reserve,
+            temperature=self.settings.llm_temperature,
+        )
+
+    @cached_property
+    def reindex_vault(self) -> ReindexVault:
+        return ReindexVault(
+            index_document=self.index_document,
+            remove_document=self.remove_document,
+            document_repository=self.document_repository,
+            index_metadata_store=self.index_metadata_store,
+            active_fingerprint=self.active_index_fingerprint,
+            job_store=self.job_store,
+            progress_reporter=self.progress_reporter,
+        )
+
+    @cached_property
+    def runtime_status(self) -> GetRuntimeStatus:
+        return GetRuntimeStatus(
+            runtime_version=version("prometheus-runtime"),
+            llm_model=self.settings.llm_model,
+            language_model=self.language_model,
+            vector_index=self.vector_index,
+            index_metadata_store=self.index_metadata_store,
+            index_statistics=self.index_statistics,
+            active_fingerprint=self.active_index_fingerprint,
         )

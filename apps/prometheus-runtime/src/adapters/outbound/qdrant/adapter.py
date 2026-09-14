@@ -188,6 +188,30 @@ class QdrantLocalVectorIndex:
             wait=True,
         )
 
+    def update_document_path(
+        self,
+        document_id: DocumentId,
+        relative_path: RelativePath,
+    ) -> None:
+        folder = relative_path.parent
+        self._require_client().set_payload(
+            collection_name=COLLECTION_NAME,
+            payload={
+                "file_path": relative_path.value,
+                "folder": folder.value if folder is not None else "",
+                "folder_ancestors": _folder_ancestors(relative_path),
+            },
+            points=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="document_id",
+                        match=models.MatchValue(value=document_id.value),
+                    )
+                ]
+            ),
+            wait=True,
+        )
+
     def search(
         self,
         query_vector: Sequence[float],

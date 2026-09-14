@@ -48,6 +48,14 @@ class FakeVectorIndex:
         self._documents.pop(document_id, None)
         self._document_paths.pop(document_id, None)
 
+    def update_document_path(
+        self,
+        document_id: DocumentId,
+        relative_path: RelativePath,
+    ) -> None:
+        if document_id in self._documents:
+            self._document_paths[document_id] = relative_path
+
     def search(
         self,
         query_vector: Sequence[float],

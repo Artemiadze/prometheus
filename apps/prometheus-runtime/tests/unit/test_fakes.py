@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_fingerprint import IndexFingerprint
+from application.dto.indexing import IndexingProgress
 from application.dto.job import Job, JobStatus
 from application.dto.llm import LocalLlmModel
 from application.dto.statistics import IndexStatistics
@@ -217,5 +218,6 @@ def test_remaining_stateful_fakes_record_calls() -> None:
     assert jobs.get(job.id) == updated
 
     reporter = FakeProgressReporter()
-    reporter.report(job.id, 0.5)
-    assert reporter.updates == [(job.id, 0.5)]
+    progress = IndexingProgress(1, 2, 3)
+    reporter.report(job.id, progress)
+    assert reporter.updates == [(job.id, progress)]

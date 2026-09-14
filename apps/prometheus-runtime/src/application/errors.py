@@ -15,3 +15,23 @@ class IndexCorruptedError(PrometheusError):
 
     code = "INDEX_CORRUPTED"
     default_message = "Vector index was corrupted or incompatible; reindex the Vault"
+
+
+class VaultNotIndexedError(PrometheusError):
+    code = "VAULT_NOT_INDEXED"
+    default_message = "Vault has not been indexed"
+
+
+class QueryTooShortError(PrometheusError):
+    code = "QUERY_TOO_SHORT"
+    default_message = "Search query is too short"
+
+
+class RevisionConflictError(PrometheusError):
+    code = "REVISION_CONFLICT"
+    default_message = "Document revision is older than the indexed revision"
+
+
+class VaultMismatchError(PrometheusError):
+    code = "VAULT_MISMATCH"
+    default_message = "Document belongs to a different Vault"

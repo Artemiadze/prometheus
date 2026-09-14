@@ -47,6 +47,24 @@ class FakeDocumentRepository:
             chunk_count=len(chunks),
         )
 
+    def update_path(
+        self,
+        document_id: DocumentId,
+        relative_path: RelativePath,
+    ) -> None:
+        state = self._states.get(document_id)
+        if state is None:
+            return
+        self._states[document_id] = DocumentState(
+            document_id=state.document_id,
+            relative_path=relative_path,
+            revision=state.revision,
+            content_hash=state.content_hash,
+            modified_at=state.modified_at,
+            indexed_at=state.indexed_at,
+            chunk_count=state.chunk_count,
+        )
+
     def delete(self, document_id: DocumentId) -> None:
         """Remove state in a test setup; missing IDs are a no-op."""
 

@@ -2,10 +2,11 @@
 
 from typing import Protocol
 
+from application.dto.indexing import IndexingProgress
 from application.dto.job import JobId
 
 
 class ProgressReporter(Protocol):
-    """Report normalized progress for an application job."""
+    """Report structured progress for an application job."""
 
-    def report(self, job_id: JobId, progress: float) -> None: ...
+    def report(self, job_id: JobId, progress: IndexingProgress) -> None: ...

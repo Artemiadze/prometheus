@@ -16,6 +16,7 @@ from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import Document, compute_content_hash
 from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
+from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import SearchScope
 from domain.value_objects.vault_id import VaultId
 
@@ -209,6 +210,23 @@ def test_search_scope_filters_note_and_nested_folders(tmp_path: Path) -> None:
         documents[1].id,
         documents[2].id,
     }
+
+
+def test_update_document_path_moves_scope_without_replacing_vectors(tmp_path: Path) -> None:
+    index, _ = _memory_index(tmp_path)
+    document = _document("document-01", "Work/Current.md")
+    chunk = _chunk(document, 0, "unchanged vector")
+    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+
+    index.update_document_path(document.id, RelativePath("Archive/Current.md"))
+
+    assert index.search((1.0, 0.0, 0.0), 10, SearchScope.current_folder("Work")) == ()
+    hits = index.search(
+        (1.0, 0.0, 0.0),
+        10,
+        SearchScope.current_folder("Archive"),
+    )
+    assert [hit.chunk.id for hit in hits] == [chunk.id]
 
 
 def test_incompatible_index_is_recreated_and_requests_reindex(tmp_path: Path) -> None:

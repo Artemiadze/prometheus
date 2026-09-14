@@ -113,6 +113,17 @@ class SqliteDocumentRepository:
         )
 
     @wrap_driver_errors
+    def update_path(
+        self,
+        document_id: DocumentId,
+        relative_path: RelativePath,
+    ) -> None:
+        self._connection.execute(
+            "UPDATE documents SET relative_path = ? WHERE document_id = ?",
+            (relative_path.value, document_id.value),
+        )
+
+    @wrap_driver_errors
     def delete(self, document_id: DocumentId) -> None:
         self._connection.execute(
             "DELETE FROM documents WHERE document_id = ?", (document_id.value,)

@@ -1,5 +1,6 @@
 """Public application ports."""
 
+from application.ports.cancellation import CancellationToken
 from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
@@ -15,6 +16,7 @@ from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
 
 __all__ = [
+    "CancellationToken",
     "Chunker",
     "DocumentRepository",
     "Embedder",

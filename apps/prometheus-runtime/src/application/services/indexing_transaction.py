@@ -17,6 +17,7 @@ from application.ports.vector_index import VectorIndex
 from domain.entities.chunk import Chunk
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
+from domain.value_objects.relative_path import RelativePath
 
 
 def replace_document_index(
@@ -60,3 +61,24 @@ def remove_document_index(
     with unit_of_work:
         document_repository.delete(document_id)
         unit_of_work.commit()
+
+
+def relocate_document_index(
+    *,
+    document_id: DocumentId,
+    old_path: RelativePath,
+    new_path: RelativePath,
+    vector_index: VectorIndex,
+    document_repository: DocumentRepository,
+    unit_of_work: UnitOfWork,
+) -> None:
+    """Update vector payload first and compensate if the manifest update fails."""
+
+    vector_index.update_document_path(document_id, new_path)
+    try:
+        with unit_of_work:
+            document_repository.update_path(document_id, new_path)
+            unit_of_work.commit()
+    except Exception:
+        vector_index.update_document_path(document_id, old_path)
+        raise
