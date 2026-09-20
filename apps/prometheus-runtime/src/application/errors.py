@@ -40,3 +40,8 @@ class VaultMismatchError(PrometheusError):
 class JobNotFoundError(PrometheusError):
     code = "JOB_NOT_FOUND"
     default_message = "Background job was not found"
+
+
+class DocumentTooLargeError(PrometheusError):
+    code = "DOCUMENT_TOO_LARGE"
+    default_message = "Document exceeds configured indexing limits"

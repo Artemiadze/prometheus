@@ -37,6 +37,8 @@ class RuntimeSettings(BaseSettings):
     embedding_allow_download: bool = False
     chunk_size: int = Field(default=700, gt=0)
     chunk_overlap: int = Field(default=80, ge=0)
+    max_document_chars: int = Field(default=2_000_000, gt=0)
+    max_chunks_per_document: int = Field(default=10_000, gt=0)
     top_k: int = Field(default=10, gt=0)
     llm_host: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen3:4b"

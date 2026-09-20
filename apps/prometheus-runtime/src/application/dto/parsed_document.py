@@ -60,6 +60,8 @@ class ParsedDocument:
 
     document_id: DocumentId
     sections: tuple[ParsedSection, ...]
+    frontmatter: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "sections", tuple(self.sections))
+        object.__setattr__(self, "frontmatter", tuple(self.frontmatter))

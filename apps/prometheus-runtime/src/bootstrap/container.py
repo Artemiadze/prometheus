@@ -8,9 +8,9 @@ from importlib.metadata import version
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
-from adapters.outbound.markdown.chunker import CharBudgetChunker
-from adapters.outbound.markdown.parser import ParagraphMarkdownParser
-from adapters.outbound.markdown.token_counter import WhitespaceTokenCounter
+from adapters.outbound.markdown.chunker import HeadingAwareChunker
+from adapters.outbound.markdown.parser import ObsidianMarkdownParser
+from adapters.outbound.markdown.token_counter import FastEmbedTokenizerCounter
 from adapters.outbound.memory.job_store import InMemoryJobStore
 from adapters.outbound.memory.progress_reporter import InMemoryProgressReporter
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
@@ -133,16 +133,20 @@ class Container:
         )
 
     def _build_markdown_parser(self) -> MarkdownParser:
-        return ParagraphMarkdownParser()
+        return ObsidianMarkdownParser()
 
     def _build_chunker(self) -> Chunker:
-        return CharBudgetChunker(
-            chunk_size=self.settings.chunk_size,
-            chunk_overlap=self.settings.chunk_overlap,
+        return HeadingAwareChunker(
+            max_tokens=self.settings.chunk_size,
+            overlap_tokens=self.settings.chunk_overlap,
+            token_counter=self.token_counter,
         )
 
     def _build_token_counter(self) -> TokenCounter:
-        return WhitespaceTokenCounter()
+        return FastEmbedTokenizerCounter(
+            model_id=self.settings.embedding_model,
+            cache_dir=self.layout.embeddings,
+        )
 
     def _build_job_store(self) -> JobStore:
         return InMemoryJobStore()
@@ -258,6 +262,8 @@ class Container:
             index_metadata_store=self.index_metadata_store,
             active_fingerprint=self.active_index_fingerprint,
             rename_document=self.rename_document,
+            max_document_chars=self.settings.max_document_chars,
+            max_chunks_per_document=self.settings.max_chunks_per_document,
         )
 
     @cached_property

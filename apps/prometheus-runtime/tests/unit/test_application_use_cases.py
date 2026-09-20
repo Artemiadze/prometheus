@@ -91,6 +91,8 @@ def _indexing_setup() -> tuple[
         index_metadata_store=metadata,
         active_fingerprint=_fingerprint(embedder),
         rename_document=rename,
+        max_document_chars=2_000_000,
+        max_chunks_per_document=10_000,
         clock=lambda: NOW,
     )
     remove = RemoveDocument(

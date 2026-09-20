@@ -8,10 +8,10 @@ from application.dto.embedding import EmbeddingFingerprint
 from domain.errors import InvariantViolationError
 
 #: Bumped whenever the Markdown parser changes how a Document is structured.
-PARSER_SCHEMA_VERSION = 1
+PARSER_SCHEMA_VERSION = 2
 
 #: Bumped whenever the chunking algorithm changes chunk boundaries.
-CHUNKER_ALGORITHM_VERSION = 1
+CHUNKER_ALGORITHM_VERSION = 2
 
 #: Bumped whenever the Qdrant payload schema changes shape.
 PAYLOAD_SCHEMA_VERSION = 1

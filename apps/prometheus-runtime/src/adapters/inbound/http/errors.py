@@ -17,6 +17,7 @@ from adapters.outbound.ollama.errors import (
     OllamaUnavailableError,
 )
 from application.errors import (
+    DocumentTooLargeError,
     IndexCorruptedError,
     IndexRebuildRequiredError,
     JobNotFoundError,
@@ -43,6 +44,7 @@ _STATUS_BY_TYPE: dict[type[PrometheusError], int] = {
     IndexCorruptedError: 409,
     IndexRebuildRequiredError: 409,
     QueryTooShortError: 422,
+    DocumentTooLargeError: 422,
     LlmContextExceededError: 422,
     InvalidIdentifierError: 400,
     InvalidPathError: 400,
