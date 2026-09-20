@@ -1,4 +1,4 @@
-.PHONY: sync format lint typecheck arch test check
+.PHONY: sync format lint typecheck arch test openapi-check check
 
 sync:
 	uv sync
@@ -20,4 +20,10 @@ arch:
 test:
 	uv run pytest
 
-check: lint typecheck arch test
+openapi-check:
+	@tmp=$$(mktemp); \
+	uv run prometheus-runtime export-openapi --output $$tmp; \
+	diff -u ../../contracts/openapi.yaml $$tmp; \
+	rm -f $$tmp
+
+check: lint typecheck arch test openapi-check

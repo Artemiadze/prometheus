@@ -8,6 +8,11 @@ from importlib.metadata import version
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
+from adapters.outbound.markdown.chunker import CharBudgetChunker
+from adapters.outbound.markdown.parser import ParagraphMarkdownParser
+from adapters.outbound.markdown.token_counter import WhitespaceTokenCounter
+from adapters.outbound.memory.job_store import InMemoryJobStore
+from adapters.outbound.memory.progress_reporter import InMemoryProgressReporter
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.database import MetadataDatabase
@@ -90,12 +95,12 @@ class Container:
             index_metadata_store_factory or self._build_index_metadata_store
         )
         self._index_statistics_factory = index_statistics_factory or self._build_index_statistics
-        self._markdown_parser_factory = markdown_parser_factory
-        self._chunker_factory = chunker_factory
-        self._token_counter_factory = token_counter_factory
+        self._markdown_parser_factory = markdown_parser_factory or self._build_markdown_parser
+        self._chunker_factory = chunker_factory or self._build_chunker
+        self._token_counter_factory = token_counter_factory or self._build_token_counter
         self._reranker_factory = reranker_factory
-        self._job_store_factory = job_store_factory
-        self._progress_reporter_factory = progress_reporter_factory
+        self._job_store_factory = job_store_factory or self._build_job_store
+        self._progress_reporter_factory = progress_reporter_factory or self._build_progress_reporter
 
     def _build_embedder(self) -> Embedder:
         if self.settings.embedding_provider.casefold() != "fastembed":
@@ -126,6 +131,24 @@ class Container:
             model=self.settings.llm_model,
             timeout_seconds=self.settings.llm_timeout_seconds,
         )
+
+    def _build_markdown_parser(self) -> MarkdownParser:
+        return ParagraphMarkdownParser()
+
+    def _build_chunker(self) -> Chunker:
+        return CharBudgetChunker(
+            chunk_size=self.settings.chunk_size,
+            chunk_overlap=self.settings.chunk_overlap,
+        )
+
+    def _build_token_counter(self) -> TokenCounter:
+        return WhitespaceTokenCounter()
+
+    def _build_job_store(self) -> JobStore:
+        return InMemoryJobStore()
+
+    def _build_progress_reporter(self) -> ProgressReporter:
+        return InMemoryProgressReporter()
 
     @cached_property
     def _metadata_database(self) -> MetadataDatabase:

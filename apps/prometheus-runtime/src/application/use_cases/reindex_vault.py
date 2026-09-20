@@ -43,9 +43,10 @@ class ReindexVault:
         documents: Iterable[Document],
         *,
         cancellation: CancellationToken,
+        job: Job | None = None,
     ) -> ReindexResult:
         batch = tuple(documents)
-        job = self._jobs.create()
+        job = self._jobs.create() if job is None else job
         job = Job(job.id, JobStatus.RUNNING, 0.0)
         self._jobs.update(job)
         processed_documents = 0

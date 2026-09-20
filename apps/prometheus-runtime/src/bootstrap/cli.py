@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import socket
 from pathlib import Path
 from typing import Annotated
@@ -15,6 +16,7 @@ from adapters.outbound.filesystem.logging_setup import configure_logging
 from bootstrap import __version__
 from bootstrap.config import LogLevel, load_settings
 from bootstrap.container import Container
+from bootstrap.container_registry import VaultContainerRegistry
 from domain.errors import ConfigurationError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, pretty_exceptions_enable=False)
@@ -87,7 +89,30 @@ def serve(
         raise typer.Exit(code=2) from exc
 
     container = Container(settings, layout)
-    uvicorn.run(create_app(container), host=settings.host, port=settings.port, log_config=None)
+    uvicorn.run(
+        create_app(
+            container,
+            vault_registry=VaultContainerRegistry(container),
+            job_store=container.job_store,
+        ),
+        host=settings.host,
+        port=settings.port,
+        log_config=None,
+    )
+
+
+@app.command("export-openapi")
+def export_openapi(
+    output: Annotated[Path | None, typer.Option(help="Output OpenAPI YAML path.")] = None,
+) -> None:
+    """Export the HTTP contract as JSON-compatible YAML."""
+
+    target = output or Path(__file__).resolve().parents[4] / "contracts" / "openapi.yaml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(create_app().openapi(), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> None:

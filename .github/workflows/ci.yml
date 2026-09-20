@@ -36,3 +36,5 @@ jobs:
         run: make arch
       - name: Test
         run: make test
+      - name: Verify OpenAPI contract
+        run: make openapi-check

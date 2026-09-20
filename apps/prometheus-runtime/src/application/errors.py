@@ -35,3 +35,8 @@ class RevisionConflictError(PrometheusError):
 class VaultMismatchError(PrometheusError):
     code = "VAULT_MISMATCH"
     default_message = "Document belongs to a different Vault"
+
+
+class JobNotFoundError(PrometheusError):
+    code = "JOB_NOT_FOUND"
+    default_message = "Background job was not found"
