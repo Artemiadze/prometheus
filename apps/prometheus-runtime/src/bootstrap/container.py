@@ -8,6 +8,10 @@ from importlib.metadata import version
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
+from adapters.outbound.filesystem.index_rebuild import (
+    FilesystemIndexRebuildWorkspace,
+    build_staging_index_document,
+)
 from adapters.outbound.markdown.chunker import HeadingAwareChunker
 from adapters.outbound.markdown.parser import ObsidianMarkdownParser
 from adapters.outbound.markdown.token_counter import FastEmbedTokenizerCounter
@@ -25,6 +29,7 @@ from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
 from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.index_rebuild import IndexRebuildWorkspace
 from application.ports.index_statistics_reader import IndexStatisticsReader
 from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
@@ -80,6 +85,7 @@ class Container:
         reranker_factory: Callable[[], Reranker] | None = None,
         job_store_factory: Callable[[], JobStore] | None = None,
         progress_reporter_factory: Callable[[], ProgressReporter] | None = None,
+        rebuild_workspace_factory: Callable[[], IndexRebuildWorkspace] | None = None,
     ) -> None:
         self.settings = settings
         self.layout = layout
@@ -101,6 +107,9 @@ class Container:
         self._reranker_factory = reranker_factory
         self._job_store_factory = job_store_factory or self._build_job_store
         self._progress_reporter_factory = progress_reporter_factory or self._build_progress_reporter
+        self._rebuild_workspace_factory = (
+            rebuild_workspace_factory or self._build_rebuild_workspace
+        )
 
     def _build_embedder(self) -> Embedder:
         if self.settings.embedding_provider.casefold() != "fastembed":
@@ -153,6 +162,70 @@ class Container:
 
     def _build_progress_reporter(self) -> ProgressReporter:
         return self._jobs_database.progress_reporter
+
+    def _build_rebuild_workspace(self) -> IndexRebuildWorkspace:
+        if self._vault_id is None:
+            raise AdapterNotConfiguredError(
+                "Index rebuild workspace requires a vault_id; provide a vault_id to Container"
+            )
+        vault_id = self._vault_id
+        vault_path = vault_dir(self.layout, vault_id.value)
+
+        def build(
+            documents: DocumentRepository,
+            vectors: VectorIndex,
+            metadata: IndexMetadataStore,
+            unit_of_work: UnitOfWork,
+        ) -> IndexDocument:
+            return build_staging_index_document(
+                vault_id=vault_id,
+                parser=self.markdown_parser,
+                chunker=self.chunker,
+                embedder=self.embedder,
+                document_repository=documents,
+                vector_index=vectors,
+                index_metadata_store=metadata,
+                unit_of_work=unit_of_work,
+                active_fingerprint=self.active_index_fingerprint,
+                max_document_chars=self.settings.max_document_chars,
+                max_chunks_per_document=self.settings.max_chunks_per_document,
+            )
+
+        return FilesystemIndexRebuildWorkspace(
+            vault_path,
+            embedding_fingerprint=self.embedder.fingerprint,
+            build_index_document=build,
+            release_active_storage=self.release_vault_storage,
+        )
+
+    def release_vault_storage(self) -> None:
+        """Close and drop cached Vault persistence so a promoted index can be reopened."""
+
+        if "_metadata_database" in self.__dict__:
+            self._metadata_database.close()
+            del self.__dict__["_metadata_database"]
+        if "vector_index" in self.__dict__:
+            index = self.__dict__.pop("vector_index")
+            close = getattr(index, "close", None)
+            if callable(close):
+                close()
+        for name in (
+            "document_repository",
+            "unit_of_work",
+            "index_metadata_store",
+            "index_statistics",
+            "rename_document",
+            "index_document",
+            "serialized_index_document",
+            "remove_document",
+            "synchronize_vault",
+            "retrieval",
+            "search_notes",
+            "answer_question",
+            "reindex_vault",
+            "runtime_status",
+        ):
+            self.__dict__.pop(name, None)
 
     @cached_property
     def _jobs_database(self) -> JobsDatabase:
@@ -310,6 +383,7 @@ class Container:
             vector_index=self.vector_index,
             document_repository=self.document_repository,
             index_metadata_store=self.index_metadata_store,
+            active_fingerprint=self.active_index_fingerprint,
             reranker=self.reranker,
         )
 
@@ -330,15 +404,16 @@ class Container:
         )
 
     @cached_property
+    def rebuild_workspace(self) -> IndexRebuildWorkspace:
+        return _resolve(self._rebuild_workspace_factory, "IndexRebuildWorkspace")
+
+    @cached_property
     def reindex_vault(self) -> ReindexVault:
         if self._vault_id is None:
             raise AdapterNotConfiguredError("ReindexVault requires a vault_id")
         return ReindexVault(
             vault_id=self._vault_id,
-            index_document=self.index_document,
-            remove_document=self.remove_document,
-            document_repository=self.document_repository,
-            index_metadata_store=self.index_metadata_store,
+            rebuild_workspace=self.rebuild_workspace,
             active_fingerprint=self.active_index_fingerprint,
             job_store=self.job_store,
             progress_reporter=self.progress_reporter,

@@ -9,6 +9,20 @@ class IndexRebuildRequiredError(PrometheusError):
     code = "INDEX_REBUILD_REQUIRED"
     default_message = "Embedding configuration changed; rebuild the index before writing vectors"
 
+    def __init__(self, reason: str | None = None) -> None:
+        message = self.default_message if reason is None else reason
+        Exception.__init__(self, message)
+
+
+class RuntimeVersionIncompatibleError(PrometheusError):
+    """Raised when the Obsidian plugin version is outside the supported range."""
+
+    code = "RUNTIME_VERSION_INCOMPATIBLE"
+    default_message = "Plugin version is incompatible with this runtime"
+
+    def __init__(self, message: str | None = None) -> None:
+        Exception.__init__(self, self.default_message if message is None else message)
+
 
 class IndexCorruptedError(PrometheusError):
     """Raised when a recreated index still requires a full reindex."""

@@ -8,8 +8,11 @@ from adapters.inbound.http.auth import require_session_token
 from adapters.inbound.http.dependencies import get_base_container, get_vault_container
 from adapters.inbound.http.package_version import package_version
 from adapters.inbound.http.schemas.status import ModelResponse, ModelsResponse, StatusResponse
+from adapters.inbound.http.version_gate import require_compatible_plugin_version
 
-router = APIRouter(dependencies=[Depends(require_session_token)])
+router = APIRouter(
+    dependencies=[Depends(require_session_token), Depends(require_compatible_plugin_version)]
+)
 
 
 @router.get("/v1/status", response_model=StatusResponse)

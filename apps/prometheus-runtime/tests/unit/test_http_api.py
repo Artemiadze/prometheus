@@ -85,6 +85,8 @@ def _client(*, index_error: Exception | None = None) -> TestClient:
                 2,
                 NOW,
                 100,
+                reindex_required=False,
+                reindex_reason=None,
             )
         ),
     )
@@ -111,7 +113,11 @@ class _Raises:
 
 
 def _headers() -> dict[str, str]:
-    return {"Authorization": "Bearer test-token", "X-Request-ID": "request-01"}
+    return {
+        "Authorization": "Bearer test-token",
+        "X-Request-ID": "request-01",
+        "X-Prometheus-Plugin-Version": "0.1.0",
+    }
 
 
 def test_health_is_unprotected_and_all_protected_responses_echo_request_id() -> None:

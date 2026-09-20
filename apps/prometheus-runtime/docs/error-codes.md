@@ -8,6 +8,7 @@
 | `VAULT_NOT_INDEXED` | 409 | The Vault has no usable index. |
 | `INDEX_CORRUPTED` | 409 | The vector index must be rebuilt. |
 | `INDEX_REBUILD_REQUIRED` | 409 | The active index fingerprint is incompatible. |
+| `RUNTIME_VERSION_INCOMPATIBLE` | 409 | The Obsidian plugin version is outside the supported range. |
 | `DOCUMENT_TOO_LARGE` | 422 | The document exceeds configured indexing size or chunk limits. |
 | `QUERY_TOO_SHORT` | 422 | The search or chat query is too short. |
 | `VALIDATION_ERROR` | 422 | The JSON request body does not conform to the API schema. |

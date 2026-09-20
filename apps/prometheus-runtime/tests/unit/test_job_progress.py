@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
+from application.dto.index_fingerprint import IndexFingerprint
+from application.dto.indexing import IndexDocumentResult
 from application.use_cases.reindex_vault import ReindexVault, _should_report_progress
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes.fake_document_repository import FakeDocumentRepository
+from fakes.fake_embedder import FakeEmbedder
 from fakes.fake_index_metadata_store import FakeIndexMetadataStore
 from fakes.fake_job_store import FakeJobStore
 from fakes.fake_progress_reporter import FakeProgressReporter
+from fakes.fake_unit_of_work import FakeUnitOfWork
+from fakes.fake_vector_index import FakeVectorIndex
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 VAULT = VaultId("vault-01")
@@ -25,10 +30,6 @@ def test_should_report_on_interval_and_last_document() -> None:
 
 
 def test_reindex_reports_progress_every_n_documents() -> None:
-    from application.dto.index_fingerprint import IndexFingerprint
-    from application.dto.indexing import IndexDocumentResult
-    from fakes.fake_embedder import FakeEmbedder
-
     class CountingIndex:
         def __init__(self) -> None:
             self.calls = 0
@@ -52,17 +53,23 @@ def test_reindex_reports_progress_every_n_documents() -> None:
     reporter = FakeProgressReporter()
     embedder = FakeEmbedder()
     index = CountingIndex()
+    metadata = FakeIndexMetadataStore()
 
-    class Remove:
-        async def execute(self, *_: object) -> object:
-            return None
+    class Workspace:
+        def begin(self) -> object:
+            return SimpleNamespace(
+                index_document=index,
+                document_repository=SimpleNamespace(),
+                vector_index=FakeVectorIndex(),
+                index_metadata_store=metadata,
+                unit_of_work=FakeUnitOfWork(),
+                promote=lambda: None,
+                discard=lambda: None,
+            )
 
     use_case = ReindexVault(
         vault_id=VAULT,
-        index_document=index,  # type: ignore[arg-type]
-        remove_document=Remove(),  # type: ignore[arg-type]
-        document_repository=FakeDocumentRepository(),
-        index_metadata_store=FakeIndexMetadataStore(),
+        rebuild_workspace=Workspace(),  # type: ignore[arg-type]
         active_fingerprint=IndexFingerprint(
             embedding=embedder.fingerprint,
             parser_version=1,

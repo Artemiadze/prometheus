@@ -24,3 +24,5 @@ class RuntimeStatus:
     chunk_count: int
     last_indexed_at: datetime | None
     index_size_bytes: int
+    reindex_required: bool = False
+    reindex_reason: str | None = None

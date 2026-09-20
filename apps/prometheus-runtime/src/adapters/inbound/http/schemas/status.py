@@ -17,6 +17,8 @@ class StatusResponse(ApiSchema):
     chunk_count: int
     last_indexed_at: datetime | None
     index_size_bytes: int
+    reindex_required: bool
+    reindex_reason: str | None
 
     @classmethod
     def from_dto(cls, status: RuntimeStatus, api_version: str) -> "StatusResponse":
@@ -30,6 +32,8 @@ class StatusResponse(ApiSchema):
             chunk_count=status.chunk_count,
             last_indexed_at=status.last_indexed_at,
             index_size_bytes=status.index_size_bytes,
+            reindex_required=status.reindex_required,
+            reindex_reason=status.reindex_reason,
         )
 
 

@@ -24,6 +24,7 @@ from application.errors import (
     JobNotFoundError,
     QueryTooShortError,
     RevisionConflictError,
+    RuntimeVersionIncompatibleError,
     VaultNotIndexedError,
 )
 from domain.errors import (
@@ -46,6 +47,7 @@ _STATUS_BY_TYPE: dict[type[PrometheusError], int] = {
     VaultNotIndexedError: 409,
     IndexCorruptedError: 409,
     IndexRebuildRequiredError: 409,
+    RuntimeVersionIncompatibleError: 409,
     QueryTooShortError: 422,
     DocumentTooLargeError: 422,
     LlmContextExceededError: 422,

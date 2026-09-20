@@ -4,6 +4,7 @@ from fakes.fake_chunker import FakeChunker
 from fakes.fake_document_repository import FakeDocumentRepository
 from fakes.fake_embedder import FakeEmbedder
 from fakes.fake_index_metadata_store import FakeIndexMetadataStore
+from fakes.fake_index_rebuild import FakeIndexRebuildWorkspace
 from fakes.fake_index_statistics_reader import FakeIndexStatisticsReader
 from fakes.fake_job_store import FakeJobStore
 from fakes.fake_language_model import FakeLanguageModel
@@ -19,6 +20,7 @@ __all__ = [
     "FakeDocumentRepository",
     "FakeEmbedder",
     "FakeIndexMetadataStore",
+    "FakeIndexRebuildWorkspace",
     "FakeIndexStatisticsReader",
     "FakeJobStore",
     "FakeLanguageModel",

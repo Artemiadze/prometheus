@@ -8,7 +8,10 @@ from application.ports.index_metadata_store import IndexMetadataStore
 from application.ports.index_statistics_reader import IndexStatisticsReader
 from application.ports.language_model import LanguageModel
 from application.ports.vector_index import VectorIndex
-from application.services.index_fingerprint import ensure_index_compatible
+from application.services.index_fingerprint import (
+    describe_fingerprint_mismatch,
+    ensure_index_compatible,
+)
 
 
 class GetRuntimeStatus:
@@ -34,11 +37,12 @@ class GetRuntimeStatus:
     async def execute(self) -> RuntimeStatus:
         statistics = self._statistics.read()
         stored = self._metadata.load()
-        index_state = self._index_state(stored, statistics.document_count)
+        index_state, reindex_reason = self._index_state(stored, statistics.document_count)
         try:
             llm_available = await self._llm.is_available()
         except Exception:
             llm_available = False
+        reindex_required = index_state is IndexState.REBUILD_REQUIRED
         return RuntimeStatus(
             runtime_version=self._runtime_version,
             index_state=index_state,
@@ -48,19 +52,23 @@ class GetRuntimeStatus:
             chunk_count=statistics.chunk_count,
             last_indexed_at=statistics.last_indexed_at,
             index_size_bytes=statistics.index_size_bytes,
+            reindex_required=reindex_required,
+            reindex_reason=reindex_reason if reindex_required else None,
         )
 
     def _index_state(
         self,
         stored: IndexFingerprint | None,
         document_count: int,
-    ) -> IndexState:
+    ) -> tuple[IndexState, str | None]:
         if stored is None or document_count == 0:
-            return IndexState.NOT_INDEXED
+            return IndexState.NOT_INDEXED, None
         if self._vectors.status is IndexStatus.CORRUPTED:
-            return IndexState.CORRUPTED
+            return IndexState.CORRUPTED, None
         try:
             ensure_index_compatible(stored, self._fingerprint)
         except IndexRebuildRequiredError:
-            return IndexState.REBUILD_REQUIRED
-        return IndexState.READY
+            return IndexState.REBUILD_REQUIRED, describe_fingerprint_mismatch(
+                stored, self._fingerprint
+            )
+        return IndexState.READY, None

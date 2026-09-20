@@ -7,11 +7,12 @@ from adapters.inbound.http.dependencies import get_vault_container
 from adapters.inbound.http.schemas.common import ERROR_RESPONSES
 from adapters.inbound.http.schemas.reindex import ReindexRequest
 from adapters.inbound.http.schemas.sync import JobStartedResponse
+from adapters.inbound.http.version_gate import require_compatible_plugin_version
 from domain.value_objects.vault_id import VaultId
 
 router = APIRouter(
     prefix="/v1/vaults/{vault_id}",
-    dependencies=[Depends(require_session_token)],
+    dependencies=[Depends(require_session_token), Depends(require_compatible_plugin_version)],
 )
 
 

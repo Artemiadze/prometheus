@@ -9,12 +9,9 @@ from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.indexing import IndexingProgress, ReindexResult
 from application.dto.job import Job, JobKind, JobStatus
 from application.ports.cancellation import CancellationToken
-from application.ports.document_repository import DocumentRepository
-from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.index_rebuild import IndexRebuildWorkspace
 from application.ports.job_store import JobStore
 from application.ports.progress_reporter import ProgressReporter
-from application.use_cases.index_document import IndexDocument
-from application.use_cases.remove_document import RemoveDocument
 from domain.entities.document import Document
 from domain.errors import PrometheusError
 from domain.value_objects.vault_id import VaultId
@@ -25,20 +22,14 @@ class ReindexVault:
         self,
         *,
         vault_id: VaultId,
-        index_document: IndexDocument,
-        remove_document: RemoveDocument,
-        document_repository: DocumentRepository,
-        index_metadata_store: IndexMetadataStore,
+        rebuild_workspace: IndexRebuildWorkspace,
         active_fingerprint: IndexFingerprint,
         job_store: JobStore,
         progress_reporter: ProgressReporter,
         progress_interval: int = 10,
     ) -> None:
         self._vault_id = vault_id
-        self._index = index_document
-        self._remove = remove_document
-        self._documents = document_repository
-        self._metadata = index_metadata_store
+        self._workspace = rebuild_workspace
         self._fingerprint = active_fingerprint
         self._jobs = job_store
         self._progress = progress_reporter
@@ -66,11 +57,11 @@ class ReindexVault:
         self._jobs.update(job)
         processed_documents = 0
         processed_chunks = 0
+        session = self._workspace.begin()
         try:
-            for state in self._documents.list_states():
-                await self._remove.execute(state.document_id)
             for document in batch:
                 if cancellation.is_cancelled():
+                    session.discard()
                     job = job.with_state(
                         status=JobStatus.CANCELLED,
                         progress=_ratio(processed_documents, len(batch)),
@@ -80,7 +71,7 @@ class ReindexVault:
                     )
                     self._jobs.update(job)
                     return ReindexResult(job, processed_documents, processed_chunks, cancelled=True)
-                result = await self._index.execute(document, force=True)
+                result = await session.index_document.execute(document, force=True)
                 processed_documents += 1
                 processed_chunks += result.created_chunks
                 progress = IndexingProgress(
@@ -101,7 +92,8 @@ class ReindexVault:
                         updated_at=datetime.now(UTC),
                     )
                     self._jobs.update(job)
-            self._metadata.save(self._fingerprint)
+            session.index_metadata_store.save(self._fingerprint)
+            session.promote()
             job = job.with_state(
                 status=JobStatus.COMPLETED,
                 progress=1.0,
@@ -113,6 +105,7 @@ class ReindexVault:
             self._jobs.update(job)
             return ReindexResult(job, processed_documents, processed_chunks, cancelled=False)
         except Exception as error:
+            session.discard()
             code = error.code if isinstance(error, PrometheusError) else "REINDEX_FAILED"
             job = job.with_state(
                 status=JobStatus.FAILED,

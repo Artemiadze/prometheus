@@ -10,12 +10,13 @@ from adapters.inbound.http.schemas.documents import (
     IndexDocumentResponse,
     RemoveDocumentResponse,
 )
+from adapters.inbound.http.version_gate import require_compatible_plugin_version
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
 
 router = APIRouter(
     prefix="/v1/vaults/{vault_id}/documents",
-    dependencies=[Depends(require_session_token)],
+    dependencies=[Depends(require_session_token), Depends(require_compatible_plugin_version)],
 )
 
 

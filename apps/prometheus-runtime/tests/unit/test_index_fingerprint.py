@@ -57,10 +57,10 @@ def test_ensure_index_compatible_allows_a_matching_fingerprint() -> None:
 
 
 def test_ensure_index_compatible_requires_rebuild_on_dimension_change() -> None:
-    with pytest.raises(IndexRebuildRequiredError):
+    with pytest.raises(IndexRebuildRequiredError, match=r"embedding\.dimension"):
         ensure_index_compatible(_fingerprint(dimension=4), _fingerprint(dimension=8))
 
 
 def test_ensure_index_compatible_requires_rebuild_on_chunk_size_change() -> None:
-    with pytest.raises(IndexRebuildRequiredError):
+    with pytest.raises(IndexRebuildRequiredError, match=r"chunk_size"):
         ensure_index_compatible(_fingerprint(chunk_size=700), _fingerprint(chunk_size=500))

@@ -32,6 +32,7 @@ from fakes import (
     FakeDocumentRepository,
     FakeEmbedder,
     FakeIndexMetadataStore,
+    FakeIndexRebuildWorkspace,
     FakeIndexStatisticsReader,
     FakeJobStore,
     FakeLanguageModel,
@@ -160,13 +161,14 @@ def test_synchronize_classifies_snapshot_and_removes_missing_documents() -> None
 
 
 def test_search_rejects_short_query_and_never_needs_language_model() -> None:
-    index, _, _, _, documents, vectors, metadata = _indexing_setup()
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
     asyncio.run(index.execute(_document()))
     retrieval = RetrievalService(
         embedder=FakeEmbedder(),
         vector_index=vectors,
         document_repository=documents,
         index_metadata_store=metadata,
+        active_fingerprint=_fingerprint(embedder),
     )
     search = SearchNotes(retrieval)
 
@@ -178,14 +180,42 @@ def test_search_rejects_short_query_and_never_needs_language_model() -> None:
     assert results[0].text == "semantic retrieval content"
 
 
+def test_search_blocks_when_fingerprint_requires_rebuild() -> None:
+    from application.errors import IndexRebuildRequiredError
+
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
+    asyncio.run(index.execute(_document()))
+    mismatched = IndexFingerprint(
+        embedding=embedder.fingerprint,
+        parser_version=1,
+        chunker_version=1,
+        payload_schema_version=1,
+        chunk_size=500,
+        chunk_overlap=50,
+    )
+    search = SearchNotes(
+        RetrievalService(
+            embedder=embedder,
+            vector_index=vectors,
+            document_repository=documents,
+            index_metadata_store=metadata,
+            active_fingerprint=mismatched,
+        )
+    )
+
+    with pytest.raises(IndexRebuildRequiredError, match=r"chunk_size"):
+        asyncio.run(search.execute("semantic", limit=10))
+
+
 def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> None:
-    index, _, _, _, documents, vectors, metadata = _indexing_setup()
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
     asyncio.run(index.execute(_document()))
     retrieval = RetrievalService(
         embedder=FakeEmbedder(),
         vector_index=vectors,
         document_repository=documents,
         index_metadata_store=metadata,
+        active_fingerprint=_fingerprint(embedder),
     )
     llm = FakeLanguageModel()
     insufficient = AnswerQuestion(
@@ -216,21 +246,23 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
     assert len(answer.used_chunk_ids) == 1
 
 
-class _Cancelled:
-    def is_cancelled(self) -> bool:
-        return True
-
-
-def test_reindex_cancellation_keeps_manifest_consistent() -> None:
-    index, remove, _, embedder, documents, _, metadata = _indexing_setup()
+def test_reindex_cancellation_preserves_active_index() -> None:
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
     asyncio.run(index.execute(_document()))
     jobs = FakeJobStore()
+    workspace = FakeIndexRebuildWorkspace(
+        vault_id=VAULT_ID,
+        active_documents=documents,
+        active_vectors=vectors,
+        active_metadata=metadata,
+        embedder=embedder,
+        parser=FakeMarkdownParser(),
+        chunker=FakeChunker(),
+        fingerprint=_fingerprint(embedder),
+    )
     reindex = ReindexVault(
         vault_id=VAULT_ID,
-        index_document=index,
-        remove_document=remove,
-        document_repository=documents,
-        index_metadata_store=metadata,
+        rebuild_workspace=workspace,
         active_fingerprint=_fingerprint(embedder),
         job_store=jobs,
         progress_reporter=FakeProgressReporter(),
@@ -239,7 +271,58 @@ def test_reindex_cancellation_keeps_manifest_consistent() -> None:
     result = asyncio.run(reindex.execute((_document(),), cancellation=_Cancelled()))
 
     assert result.cancelled
-    assert documents.list_states() == ()
+    assert documents.get_state(DocumentId("document-01")) is not None
+    assert workspace.last_session is not None
+    assert workspace.last_session._discarded
+
+
+def test_reindex_promote_replaces_active_index() -> None:
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
+    asyncio.run(index.execute(_document()))
+    jobs = FakeJobStore()
+    workspace = FakeIndexRebuildWorkspace(
+        vault_id=VAULT_ID,
+        active_documents=documents,
+        active_vectors=vectors,
+        active_metadata=metadata,
+        embedder=embedder,
+        parser=FakeMarkdownParser(),
+        chunker=FakeChunker(),
+        fingerprint=_fingerprint(embedder),
+    )
+    reindex = ReindexVault(
+        vault_id=VAULT_ID,
+        rebuild_workspace=workspace,
+        active_fingerprint=_fingerprint(embedder),
+        job_store=jobs,
+        progress_reporter=FakeProgressReporter(),
+    )
+    replacement = Document.create(
+        id=DocumentId("document-02"),
+        vault_id=VAULT_ID,
+        relative_path="Notes/Two.md",
+        content="replacement content for rebuild",
+        revision=1,
+        modified_at=NOW,
+    )
+
+    result = asyncio.run(reindex.execute((replacement,), cancellation=_NeverCancelled()))
+
+    assert not result.cancelled
+    assert documents.get_state(DocumentId("document-01")) is None
+    assert documents.get_state(DocumentId("document-02")) is not None
+    assert workspace.last_session is not None
+    assert workspace.last_session._promoted
+
+
+class _NeverCancelled:
+    def is_cancelled(self) -> bool:
+        return False
+
+
+class _Cancelled:
+    def is_cancelled(self) -> bool:
+        return True
 
 
 class _UnavailableLanguageModel(FakeLanguageModel):
@@ -263,3 +346,34 @@ def test_runtime_status_is_not_indexed_and_tolerates_ollama_failure() -> None:
 
     assert result.index_state is IndexState.NOT_INDEXED
     assert not result.llm_available
+    assert not result.reindex_required
+    assert result.reindex_reason is None
+
+
+def test_runtime_status_reports_reindex_required_with_reason() -> None:
+    index, _, _, embedder, _, vectors, metadata = _indexing_setup()
+    asyncio.run(index.execute(_document()))
+    mismatched = IndexFingerprint(
+        embedding=embedder.fingerprint,
+        parser_version=1,
+        chunker_version=1,
+        payload_schema_version=1,
+        chunk_size=500,
+        chunk_overlap=50,
+    )
+    status = GetRuntimeStatus(
+        runtime_version="0.1.0",
+        llm_model="qwen3:4b",
+        language_model=FakeLanguageModel(),
+        vector_index=vectors,
+        index_metadata_store=metadata,
+        index_statistics=FakeIndexStatisticsReader(IndexStatistics(1, 1, NOW, 10)),
+        active_fingerprint=mismatched,
+    )
+
+    result = asyncio.run(status.execute())
+
+    assert result.index_state is IndexState.REBUILD_REQUIRED
+    assert result.reindex_required
+    assert result.reindex_reason is not None
+    assert "chunk_size" in result.reindex_reason
