@@ -1,6 +1,3 @@
-"""Process-local adapters for runtime job execution."""
+"""Process-local adapters retained for tests and development."""
 
-from adapters.outbound.memory.job_store import InMemoryJobStore
-from adapters.outbound.memory.progress_reporter import InMemoryProgressReporter
-
-__all__ = ["InMemoryJobStore", "InMemoryProgressReporter"]
+__all__: list[str] = []

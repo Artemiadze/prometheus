@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
@@ -30,11 +31,31 @@ def create_app(
 ) -> FastAPI:
     """Create the HTTP adapter without resolving lazy runtime dependencies."""
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        store = app.state.job_store
+        if store is not None:
+            store.recover_interrupted()
+        yield
+        runner = app.state.job_runner
+        base = app.state.container
+        registry = app.state.vault_registry
+        grace = 10.0
+        if base is not None and hasattr(base, "settings"):
+            grace = float(base.settings.shutdown_grace_seconds)
+        if runner is not None:
+            await runner.shutdown(grace)
+        if registry is not None and hasattr(registry, "close_all"):
+            registry.close_all()
+        if base is not None and hasattr(base, "close"):
+            base.close()
+
     app = FastAPI(
         title="Prometheus Runtime",
         version=package_version(),
         docs_url=None,
         redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.container = container
     app.state.vault_registry = vault_registry

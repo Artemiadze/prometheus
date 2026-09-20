@@ -98,6 +98,7 @@ def serve(
         host=settings.host,
         port=settings.port,
         log_config=None,
+        timeout_graceful_shutdown=int(settings.shutdown_grace_seconds),
     )
 
 

@@ -226,6 +226,7 @@ def test_reindex_cancellation_keeps_manifest_consistent() -> None:
     asyncio.run(index.execute(_document()))
     jobs = FakeJobStore()
     reindex = ReindexVault(
+        vault_id=VAULT_ID,
         index_document=index,
         remove_document=remove,
         document_repository=documents,

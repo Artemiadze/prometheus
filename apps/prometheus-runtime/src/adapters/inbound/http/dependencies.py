@@ -8,9 +8,9 @@ from fastapi import Request
 
 from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
+from application.services.document_indexing_queue import SerializedDocumentIndexing
 from application.use_cases.answer_question import AnswerQuestion
 from application.use_cases.get_runtime_status import GetRuntimeStatus
-from application.use_cases.index_document import IndexDocument
 from application.use_cases.reindex_vault import ReindexVault
 from application.use_cases.remove_document import RemoveDocument
 from application.use_cases.search_notes import SearchNotes
@@ -33,7 +33,7 @@ class BaseRuntime(Protocol):
 
 
 class VaultRuntime(Protocol):
-    index_document: IndexDocument
+    serialized_index_document: SerializedDocumentIndexing
     remove_document: RemoveDocument
     synchronize_vault: SynchronizeVault
     search_notes: SearchNotes

@@ -21,7 +21,8 @@ def test_migrations_create_expected_tables_and_enable_wal(tmp_path: Path) -> Non
     connection = open_connection(tmp_path / "metadata.sqlite")
     apply_migrations(connection)
 
-    assert {"documents", "chunks", "jobs", "index_meta", "schema_version"} <= _tables(connection)
+    assert {"documents", "chunks", "index_meta", "schema_version"} <= _tables(connection)
+    assert "jobs" not in _tables(connection)
     mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
     assert str(mode).lower() == "wal"
     foreign_keys = connection.execute("PRAGMA foreign_keys").fetchone()[0]
@@ -35,7 +36,7 @@ def test_migrations_are_idempotent(tmp_path: Path) -> None:
     apply_migrations(connection)
 
     rows = connection.execute("SELECT version FROM schema_version").fetchall()
-    assert [row[0] for row in rows] == [LATEST_VERSION]
+    assert [row[0] for row in rows] == list(range(1, LATEST_VERSION + 1))
     connection.close()
 
 

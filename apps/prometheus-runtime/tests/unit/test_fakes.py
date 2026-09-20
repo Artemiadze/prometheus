@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.indexing import IndexingProgress
-from application.dto.job import Job, JobStatus
+from application.dto.job import JobKind, JobStatus
 from application.dto.llm import LocalLlmModel
 from application.dto.statistics import IndexStatistics
 from application.ports.chunker import Chunker
@@ -212,8 +212,12 @@ def test_remaining_stateful_fakes_record_calls() -> None:
     assert not unit_of_work.rolled_back
 
     jobs = FakeJobStore()
-    job = jobs.create()
-    updated = Job(job.id, JobStatus.RUNNING, 0.5)
+    job = jobs.create(VaultId("vault-01"), JobKind.REINDEX)
+    updated = job.with_state(
+        status=JobStatus.RUNNING,
+        progress=0.5,
+        updated_at=datetime.now(UTC),
+    )
     jobs.update(updated)
     assert jobs.get(job.id) == updated
 

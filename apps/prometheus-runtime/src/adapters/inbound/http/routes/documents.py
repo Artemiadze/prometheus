@@ -32,7 +32,9 @@ async def put_document(
 ) -> IndexDocumentResponse:
     vault = VaultId(vault_id)
     document = body.to_domain(vault, DocumentId(document_id))
-    result = await get_vault_container(request, vault_id).index_document.execute(document)
+    result = await get_vault_container(request, vault_id).serialized_index_document.execute(
+        document
+    )
     return IndexDocumentResponse.from_dto(result)
 
 

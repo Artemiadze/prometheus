@@ -37,6 +37,8 @@ class RuntimeSettings(BaseSettings):
     embedding_allow_download: bool = False
     chunk_size: int = Field(default=700, gt=0)
     chunk_overlap: int = Field(default=80, ge=0)
+    job_progress_interval: int = Field(default=10, gt=0)
+    shutdown_grace_seconds: float = Field(default=10.0, gt=0)
     max_document_chars: int = Field(default=2_000_000, gt=0)
     max_chunks_per_document: int = Field(default=10_000, gt=0)
     top_k: int = Field(default=10, gt=0)

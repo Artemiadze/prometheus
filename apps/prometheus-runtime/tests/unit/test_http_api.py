@@ -49,7 +49,7 @@ class _Registry:
 def _client(*, index_error: Exception | None = None) -> TestClient:
     document_id = DocumentId(DOCUMENT)
     runtime = SimpleNamespace(
-        index_document=_AsyncValue(
+        serialized_index_document=_AsyncValue(
             IndexDocumentResult(document_id, created_chunks=2, deleted_chunks=1)
         ),
         remove_document=_AsyncValue(RemoveDocumentResult(document_id, True, 2)),
@@ -89,7 +89,7 @@ def _client(*, index_error: Exception | None = None) -> TestClient:
         ),
     )
     if index_error is not None:
-        runtime.index_document = _Raises(index_error)
+        runtime.serialized_index_document = _Raises(index_error)
     jobs = FakeJobStore()
     base = SimpleNamespace(
         settings=RuntimeSettings(session_token=SecretStr("test-token")),

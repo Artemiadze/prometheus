@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
 
 from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.indexing import IndexingProgress, ReindexResult
-from application.dto.job import Job, JobStatus
+from application.dto.job import Job, JobKind, JobStatus
 from application.ports.cancellation import CancellationToken
 from application.ports.document_repository import DocumentRepository
 from application.ports.index_metadata_store import IndexMetadataStore
@@ -16,12 +17,14 @@ from application.use_cases.index_document import IndexDocument
 from application.use_cases.remove_document import RemoveDocument
 from domain.entities.document import Document
 from domain.errors import PrometheusError
+from domain.value_objects.vault_id import VaultId
 
 
 class ReindexVault:
     def __init__(
         self,
         *,
+        vault_id: VaultId,
         index_document: IndexDocument,
         remove_document: RemoveDocument,
         document_repository: DocumentRepository,
@@ -29,7 +32,9 @@ class ReindexVault:
         active_fingerprint: IndexFingerprint,
         job_store: JobStore,
         progress_reporter: ProgressReporter,
+        progress_interval: int = 10,
     ) -> None:
+        self._vault_id = vault_id
         self._index = index_document
         self._remove = remove_document
         self._documents = document_repository
@@ -37,6 +42,9 @@ class ReindexVault:
         self._fingerprint = active_fingerprint
         self._jobs = job_store
         self._progress = progress_reporter
+        if progress_interval <= 0:
+            raise ValueError("progress_interval must be positive")
+        self._progress_interval = progress_interval
 
     async def execute(
         self,
@@ -46,8 +54,15 @@ class ReindexVault:
         job: Job | None = None,
     ) -> ReindexResult:
         batch = tuple(documents)
-        job = self._jobs.create() if job is None else job
-        job = Job(job.id, JobStatus.RUNNING, 0.0)
+        now = datetime.now(UTC)
+        if job is None:
+            job = self._jobs.create(self._vault_id, JobKind.REINDEX)
+        job = job.with_state(
+            status=JobStatus.RUNNING,
+            progress=0.0,
+            total_documents=len(batch),
+            updated_at=now,
+        )
         self._jobs.update(job)
         processed_documents = 0
         processed_chunks = 0
@@ -56,10 +71,12 @@ class ReindexVault:
                 await self._remove.execute(state.document_id)
             for document in batch:
                 if cancellation.is_cancelled():
-                    job = Job(
-                        job.id,
-                        JobStatus.CANCELLED,
-                        _ratio(processed_documents, len(batch)),
+                    job = job.with_state(
+                        status=JobStatus.CANCELLED,
+                        progress=_ratio(processed_documents, len(batch)),
+                        processed_documents=processed_documents,
+                        processed_chunks=processed_chunks,
+                        updated_at=datetime.now(UTC),
                     )
                     self._jobs.update(job)
                     return ReindexResult(job, processed_documents, processed_chunks, cancelled=True)
@@ -71,19 +88,39 @@ class ReindexVault:
                     len(batch),
                     processed_chunks,
                 )
-                self._progress.report(job.id, progress)
-                job = Job(job.id, JobStatus.RUNNING, progress.ratio)
-                self._jobs.update(job)
+                if _should_report_progress(
+                    processed_documents, len(batch), self._progress_interval
+                ):
+                    self._progress.report(job.id, progress)
+                    job = job.with_state(
+                        status=JobStatus.RUNNING,
+                        progress=progress.ratio,
+                        processed_documents=processed_documents,
+                        total_documents=len(batch),
+                        processed_chunks=processed_chunks,
+                        updated_at=datetime.now(UTC),
+                    )
+                    self._jobs.update(job)
             self._metadata.save(self._fingerprint)
-            job = Job(job.id, JobStatus.COMPLETED, 1.0)
+            job = job.with_state(
+                status=JobStatus.COMPLETED,
+                progress=1.0,
+                processed_documents=processed_documents,
+                total_documents=len(batch),
+                processed_chunks=processed_chunks,
+                updated_at=datetime.now(UTC),
+            )
             self._jobs.update(job)
             return ReindexResult(job, processed_documents, processed_chunks, cancelled=False)
         except Exception as error:
             code = error.code if isinstance(error, PrometheusError) else "REINDEX_FAILED"
-            job = Job(
-                job.id,
-                JobStatus.FAILED,
-                _ratio(processed_documents, len(batch)),
+            job = job.with_state(
+                status=JobStatus.FAILED,
+                progress=_ratio(processed_documents, len(batch)),
+                processed_documents=processed_documents,
+                total_documents=len(batch),
+                processed_chunks=processed_chunks,
+                updated_at=datetime.now(UTC),
                 error=code,
             )
             self._jobs.update(job)
@@ -92,3 +129,9 @@ class ReindexVault:
 
 def _ratio(processed: int, total: int) -> float:
     return 1.0 if total == 0 else processed / total
+
+
+def _should_report_progress(processed: int, total: int, interval: int) -> bool:
+    if processed == total:
+        return True
+    return processed % interval == 0

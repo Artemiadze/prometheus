@@ -11,11 +11,10 @@ from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
 from adapters.outbound.markdown.chunker import HeadingAwareChunker
 from adapters.outbound.markdown.parser import ObsidianMarkdownParser
 from adapters.outbound.markdown.token_counter import FastEmbedTokenizerCounter
-from adapters.outbound.memory.job_store import InMemoryJobStore
-from adapters.outbound.memory.progress_reporter import InMemoryProgressReporter
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.database import MetadataDatabase
+from adapters.outbound.sqlite.jobs_database import JobsDatabase
 from application.dto.index_fingerprint import (
     CHUNKER_ALGORITHM_VERSION,
     PARSER_SCHEMA_VERSION,
@@ -35,6 +34,7 @@ from application.ports.reranker import Reranker
 from application.ports.token_counter import TokenCounter
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
+from application.services.document_indexing_queue import SerializedDocumentIndexing
 from application.services.retrieval import RetrievalService
 from application.use_cases.answer_question import AnswerQuestion
 from application.use_cases.get_runtime_status import GetRuntimeStatus
@@ -149,10 +149,14 @@ class Container:
         )
 
     def _build_job_store(self) -> JobStore:
-        return InMemoryJobStore()
+        return self._jobs_database.job_store
 
     def _build_progress_reporter(self) -> ProgressReporter:
-        return InMemoryProgressReporter()
+        return self._jobs_database.progress_reporter
+
+    @cached_property
+    def _jobs_database(self) -> JobsDatabase:
+        return JobsDatabase(self.layout.state)
 
     @cached_property
     def _metadata_database(self) -> MetadataDatabase:
@@ -247,6 +251,19 @@ class Container:
             unit_of_work=self.unit_of_work,
         )
 
+    def close(self) -> None:
+        """Release SQLite and Qdrant resources owned by this container."""
+
+        if "_metadata_database" in self.__dict__:
+            self._metadata_database.close()
+        if "vector_index" in self.__dict__:
+            index = self.vector_index
+            close = getattr(index, "close", None)
+            if callable(close):
+                close()
+        if "_jobs_database" in self.__dict__ and self._vault_id is None:
+            self._jobs_database.close()
+
     @cached_property
     def index_document(self) -> IndexDocument:
         if self._vault_id is None:
@@ -265,6 +282,10 @@ class Container:
             max_document_chars=self.settings.max_document_chars,
             max_chunks_per_document=self.settings.max_chunks_per_document,
         )
+
+    @cached_property
+    def serialized_index_document(self) -> SerializedDocumentIndexing:
+        return SerializedDocumentIndexing(self.index_document)
 
     @cached_property
     def remove_document(self) -> RemoveDocument:
@@ -310,7 +331,10 @@ class Container:
 
     @cached_property
     def reindex_vault(self) -> ReindexVault:
+        if self._vault_id is None:
+            raise AdapterNotConfiguredError("ReindexVault requires a vault_id")
         return ReindexVault(
+            vault_id=self._vault_id,
             index_document=self.index_document,
             remove_document=self.remove_document,
             document_repository=self.document_repository,
@@ -318,6 +342,7 @@ class Container:
             active_fingerprint=self.active_index_fingerprint,
             job_store=self.job_store,
             progress_reporter=self.progress_reporter,
+            progress_interval=self.settings.job_progress_interval,
         )
 
     @cached_property

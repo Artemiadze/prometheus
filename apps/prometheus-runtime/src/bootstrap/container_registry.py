@@ -30,3 +30,10 @@ class VaultContainerRegistry:
             )
             self._by_vault[vault_id] = container
         return container
+
+    def close_all(self) -> None:
+        """Close every vault-scoped container opened during this process."""
+
+        for container in self._by_vault.values():
+            container.close()
+        self._by_vault.clear()

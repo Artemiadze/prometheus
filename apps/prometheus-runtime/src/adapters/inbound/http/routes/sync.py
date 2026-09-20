@@ -6,6 +6,7 @@ from adapters.inbound.http.auth import require_session_token
 from adapters.inbound.http.dependencies import get_vault_container
 from adapters.inbound.http.schemas.common import ERROR_RESPONSES
 from adapters.inbound.http.schemas.sync import JobStartedResponse, VaultSyncRequest
+from domain.value_objects.vault_id import VaultId
 
 router = APIRouter(
     prefix="/v1/vaults/{vault_id}/sync",
@@ -20,6 +21,7 @@ async def complete_sync(
     body: VaultSyncRequest,
 ) -> JobStartedResponse:
     job = request.app.state.job_runner.start_sync(
+        VaultId(vault_id),
         get_vault_container(request, vault_id),
         body.to_dto(),
     )

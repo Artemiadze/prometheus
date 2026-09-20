@@ -16,6 +16,16 @@
 | `LLM_TIMEOUT` | 504 | Local model generation exceeded its timeout. |
 | `INTERNAL_ERROR` | 500 | An unexpected internal failure occurred. |
 
+### Background job error codes
+
+These values may appear in the `error` field of a failed job (`GET /v1/jobs/{jobId}`), not in the HTTP error envelope:
+
+| Code | Meaning |
+|---|---|
+| `JOB_INTERRUPTED` | The process stopped before the job finished. |
+| `JOB_FAILED` | A background sync job failed unexpectedly. |
+| `REINDEX_FAILED` | A background reindex job failed unexpectedly. |
+
 All error responses use the versioned envelope:
 
 ```json

@@ -58,7 +58,12 @@ _MIGRATION_1 = (
 )
 
 #: Ordered (version, statements) pairs; each is applied inside its own transaction.
-MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = ((1, _MIGRATION_1),)
+_MIGRATION_2 = ("DROP TABLE IF EXISTS jobs",)
+
+MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
+    (1, _MIGRATION_1),
+    (2, _MIGRATION_2),
+)
 
 LATEST_VERSION = MIGRATIONS[-1][0]
 
