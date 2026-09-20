@@ -39,7 +39,7 @@ def test_health_does_not_initialize_embedder(tmp_path: Path) -> None:
         embedder_factory=build_embedder,
     )
 
-    response = TestClient(create_app(container)).get("/v1/health")
+    response = TestClient(create_app(container), base_url="http://127.0.0.1:8765").get("/v1/health")
 
     assert response.status_code == 200
     assert calls == 0

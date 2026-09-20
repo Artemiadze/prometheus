@@ -27,6 +27,23 @@ def test_user_content_is_never_written(tmp_path: Path) -> None:
     assert note not in _read_logs(layout.logs)
 
 
+def test_authorization_header_and_token_are_never_written(tmp_path: Path) -> None:
+    layout = ensure_layout(tmp_path / "data")
+    logger = configure_logging(layout)
+    token = "session-token-that-must-not-appear-in-logs"
+
+    logger.info(
+        "ignored",
+        extra={
+            "event": "request.received",
+            "authorization": f"Bearer {token}",
+            "token": token,
+        },
+    )
+
+    assert token not in _read_logs(layout.logs)
+
+
 def test_json_contains_only_safe_required_fields(tmp_path: Path) -> None:
     layout = ensure_layout(tmp_path / "data")
     logger = configure_logging(layout)

@@ -96,7 +96,10 @@ def _client(*, index_error: Exception | None = None) -> TestClient:
         language_model=FakeLanguageModel(),
         job_store=jobs,
     )
-    return TestClient(create_app(base, vault_registry=_Registry(runtime), job_store=jobs))
+    return TestClient(
+        create_app(base, vault_registry=_Registry(runtime), job_store=jobs),
+        base_url="http://127.0.0.1:8765",
+    )
 
 
 @dataclass

@@ -34,7 +34,7 @@ def test_lifecycle_recovers_running_jobs_on_startup() -> None:
         close=lambda: None,
     )
 
-    with TestClient(create_app(base, job_store=jobs)):
+    with TestClient(create_app(base, job_store=jobs), base_url="http://127.0.0.1:8765"):
         recovered = jobs.get(job.id)
         assert recovered is not None
         assert recovered.status is JobStatus.FAILED

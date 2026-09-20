@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from adapters.inbound.http.auth import UnauthorizedError
+from adapters.inbound.http.security import CrossOriginForbiddenError, UntrustedHostError
 from adapters.outbound.ollama.errors import (
     LlmContextExceededError,
     LlmModelNotFoundError,
@@ -38,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 _STATUS_BY_TYPE: dict[type[PrometheusError], int] = {
     UnauthorizedError: 401,
+    CrossOriginForbiddenError: 403,
+    UntrustedHostError: 400,
     JobNotFoundError: 404,
     RevisionConflictError: 409,
     VaultNotIndexedError: 409,

@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 
 from adapters.inbound.http.errors import install_exception_handlers, unhandled_exception
 from adapters.inbound.http.jobs import BackgroundJobRunner
@@ -19,6 +19,7 @@ from adapters.inbound.http.routes.reindex import router as reindex_router
 from adapters.inbound.http.routes.search import router as search_router
 from adapters.inbound.http.routes.status import router as status_router
 from adapters.inbound.http.routes.sync import router as sync_router
+from adapters.inbound.http.security import reject_cross_origin, require_trusted_host
 from adapters.outbound.filesystem.logging_setup import log_context
 from application.ports.job_store import JobStore
 
@@ -56,6 +57,7 @@ def create_app(
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,
+        dependencies=[Depends(require_trusted_host), Depends(reject_cross_origin)],
     )
     app.state.container = container
     app.state.vault_registry = vault_registry

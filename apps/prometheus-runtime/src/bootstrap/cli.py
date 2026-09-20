@@ -13,6 +13,7 @@ import uvicorn
 from adapters.inbound.http.app import create_app
 from adapters.outbound.filesystem.data_dir import ensure_layout, resolve_data_dir
 from adapters.outbound.filesystem.logging_setup import configure_logging
+from adapters.outbound.network.guard import NetworkGuard
 from bootstrap import __version__
 from bootstrap.config import LogLevel, load_settings
 from bootstrap.container import Container
@@ -81,6 +82,7 @@ def serve(
                 "log_level": log_level,
             }
         )
+        NetworkGuard.install()
         layout = ensure_layout(resolve_data_dir(settings.data_dir))
         configure_logging(layout, settings.log_level)
         _assert_port_available(settings.host, settings.port)
