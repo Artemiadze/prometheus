@@ -22,8 +22,8 @@ test:
 
 openapi-check:
 	@tmp=$$(mktemp); \
+	trap 'rm -f $$tmp' EXIT; \
 	uv run prometheus-runtime export-openapi --output $$tmp; \
-	diff -u ../../contracts/openapi.yaml $$tmp; \
-	rm -f $$tmp
+	diff -u ../../contracts/openapi.yaml $$tmp
 
 check: lint typecheck arch test openapi-check

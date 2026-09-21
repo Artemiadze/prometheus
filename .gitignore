@@ -10,3 +10,8 @@ dist/
 build/
 *.egg-info/
 apps/prometheus-runtime/.import_linter_cache
+node_modules/
+*.tsbuildinfo
+apps/prometheus-plugin/main.js
+apps/prometheus-plugin/.env
+apps/prometheus-plugin/.tools/

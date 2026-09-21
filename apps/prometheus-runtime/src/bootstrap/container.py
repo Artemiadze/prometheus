@@ -107,9 +107,7 @@ class Container:
         self._reranker_factory = reranker_factory
         self._job_store_factory = job_store_factory or self._build_job_store
         self._progress_reporter_factory = progress_reporter_factory or self._build_progress_reporter
-        self._rebuild_workspace_factory = (
-            rebuild_workspace_factory or self._build_rebuild_workspace
-        )
+        self._rebuild_workspace_factory = rebuild_workspace_factory or self._build_rebuild_workspace
 
     def _build_embedder(self) -> Embedder:
         if self.settings.embedding_provider.casefold() != "fastembed":

@@ -1,0 +1,95 @@
+/* Prometheus plugin styles — scoped to .prometheus-* selectors only. */
+
+.prometheus-chat-view,
+.prometheus-search-view,
+.prometheus-status-view,
+.prometheus-settings {
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  font-family: var(--font-interface);
+}
+
+.prometheus-chat-view,
+.prometheus-search-view,
+.prometheus-status-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--size-4-3);
+  gap: var(--size-4-2);
+  box-sizing: border-box;
+}
+
+.prometheus-chat-view__messages,
+.prometheus-search-view__results,
+.prometheus-status-view__panel {
+  flex: 1 1 auto;
+  overflow: auto;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-2);
+}
+
+.prometheus-chat-view__input,
+.prometheus-search-view__input {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: center;
+}
+
+.prometheus-chat-view__input textarea,
+.prometheus-search-view__input input {
+  flex: 1 1 auto;
+  background-color: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--input-radius);
+  padding: var(--size-4-2);
+}
+
+.prometheus-chat-view__submit,
+.prometheus-search-view__submit,
+.prometheus-settings button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--button-radius);
+  padding: var(--size-4-1) var(--size-4-3);
+  cursor: pointer;
+}
+
+.prometheus-chat-view__submit:hover,
+.prometheus-search-view__submit:hover,
+.prometheus-settings button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.prometheus-status-view__item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.prometheus-status-view__item-label {
+  color: var(--text-normal);
+}
+
+.prometheus-settings {
+  padding: var(--size-4-4);
+}
+
+.prometheus-settings__section {
+  margin-bottom: var(--size-4-4);
+  padding-bottom: var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.prometheus-settings__section-title {
+  margin: 0 0 var(--size-4-2);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}

@@ -1,14 +1,16 @@
-name: Runtime CI
+name: CI
 
 on:
   push:
     paths:
       - "apps/prometheus-runtime/**"
+      - "apps/prometheus-plugin/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
       - "apps/prometheus-runtime/**"
+      - "apps/prometheus-plugin/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
 
@@ -29,12 +31,38 @@ jobs:
       - name: Install Python and dependencies
         run: uv sync --frozen --project apps/prometheus-runtime
       - name: Lint
-        run: make lint
+        run: make runtime-lint
       - name: Typecheck
-        run: make typecheck
+        run: make runtime-typecheck
       - name: Architecture contracts
-        run: make arch
+        run: make runtime-arch
       - name: Test
-        run: make test
+        run: make runtime-test
       - name: Verify OpenAPI contract
-        run: make openapi-check
+        run: make runtime-openapi-check
+
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/prometheus-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/prometheus-plugin/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+      - name: Check production bundle
+        run: node scripts/check-prod-bundle.mjs
