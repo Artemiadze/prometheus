@@ -14,7 +14,9 @@ export type PrometheusPluginErrorCode =
   | "RUNTIME_VERSION_INCOMPATIBLE"
   | "RUNTIME_UNAVAILABLE"
   | "VAULT_NOT_INDEXED"
-  | "LLM_MODEL_NOT_FOUND";
+  | "LLM_MODEL_NOT_FOUND"
+  | "QUERY_TOO_SHORT"
+  | "NOTE_NOT_FOUND";
 
 export abstract class PrometheusPluginError extends Error {
   abstract readonly code: PrometheusPluginErrorCode;
@@ -113,6 +115,31 @@ export class LlmModelNotFoundError extends PrometheusPluginError {
   }
 }
 
+export class QueryTooShortError extends PrometheusPluginError {
+  readonly code = "QUERY_TOO_SHORT" as const;
+
+  constructor() {
+    super("Search query is too short");
+  }
+}
+
+export class NoteNotFoundError extends PrometheusPluginError {
+  readonly code = "NOTE_NOT_FOUND" as const;
+  readonly path: string;
+
+  constructor(path: string) {
+    super(`Note not found: ${path}`);
+    this.path = path;
+  }
+}
+
 export function isPrometheusPluginError(value: unknown): value is PrometheusPluginError {
   return value instanceof PrometheusPluginError;
+}
+
+export function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
+  );
 }

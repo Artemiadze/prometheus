@@ -16,6 +16,8 @@ export type RuntimeConnection = {
   readonly sessionToken: string;
 };
 
+export type RuntimeStopMode = "graceful" | "force";
+
 /**
  * Outbound port for managed/custom sidecar lifecycle.
  * Does not expose ChildProcess or filesystem APIs.
@@ -25,7 +27,7 @@ export interface RuntimeGateway {
   download(onProgress: ProgressCallback, signal?: AbortSignal): Promise<void>;
   verify(signal?: AbortSignal): Promise<void>;
   start(signal?: AbortSignal): Promise<RuntimeConnection>;
-  stop(signal?: AbortSignal): Promise<void>;
+  stop(mode?: RuntimeStopMode, signal?: AbortSignal): Promise<void>;
   getProcessState(): ManagedRuntimeState;
   getInstalledVersion(): Promise<string | null>;
 }

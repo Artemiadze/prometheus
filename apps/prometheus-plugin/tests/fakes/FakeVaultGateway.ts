@@ -1,4 +1,8 @@
-import type { VaultEvent, VaultFileSnapshot } from "../../src/application/dto/vault";
+import type {
+  OpenNoteOptions,
+  VaultEvent,
+  VaultFileSnapshot,
+} from "../../src/application/dto/vault";
 import type { VaultGateway } from "../../src/application/ports/VaultGateway";
 import { NotePath } from "../../src/domain/value-objects/NotePath";
 
@@ -9,7 +13,7 @@ type StoredFile = {
 
 export type OpenNoteCall = {
   readonly path: NotePath;
-  readonly heading: string | null;
+  readonly options: OpenNoteOptions;
 };
 
 export class FakeVaultGateway implements VaultGateway {
@@ -70,11 +74,13 @@ export class FakeVaultGateway implements VaultGateway {
     };
   }
 
-  async openNote(path: NotePath, heading?: string | null): Promise<void> {
-    this.openNoteCalls.push({
-      path,
-      heading: heading === undefined ? null : heading,
-    });
+  async openNote(
+    path: NotePath,
+    options: OpenNoteOptions = {},
+    signal?: AbortSignal,
+  ): Promise<void> {
+    throwIfAborted(signal);
+    this.openNoteCalls.push({ path, options });
     this.activeNote = path;
   }
 

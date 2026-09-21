@@ -4,11 +4,13 @@ import type {
   RuntimeConnection,
   RuntimeGateway,
   RuntimeLocateResult,
+  RuntimeStopMode,
 } from "../../src/application/ports/RuntimeGateway";
 import {
   ManagedRuntimeState,
   type ManagedRuntimeState as ManagedRuntimeStateType,
 } from "../../src/domain/entities/RuntimeStatus";
+import { RuntimeChecksumMismatchError } from "../../src/domain/errors";
 
 export class FakeRuntimeGateway implements RuntimeGateway {
   private state: ManagedRuntimeStateType = ManagedRuntimeState.missing();
@@ -16,6 +18,10 @@ export class FakeRuntimeGateway implements RuntimeGateway {
   private locateKind: RuntimeLocateResult["kind"] = "missing";
   lastConnection: RuntimeConnection | null = null;
   readonly downloadProgress: DownloadProgress[] = [];
+  readonly stopCalls: RuntimeStopMode[] = [];
+  startCalls = 0;
+  verifyShouldFail = false;
+  hangGracefulStop = false;
 
   setLocateResult(kind: RuntimeLocateResult["kind"], version: string | null = null): void {
     this.locateKind = kind;
@@ -49,10 +55,14 @@ export class FakeRuntimeGateway implements RuntimeGateway {
   async verify(signal?: AbortSignal): Promise<void> {
     throwIfAborted(signal);
     this.state = ManagedRuntimeState.verifying();
+    if (this.verifyShouldFail) {
+      throw new RuntimeChecksumMismatchError();
+    }
   }
 
   async start(signal?: AbortSignal): Promise<RuntimeConnection> {
     throwIfAborted(signal);
+    this.startCalls += 1;
     this.state = ManagedRuntimeState.starting();
     const connection: RuntimeConnection = {
       baseUrl: "http://127.0.0.1:8765",
@@ -63,7 +73,14 @@ export class FakeRuntimeGateway implements RuntimeGateway {
     return connection;
   }
 
-  async stop(signal?: AbortSignal): Promise<void> {
+  async stop(mode: RuntimeStopMode = "graceful", signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    this.stopCalls.push(mode);
+    if (mode === "graceful" && this.hangGracefulStop) {
+      await new Promise<void>(() => {
+        /* never resolves — StopRuntime races FakeClock timeout */
+      });
+    }
     throwIfAborted(signal);
     this.state = ManagedRuntimeState.stopped();
   }

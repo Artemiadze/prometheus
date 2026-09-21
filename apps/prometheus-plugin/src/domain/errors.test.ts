@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   isPrometheusPluginError,
   LlmModelNotFoundError,
+  NoteNotFoundError,
+  QueryTooShortError,
   RuntimeChecksumMismatchError,
   RuntimeNotInstalledError,
   RuntimeUnavailableError,
@@ -17,6 +19,8 @@ describe("PrometheusPluginError hierarchy", () => {
     expect(new RuntimeUnavailableError().code).toBe("RUNTIME_UNAVAILABLE");
     expect(new VaultNotIndexedError().code).toBe("VAULT_NOT_INDEXED");
     expect(new LlmModelNotFoundError("qwen3:4b").code).toBe("LLM_MODEL_NOT_FOUND");
+    expect(new QueryTooShortError().code).toBe("QUERY_TOO_SHORT");
+    expect(new NoteNotFoundError("a.md").code).toBe("NOTE_NOT_FOUND");
     expect(new RuntimeVersionIncompatibleError("0.0.1", ">=0.1.0,<0.2.0").code).toBe(
       "RUNTIME_VERSION_INCOMPATIBLE",
     );

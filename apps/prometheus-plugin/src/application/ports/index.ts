@@ -6,6 +6,7 @@ export type {
   RuntimeConnection,
   RuntimeGateway,
   RuntimeLocateResult,
+  RuntimeStopMode,
 } from "./RuntimeGateway";
 export type { RagGateway } from "./RagGateway";
 export type { SettingsRepository } from "./SettingsRepository";

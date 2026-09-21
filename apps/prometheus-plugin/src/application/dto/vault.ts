@@ -1,4 +1,5 @@
 import type { NotePath } from "../../domain/value-objects/NotePath";
+import type { NoteOpenMode } from "./settings";
 
 export type VaultFileSnapshot = {
   readonly path: NotePath;
@@ -13,3 +14,8 @@ export type VaultEvent =
   | { readonly type: "rename"; readonly path: NotePath; readonly previousPath: NotePath };
 
 export type Unsubscribe = () => void;
+
+export type OpenNoteOptions = {
+  readonly heading?: string | null;
+  readonly mode?: NoteOpenMode;
+};

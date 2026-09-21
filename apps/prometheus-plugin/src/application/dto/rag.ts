@@ -1,3 +1,4 @@
+import type { DocumentId } from "../../domain/value-objects/DocumentId";
 import type { NotePath } from "../../domain/value-objects/NotePath";
 import type { SourceReference } from "../../domain/entities/SourceReference";
 
@@ -38,6 +39,14 @@ export type UpsertDocumentInput = {
   readonly modifiedAt: Date;
 };
 
+export type UpsertDocumentResult = {
+  readonly documentId: string;
+  readonly skipped: boolean;
+  readonly relocated: boolean;
+  readonly createdChunks: number;
+  readonly deletedChunks: number;
+};
+
 export type SearchHitDto = {
   readonly path: NotePath;
   readonly heading: string | null;
@@ -51,9 +60,20 @@ export type ChatAnswerDto = {
   readonly insufficientContext: boolean;
 };
 
+export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
 export type JobInfo = {
   readonly jobId: string;
-  readonly status: string;
+  readonly status: JobStatus;
   readonly progress: number;
   readonly error: string | null;
+};
+
+/** Metadata-only vault snapshot entry for POST /sync/complete. */
+export type VaultSnapshotEntry = {
+  readonly documentId: DocumentId;
+  readonly path: NotePath;
+  readonly contentHash: string;
+  readonly revision: number;
+  readonly modifiedAt: Date;
 };

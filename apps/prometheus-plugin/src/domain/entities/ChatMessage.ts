@@ -1,8 +1,8 @@
 import { InvariantViolationError } from "../errors";
 import type { SourceReference } from "./SourceReference";
 
-export type UserMessageState = "pending" | "complete" | "error";
-export type AssistantMessageState = "pending" | "streaming" | "complete" | "error";
+export type UserMessageState = "pending" | "complete" | "error" | "cancelled";
+export type AssistantMessageState = "pending" | "streaming" | "complete" | "error" | "cancelled";
 
 export type UserChatMessage = {
   readonly kind: "user";

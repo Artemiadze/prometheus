@@ -23,4 +23,14 @@ export class ChatSession {
   appendMessage(message: ChatMessage): ChatSession {
     return new ChatSession(this.id, [...this._messages, message]);
   }
+
+  replaceMessage(id: string, message: ChatMessage): ChatSession {
+    const index = this._messages.findIndex((item) => item.id === id);
+    if (index < 0) {
+      throw new Error(`Message not found: ${id}`);
+    }
+    const next = [...this._messages];
+    next[index] = message;
+    return new ChatSession(this.id, next);
+  }
 }

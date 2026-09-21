@@ -2,6 +2,8 @@ export type RuntimeMode = "managed" | "custom";
 
 export type NetworkAccessMode = "updates_only" | "disabled";
 
+export type NoteOpenMode = "reuse_active" | "open_new_pane";
+
 /**
  * Plugin-owned settings persisted in Obsidian data.json (Project_analytics §48).
  * Embedding/chunk size live in the runtime, not here.
@@ -15,6 +17,7 @@ export type PluginSettings = {
   readonly ollamaAddress: string;
   readonly networkAccess: NetworkAccessMode;
   readonly vaultId: string | null;
+  readonly noteOpenMode: NoteOpenMode;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -26,4 +29,5 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   ollamaAddress: "127.0.0.1:11434",
   networkAccess: "updates_only",
   vaultId: null,
+  noteOpenMode: "reuse_active",
 };

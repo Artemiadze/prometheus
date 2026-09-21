@@ -9,6 +9,8 @@ import type {
   RuntimeServiceStatus,
   SearchHitDto,
   UpsertDocumentInput,
+  UpsertDocumentResult,
+  VaultSnapshotEntry,
 } from "../dto/rag";
 
 /**
@@ -24,9 +26,13 @@ export interface RagGateway {
     documentId: DocumentId,
     input: UpsertDocumentInput,
     signal?: AbortSignal,
-  ): Promise<void>;
+  ): Promise<UpsertDocumentResult>;
   deleteDocument(vaultId: VaultId, documentId: DocumentId, signal?: AbortSignal): Promise<void>;
-  syncComplete(vaultId: VaultId, signal?: AbortSignal): Promise<void>;
+  syncComplete(
+    vaultId: VaultId,
+    entries: readonly VaultSnapshotEntry[],
+    signal?: AbortSignal,
+  ): Promise<JobInfo>;
   search(
     vaultId: VaultId,
     query: string,
