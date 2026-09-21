@@ -14,10 +14,10 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "baseUrl": "src",
     "types": ["node", "obsidian", "vitest/globals"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "main.js"]
 }

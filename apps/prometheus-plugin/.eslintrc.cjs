@@ -18,7 +18,13 @@ module.exports = {
     es2020: true,
     node: true,
   },
-  ignorePatterns: ["main.js", "node_modules/", "esbuild.config.mjs", "scripts/", "vitest.config.ts"],
+  ignorePatterns: [
+    "main.js",
+    "node_modules/",
+    "esbuild.config.mjs",
+    "scripts/",
+    "vitest.config.ts",
+  ],
   overrides: [
     {
       files: ["src/domain/**/*.{ts,tsx}", "src/application/**/*.{ts,tsx}"],
