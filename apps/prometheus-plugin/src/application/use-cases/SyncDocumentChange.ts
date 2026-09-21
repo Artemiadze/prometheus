@@ -5,7 +5,11 @@ import type { SettingsRepository } from "../ports/SettingsRepository";
 import type { VaultGateway } from "../ports/VaultGateway";
 import { computeContentHash } from "../services/contentHash";
 import type { DocumentSyncState } from "../services/DocumentSyncState";
-import { requireVaultId } from "../services/settingsHelpers";
+import {
+  effectiveIgnoredFolders,
+  isIgnoredPath,
+  requireVaultId,
+} from "../services/settingsHelpers";
 
 export class SyncDocumentChange {
   constructor(
@@ -23,12 +27,16 @@ export class SyncDocumentChange {
   async executeMany(events: readonly VaultEvent[], signal?: AbortSignal): Promise<void> {
     const settings = await this.settings.get();
     const vaultId = requireVaultId(settings);
+    const ignored = effectiveIgnoredFolders(settings);
 
     for (const event of events) {
       try {
         switch (event.type) {
           case "create":
           case "modify": {
+            if (isIgnoredPath(event.path.value, ignored)) {
+              break;
+            }
             const file = await this.vault.readFile(event.path, signal);
             const contentHash = computeContentHash(file.content);
             const existing = this.syncState.getByPath(event.path);
@@ -58,11 +66,20 @@ export class SyncDocumentChange {
           }
           case "delete": {
             const record = this.syncState.removeByPath(event.path);
-            const documentId = record?.documentId ?? this.syncState.resolveOrCreate(event.path);
-            await this.rag.deleteDocument(vaultId, documentId, signal);
+            if (!record) {
+              break;
+            }
+            await this.rag.deleteDocument(vaultId, record.documentId, signal);
             break;
           }
           case "rename": {
+            if (isIgnoredPath(event.path.value, ignored)) {
+              const previous = this.syncState.removeByPath(event.previousPath);
+              if (previous) {
+                await this.rag.deleteDocument(vaultId, previous.documentId, signal);
+              }
+              break;
+            }
             const previous = this.syncState.removeByPath(event.previousPath);
             const documentId = previous?.documentId ?? this.syncState.resolveOrCreate(event.path);
             const file = await this.vault.readFile(event.path, signal);

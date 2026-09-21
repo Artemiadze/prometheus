@@ -8,8 +8,12 @@ import type { OpenNoteOptions, Unsubscribe, VaultEvent, VaultFileSnapshot } from
 export interface VaultGateway {
   readFile(path: NotePath, signal?: AbortSignal): Promise<VaultFileSnapshot>;
   listMarkdownFiles(signal?: AbortSignal): Promise<readonly NotePath[]>;
-  getVaultSnapshot(signal?: AbortSignal): Promise<readonly VaultFileSnapshot[]>;
+  getVaultSnapshot(
+    signal?: AbortSignal,
+    ignoredFolders?: readonly string[],
+  ): Promise<readonly VaultFileSnapshot[]>;
   subscribe(listener: (event: VaultEvent) => void): Unsubscribe;
+  subscribeActiveFile(listener: (path: NotePath | null) => void): Unsubscribe;
   openNote(path: NotePath, options?: OpenNoteOptions, signal?: AbortSignal): Promise<void>;
   getActiveNotePath(): NotePath | null;
   getActiveFolderPath(): NotePath | null;

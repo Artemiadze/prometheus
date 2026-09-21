@@ -18,6 +18,8 @@ export type PluginSettings = {
   readonly networkAccess: NetworkAccessMode;
   readonly vaultId: string | null;
   readonly noteOpenMode: NoteOpenMode;
+  readonly indexingDebounceMs: number;
+  readonly maxConcurrentSyncs: number;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -30,4 +32,9 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   networkAccess: "updates_only",
   vaultId: null,
   noteOpenMode: "reuse_active",
+  indexingDebounceMs: 750,
+  maxConcurrentSyncs: 2,
 };
+
+/** Always ignored regardless of user settings. */
+export const SYSTEM_IGNORED_FOLDERS: readonly string[] = [".obsidian/"];

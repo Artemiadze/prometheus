@@ -4,11 +4,13 @@ import type {
   VaultFileSnapshot,
 } from "../../src/application/dto/vault";
 import type { VaultGateway } from "../../src/application/ports/VaultGateway";
+import { isIgnoredPath } from "../../src/application/services/settingsHelpers";
 import { NotePath } from "../../src/domain/value-objects/NotePath";
 
 type StoredFile = {
   content: string;
   modifiedAt: Date;
+  sizeBytes: number;
 };
 
 export type OpenNoteCall = {
@@ -19,17 +21,26 @@ export type OpenNoteCall = {
 export class FakeVaultGateway implements VaultGateway {
   private readonly files = new Map<string, StoredFile>();
   private readonly listeners = new Set<(event: VaultEvent) => void>();
+  private readonly activeListeners = new Set<(path: NotePath | null) => void>();
   private activeNote: NotePath | null = null;
   private activeFolder: NotePath | null = null;
   readonly openNoteCalls: OpenNoteCall[] = [];
+  snapshotYields = 0;
 
   seed(path: NotePath | string, content: string, modifiedAt: Date = new Date(0)): void {
     const notePath = toPath(path);
-    this.files.set(notePath.value, { content, modifiedAt });
+    this.files.set(notePath.value, {
+      content,
+      modifiedAt,
+      sizeBytes: Buffer.byteLength(content, "utf8"),
+    });
   }
 
   setActiveNote(path: NotePath | string | null): void {
     this.activeNote = path === null ? null : toPath(path);
+    for (const listener of this.activeListeners) {
+      listener(this.activeNote);
+    }
   }
 
   setActiveFolder(path: NotePath | string | null): void {
@@ -48,7 +59,12 @@ export class FakeVaultGateway implements VaultGateway {
     if (!stored) {
       throw new Error(`File not found: ${path.value}`);
     }
-    return { path, content: stored.content, modifiedAt: stored.modifiedAt };
+    return {
+      path,
+      content: stored.content,
+      modifiedAt: stored.modifiedAt,
+      sizeBytes: stored.sizeBytes,
+    };
   }
 
   async listMarkdownFiles(signal?: AbortSignal): Promise<readonly NotePath[]> {
@@ -58,19 +74,39 @@ export class FakeVaultGateway implements VaultGateway {
       .map((key) => NotePath.create(key));
   }
 
-  async getVaultSnapshot(signal?: AbortSignal): Promise<readonly VaultFileSnapshot[]> {
+  async getVaultSnapshot(
+    signal?: AbortSignal,
+    ignoredFolders: readonly string[] = [],
+  ): Promise<readonly VaultFileSnapshot[]> {
     throwIfAborted(signal);
-    return [...this.files.entries()].map(([key, stored]) => ({
-      path: NotePath.create(key),
-      content: stored.content,
-      modifiedAt: stored.modifiedAt,
-    }));
+    const result: VaultFileSnapshot[] = [];
+    for (const [key, stored] of this.files.entries()) {
+      if (!key.endsWith(".md") || isIgnoredPath(key, ignoredFolders)) {
+        continue;
+      }
+      result.push({
+        path: NotePath.create(key),
+        content: stored.content,
+        modifiedAt: stored.modifiedAt,
+        sizeBytes: stored.sizeBytes,
+      });
+      this.snapshotYields += 1;
+      await Promise.resolve();
+    }
+    return result;
   }
 
   subscribe(listener: (event: VaultEvent) => void): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  subscribeActiveFile(listener: (path: NotePath | null) => void): () => void {
+    this.activeListeners.add(listener);
+    return () => {
+      this.activeListeners.delete(listener);
     };
   }
 

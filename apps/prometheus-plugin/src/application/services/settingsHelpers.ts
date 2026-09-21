@@ -1,5 +1,5 @@
 import { VaultId } from "../../domain/value-objects/VaultId";
-import type { PluginSettings } from "../dto/settings";
+import { SYSTEM_IGNORED_FOLDERS, type PluginSettings } from "../dto/settings";
 import { InvariantViolationError } from "../../domain/errors";
 
 export function requireVaultId(settings: PluginSettings): VaultId {
@@ -9,9 +9,15 @@ export function requireVaultId(settings: PluginSettings): VaultId {
   return VaultId.create(settings.vaultId);
 }
 
+export function effectiveIgnoredFolders(settings: PluginSettings): readonly string[] {
+  return [...SYSTEM_IGNORED_FOLDERS, ...settings.ignoredFolders];
+}
+
 export function isIgnoredPath(pathValue: string, ignoredFolders: readonly string[]): boolean {
   return ignoredFolders.some((folder) => {
-    const prefix = folder.endsWith("/") ? folder : `${folder}/`;
-    return pathValue === folder.replace(/\/$/, "") || pathValue.startsWith(prefix);
+    const normalized = folder.replace(/\\/g, "/");
+    const prefix = normalized.endsWith("/") ? normalized : `${normalized}/`;
+    const bare = prefix.slice(0, -1);
+    return pathValue === bare || pathValue.startsWith(prefix);
   });
 }

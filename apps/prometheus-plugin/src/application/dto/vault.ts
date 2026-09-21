@@ -5,6 +5,7 @@ export type VaultFileSnapshot = {
   readonly path: NotePath;
   readonly content: string;
   readonly modifiedAt: Date;
+  readonly sizeBytes: number;
 };
 
 export type VaultEvent =

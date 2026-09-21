@@ -62,4 +62,11 @@ describe("SyncDocumentChange", () => {
     await useCase.execute({ type: "delete", path: NotePath.create("new.md") });
     expect(rag.deleteCalls).toBe(1);
   });
+
+  it("skips create/modify into ignored folders", async () => {
+    const { vault, rag, useCase } = setup();
+    vault.seed("Templates/x.md", "ignored");
+    await useCase.execute({ type: "create", path: NotePath.create("Templates/x.md") });
+    expect(rag.upsertCalls).toBe(0);
+  });
 });

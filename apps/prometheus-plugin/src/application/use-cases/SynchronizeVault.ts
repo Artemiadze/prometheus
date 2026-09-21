@@ -7,7 +7,11 @@ import type { VaultGateway } from "../ports/VaultGateway";
 import { computeContentHash } from "../services/contentHash";
 import type { DocumentSyncState } from "../services/DocumentSyncState";
 import { JobTracker } from "../services/JobTracker";
-import { isIgnoredPath, requireVaultId } from "../services/settingsHelpers";
+import {
+  effectiveIgnoredFolders,
+  isIgnoredPath,
+  requireVaultId,
+} from "../services/settingsHelpers";
 
 export type SyncVaultPhase = "scanning" | "uploading" | "reconciling" | "completed";
 
@@ -55,10 +59,9 @@ export class SynchronizeVault {
     const batchSize = options.batchSize ?? 50;
 
     options.onProgress?.({ phase: "scanning", processed: 0, total: 0 });
-    const snapshot = await this.vault.getVaultSnapshot(signal);
-    const files = snapshot.filter(
-      (file) => !isIgnoredPath(file.path.value, settings.ignoredFolders),
-    );
+    const ignored = effectiveIgnoredFolders(settings);
+    const snapshot = await this.vault.getVaultSnapshot(signal, ignored);
+    const files = snapshot.filter((file) => !isIgnoredPath(file.path.value, ignored));
 
     const failures: SyncVaultFileFailure[] = [];
     const entries: VaultSnapshotEntry[] = [];
