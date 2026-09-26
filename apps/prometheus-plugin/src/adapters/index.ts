@@ -1,10 +1,16 @@
 export {
+  HttpRagGateway,
   ObsidianSettingsRepository,
   ensureVaultId,
   generateVaultId,
   mergeSettings,
   ObsidianVaultGateway,
   openNoteWithHeading,
+  PLUGIN_VERSION,
+  RuntimeHttpClient,
   type DataPlugin,
   type ObsidianVaultGatewayOptions,
+  type RuntimeHttpClientOptions,
+  type RuntimeHttpRequest,
+  type RuntimeResponseDecoder,
 } from "./outbound";

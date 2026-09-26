@@ -3,6 +3,7 @@ import type {
   HealthInfo,
   JobInfo,
   LlmModelInfo,
+  ReindexDocumentInput,
   RuntimeServiceStatus,
   SearchHitDto,
   UpsertDocumentInput,
@@ -68,7 +69,7 @@ export class FakeRagGateway implements RagGateway {
     return this.healthResult;
   }
 
-  async status(signal?: AbortSignal): Promise<RuntimeServiceStatus> {
+  async status(_vaultId: VaultId, signal?: AbortSignal): Promise<RuntimeServiceStatus> {
     throwIfAborted(signal);
     return this.serviceStatus;
   }
@@ -163,7 +164,7 @@ export class FakeRagGateway implements RagGateway {
 
   async reindex(
     vaultId: VaultId,
-    documents: readonly UpsertDocumentInput[],
+    documents: readonly ReindexDocumentInput[],
     signal?: AbortSignal,
   ): Promise<JobInfo> {
     throwIfAborted(signal);
@@ -175,8 +176,13 @@ export class FakeRagGateway implements RagGateway {
     }
     this.reindexCalls += 1;
     for (const doc of documents) {
-      const id = `doc-${doc.path.value}`;
-      this.ensureVault(vaultId).set(id, { ...doc, documentId: id });
+      this.ensureVault(vaultId).set(doc.documentId.value, {
+        path: doc.path,
+        content: doc.content,
+        revision: doc.revision,
+        modifiedAt: doc.modifiedAt,
+        documentId: doc.documentId.value,
+      });
     }
     return this.createOrReuseJob();
   }

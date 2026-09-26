@@ -44,7 +44,7 @@ describe("RuntimeStatus", () => {
       [ManagedRuntimeState.missing(), "download"],
       [ManagedRuntimeState.downloading(45), "wait"],
       [ManagedRuntimeState.verifying(), "wait"],
-      [ManagedRuntimeState.incompatible("0.0.1", ">=0.1.0,<0.2.0"), "updatePlugin"],
+      [ManagedRuntimeState.incompatible("0.0.1", ">=0.1.0,<0.2.0"), "updateRuntime"],
       [ManagedRuntimeState.starting(), "wait"],
       [ManagedRuntimeState.running("0.1.0"), "none"],
       [ManagedRuntimeState.stopped(), "restart"],

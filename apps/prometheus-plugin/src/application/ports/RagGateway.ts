@@ -6,6 +6,7 @@ import type {
   HealthInfo,
   JobInfo,
   LlmModelInfo,
+  ReindexDocumentInput,
   RuntimeServiceStatus,
   SearchHitDto,
   UpsertDocumentInput,
@@ -19,7 +20,7 @@ import type {
  */
 export interface RagGateway {
   health(signal?: AbortSignal): Promise<HealthInfo>;
-  status(signal?: AbortSignal): Promise<RuntimeServiceStatus>;
+  status(vaultId: VaultId, signal?: AbortSignal): Promise<RuntimeServiceStatus>;
   listModels(signal?: AbortSignal): Promise<readonly LlmModelInfo[]>;
   upsertDocument(
     vaultId: VaultId,
@@ -48,7 +49,7 @@ export interface RagGateway {
   ): Promise<ChatAnswerDto>;
   reindex(
     vaultId: VaultId,
-    documents: readonly UpsertDocumentInput[],
+    documents: readonly ReindexDocumentInput[],
     signal?: AbortSignal,
   ): Promise<JobInfo>;
   getJob(jobId: string, signal?: AbortSignal): Promise<JobInfo>;

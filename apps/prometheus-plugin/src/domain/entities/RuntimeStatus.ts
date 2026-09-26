@@ -1,4 +1,4 @@
-export type RuntimeRecommendedAction = "download" | "wait" | "updatePlugin" | "none" | "restart";
+export type RuntimeRecommendedAction = "download" | "wait" | "updateRuntime" | "none" | "restart";
 
 export type ManagedRuntimeState =
   | { readonly kind: "missing" }
@@ -84,7 +84,7 @@ export function recommendedActionForRuntime(state: ManagedRuntimeState): Runtime
     case "starting":
       return "wait";
     case "incompatible":
-      return "updatePlugin";
+      return "updateRuntime";
     case "running":
       return "none";
     case "stopped":

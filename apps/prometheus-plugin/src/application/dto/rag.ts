@@ -39,6 +39,10 @@ export type UpsertDocumentInput = {
   readonly modifiedAt: Date;
 };
 
+export type ReindexDocumentInput = UpsertDocumentInput & {
+  readonly documentId: DocumentId;
+};
+
 export type UpsertDocumentResult = {
   readonly documentId: string;
   readonly skipped: boolean;

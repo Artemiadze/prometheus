@@ -4,6 +4,7 @@ export type {
   JobInfo,
   JobStatus,
   LlmModelInfo,
+  ReindexDocumentInput,
   RuntimeServiceStatus,
   SearchHitDto,
   UpsertDocumentInput,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GetSystemStatus } from "../../../src/application/use-cases/GetSystemStatus";
 import { DEFAULT_PLUGIN_SETTINGS } from "../../../src/application/dto/settings";
 import { ManagedRuntimeState } from "../../../src/domain/entities/RuntimeStatus";
+import { RuntimeVersionIncompatibleError } from "../../../src/domain/errors";
 import { FakeClock } from "../../fakes/FakeClock";
 import { FakeRagGateway } from "../../fakes/FakeRagGateway";
 import { FakeRuntimeGateway } from "../../fakes/FakeRuntimeGateway";
@@ -20,7 +21,10 @@ describe("GetSystemStatus", () => {
     const useCase = new GetSystemStatus(
       rag,
       runtime,
-      new FakeSettingsRepository(),
+      new FakeSettingsRepository({
+        ...DEFAULT_PLUGIN_SETTINGS,
+        vaultId: "vault-a1",
+      }),
       new FakeClock(),
     );
     const status = await useCase.execute();
@@ -45,7 +49,11 @@ describe("GetSystemStatus", () => {
     const useCase = new GetSystemStatus(
       rag,
       runtime,
-      new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS, llmModel: "qwen3:4b" }),
+      new FakeSettingsRepository({
+        ...DEFAULT_PLUGIN_SETTINGS,
+        llmModel: "qwen3:4b",
+        vaultId: "vault-a1",
+      }),
       clock,
       { minIntervalMs: 1_000 },
     );
@@ -54,5 +62,29 @@ describe("GetSystemStatus", () => {
     clock.advance(100);
     const second = await useCase.execute();
     expect(second.fetchedAt.getTime()).toBe(first.fetchedAt.getTime());
+  });
+
+  it("surfaces an incompatible sidecar as runtime state", async () => {
+    const rag = new FakeRagGateway();
+    rag.status = async () => {
+      throw new RuntimeVersionIncompatibleError("0.2.0", ">=0.1.0,<0.2.0");
+    };
+    const runtime = new FakeRuntimeGateway();
+    runtime.setLocateResult("managed", "0.2.0");
+    await runtime.start();
+    const useCase = new GetSystemStatus(
+      rag,
+      runtime,
+      new FakeSettingsRepository({
+        ...DEFAULT_PLUGIN_SETTINGS,
+        vaultId: "vault-a1",
+      }),
+      new FakeClock(),
+    );
+
+    const status = await useCase.execute();
+    expect(status.runtime.runtime).toEqual(
+      ManagedRuntimeState.incompatible("0.2.0", ">=0.1.0,<0.2.0"),
+    );
   });
 });

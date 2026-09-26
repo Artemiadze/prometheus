@@ -1,4 +1,5 @@
-import type { JobInfo, UpsertDocumentInput } from "../dto/rag";
+import type { JobInfo, ReindexDocumentInput } from "../dto/rag";
+import type { VaultId } from "../../domain/value-objects/VaultId";
 import type { Clock } from "../ports/Clock";
 import type { RagGateway } from "../ports/RagGateway";
 import type { SettingsRepository } from "../ports/SettingsRepository";
@@ -6,7 +7,11 @@ import type { VaultGateway } from "../ports/VaultGateway";
 import { computeContentHash } from "../services/contentHash";
 import type { DocumentSyncState } from "../services/DocumentSyncState";
 import { JobTracker } from "../services/JobTracker";
-import { isIgnoredPath, requireVaultId } from "../services/settingsHelpers";
+import {
+  effectiveIgnoredFolders,
+  isIgnoredPath,
+  requireVaultId,
+} from "../services/settingsHelpers";
 
 export type RequestReindexResult =
   | {
@@ -37,7 +42,9 @@ export class RequestReindex {
   }
 
   async start(signal?: AbortSignal): Promise<RequestReindexResult> {
-    const status = await this.safeStatus(signal);
+    const settings = await this.settings.get();
+    const vaultId = requireVaultId(settings);
+    const status = await this.safeStatus(vaultId, signal);
 
     if (this.activeJobId) {
       const existing = await this.rag.getJob(this.activeJobId, signal);
@@ -51,19 +58,19 @@ export class RequestReindex {
       }
     }
 
-    const settings = await this.settings.get();
-    const vaultId = requireVaultId(settings);
-    const snapshot = await this.vault.getVaultSnapshot(signal);
-    const documents: UpsertDocumentInput[] = [];
+    const ignored = effectiveIgnoredFolders(settings);
+    const snapshot = await this.vault.getVaultSnapshot(signal, ignored);
+    const documents: ReindexDocumentInput[] = [];
 
     for (const file of snapshot) {
-      if (isIgnoredPath(file.path.value, settings.ignoredFolders)) {
+      if (isIgnoredPath(file.path.value, ignored)) {
         continue;
       }
       const documentId = this.syncState.resolveOrCreate(file.path);
       const contentHash = computeContentHash(file.content);
       const revision = this.syncState.nextRevision(file.path);
       documents.push({
+        documentId,
         path: file.path,
         content: file.content,
         revision,
@@ -109,9 +116,9 @@ export class RequestReindex {
     return job;
   }
 
-  private async safeStatus(signal?: AbortSignal) {
+  private async safeStatus(vaultId: VaultId, signal?: AbortSignal) {
     try {
-      return await this.rag.status(signal);
+      return await this.rag.status(vaultId, signal);
     } catch {
       return null;
     }

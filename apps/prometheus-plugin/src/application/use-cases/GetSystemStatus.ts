@@ -14,6 +14,8 @@ import type { Clock } from "../ports/Clock";
 import type { RagGateway } from "../ports/RagGateway";
 import type { RuntimeGateway } from "../ports/RuntimeGateway";
 import type { SettingsRepository } from "../ports/SettingsRepository";
+import { requireVaultId } from "../services/settingsHelpers";
+import { RuntimeVersionIncompatibleError } from "../../domain/errors";
 
 export type GetSystemStatusInput = {
   readonly signal?: AbortSignal;
@@ -59,9 +61,13 @@ export class GetSystemStatus {
     const settings = await this.settings.get();
     const processState = this.runtime.getProcessState();
     let service: RuntimeServiceStatus | null = null;
+    let incompatibility: RuntimeVersionIncompatibleError | null = null;
     try {
-      service = await this.rag.status(input.signal);
-    } catch {
+      service = await this.rag.status(requireVaultId(settings), input.signal);
+    } catch (error) {
+      if (error instanceof RuntimeVersionIncompatibleError) {
+        incompatibility = error;
+      }
       service = null;
     }
 
@@ -76,7 +82,12 @@ export class GetSystemStatus {
       : null;
 
     const runtime: RuntimeStatus = createRuntimeStatus({
-      runtime: processState,
+      runtime: incompatibility
+        ? ManagedRuntimeState.incompatible(
+            incompatibility.installedVersion,
+            incompatibility.requiredRange,
+          )
+        : processState,
       ollama,
       selectedModel,
     });
