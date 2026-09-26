@@ -1,0 +1,69 @@
+import { isRuntimeVersionCompatible } from "../../../application/services/RuntimeVersion";
+
+/**
+ * Release artifact policy for the managed runtime downloader.
+ * Final release host is owned by PRM-77 / PLG-87; this base URL is a placeholder.
+ *
+ * Assumption: each platform publishes a single executable file (no archive extraction).
+ */
+export const RUNTIME_RELEASE_BASE_URL = "https://releases.prometheus.local/runtime";
+
+/** Must stay within REQUIRED_RUNTIME_RANGE; validated in unit tests. */
+export const RUNTIME_RELEASE_VERSION = "0.1.0";
+
+export type ReleaseTarget = "linux-x64" | "win-x64" | "macos-x64" | "macos-arm64";
+
+export type RuntimeReleaseDescriptor = {
+  readonly binaryUrl: string;
+  readonly checksumUrl: string;
+  readonly fileName: string;
+  readonly version: string;
+};
+
+export function detectReleaseTarget(platform: NodeJS.Platform, arch: string): ReleaseTarget {
+  if (platform === "win32") {
+    return "win-x64";
+  }
+  if (platform === "darwin") {
+    return arch === "arm64" ? "macos-arm64" : "macos-x64";
+  }
+  return "linux-x64";
+}
+
+export function releaseFileName(target: ReleaseTarget): string {
+  switch (target) {
+    case "win-x64":
+      return "prometheus-runtime.exe";
+    case "linux-x64":
+      return "prometheus-runtime-linux-x64";
+    case "macos-x64":
+      return "prometheus-runtime-macos-x64";
+    case "macos-arm64":
+      return "prometheus-runtime-macos-arm64";
+    default: {
+      const _exhaustive: never = target;
+      return _exhaustive;
+    }
+  }
+}
+
+export function resolveReleaseDescriptor(
+  platform: NodeJS.Platform,
+  arch: string,
+  baseUrl: string = RUNTIME_RELEASE_BASE_URL,
+  version: string = RUNTIME_RELEASE_VERSION,
+): RuntimeReleaseDescriptor {
+  if (!isRuntimeVersionCompatible(version)) {
+    throw new Error(`RUNTIME_RELEASE_VERSION ${version} is outside the supported plugin range`);
+  }
+  const target = detectReleaseTarget(platform, arch);
+  const fileName = releaseFileName(target);
+  const versionSegment = `v${version}`;
+  const prefix = `${baseUrl.replace(/\/$/, "")}/${versionSegment}`;
+  return {
+    binaryUrl: `${prefix}/${fileName}`,
+    checksumUrl: `${prefix}/${fileName}.sha256`,
+    fileName,
+    version,
+  };
+}

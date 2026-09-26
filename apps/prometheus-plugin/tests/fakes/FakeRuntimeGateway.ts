@@ -89,6 +89,10 @@ export class FakeRuntimeGateway implements RuntimeGateway {
     return this.state;
   }
 
+  getDiagnostics(): readonly string[] {
+    return [];
+  }
+
   async getInstalledVersion(): Promise<string | null> {
     return this.installedVersion;
   }

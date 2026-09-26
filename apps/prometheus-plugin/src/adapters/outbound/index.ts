@@ -18,3 +18,15 @@ export {
   openNoteWithHeading,
   type ObsidianVaultGatewayOptions,
 } from "./vault";
+export {
+  DiagnosticBuffer,
+  ManagedRuntimeGateway,
+  RuntimeDownloader,
+  RuntimeLocator,
+  allocateLoopbackPort,
+  generateSessionToken,
+  maskArgvForDiagnostics,
+  parseChecksumFile,
+  resolveDataRoot,
+  type ManagedRuntimeGatewayOptions,
+} from "./runtime";

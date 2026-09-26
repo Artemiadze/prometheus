@@ -1,0 +1,26 @@
+import { describe, expect, it } from "vitest";
+
+import { isRuntimeVersionCompatible } from "../../../../src/application/services/RuntimeVersion";
+import {
+  RUNTIME_RELEASE_VERSION,
+  detectReleaseTarget,
+  resolveReleaseDescriptor,
+} from "../../../../src/adapters/outbound/runtime/runtimeRelease";
+
+describe("runtimeRelease", () => {
+  it("keeps RUNTIME_RELEASE_VERSION inside the plugin compatibility range", () => {
+    expect(isRuntimeVersionCompatible(RUNTIME_RELEASE_VERSION)).toBe(true);
+  });
+
+  it("detects platform targets", () => {
+    expect(detectReleaseTarget("linux", "x64")).toBe("linux-x64");
+    expect(detectReleaseTarget("win32", "x64")).toBe("win-x64");
+    expect(detectReleaseTarget("darwin", "arm64")).toBe("macos-arm64");
+  });
+
+  it("builds release URLs", () => {
+    const descriptor = resolveReleaseDescriptor("linux", "x64", "https://example.test/runtime");
+    expect(descriptor.binaryUrl).toContain("prometheus-runtime-linux-x64");
+    expect(descriptor.checksumUrl).toContain(".sha256");
+  });
+});

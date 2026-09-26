@@ -11,6 +11,9 @@ export type PrometheusPluginErrorCode =
   | "INVARIANT_VIOLATION"
   | "RUNTIME_NOT_INSTALLED"
   | "RUNTIME_CHECKSUM_MISMATCH"
+  | "RUNTIME_DOWNLOAD_FAILED"
+  | "RUNTIME_START_TIMEOUT"
+  | "RUNTIME_START_FAILED"
   | "RUNTIME_VERSION_INCOMPATIBLE"
   | "RUNTIME_UNAVAILABLE"
   | "RUNTIME_REQUEST_TIMEOUT"
@@ -98,6 +101,33 @@ export class RuntimeChecksumMismatchError extends PrometheusPluginError {
 
   constructor() {
     super("Prometheus runtime checksum mismatch");
+  }
+}
+
+export class RuntimeDownloadFailedError extends PrometheusPluginError {
+  readonly code = "RUNTIME_DOWNLOAD_FAILED" as const;
+  readonly recommendedAction = "retry" as const;
+
+  constructor(message = "Prometheus runtime download failed") {
+    super(message);
+  }
+}
+
+export class RuntimeStartTimeoutError extends PrometheusPluginError {
+  readonly code = "RUNTIME_START_TIMEOUT" as const;
+  readonly recommendedAction = "open_diagnostics" as const;
+
+  constructor() {
+    super("Prometheus runtime did not become ready in time");
+  }
+}
+
+export class RuntimeStartFailedError extends PrometheusPluginError {
+  readonly code = "RUNTIME_START_FAILED" as const;
+  readonly recommendedAction = "open_diagnostics" as const;
+
+  constructor(message = "Prometheus runtime failed to start") {
+    super(message);
   }
 }
 

@@ -1,15 +1,27 @@
 import { Plugin } from "obsidian";
 
+import { ObsidianNotifier } from "../adapters/inbound/notifier/ObsidianNotifier";
+import { ObsidianSettingsRepository } from "../adapters/outbound/settings";
+import { wireRuntimeLifecycle } from "./wireRuntimeLifecycle";
+
 /**
  * Composition root for the Prometheus Obsidian plugin.
- * Adapters and use cases are wired here in later epics (PLG-E2+).
+ * Views, commands, and settings tab register in later epics (PLG-E8+).
  */
 export default class PrometheusPlugin extends Plugin {
+  private disposeRuntimeLifecycle: (() => void) | null = null;
+
   override async onload(): Promise<void> {
-    // Foundation only: registration of views/commands happens in later epics.
+    const settings = new ObsidianSettingsRepository(this);
+    const wired = wireRuntimeLifecycle({
+      settings,
+      notifier: new ObsidianNotifier(),
+    });
+    this.disposeRuntimeLifecycle = wired.dispose;
   }
 
   override onunload(): void {
-    // Owned runtime stop is implemented in the runtime-manager epic.
+    this.disposeRuntimeLifecycle?.();
+    this.disposeRuntimeLifecycle = null;
   }
 }

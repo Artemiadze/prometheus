@@ -1,5 +1,7 @@
 export type RuntimeRecommendedAction = "download" | "wait" | "updateRuntime" | "none" | "restart";
 
+export type RuntimeStopReason = "requested" | "crashed" | "portUnavailable" | "startFailed";
+
 export type ManagedRuntimeState =
   | { readonly kind: "missing" }
   | { readonly kind: "downloading"; readonly progressPercent: number }
@@ -11,7 +13,7 @@ export type ManagedRuntimeState =
     }
   | { readonly kind: "starting" }
   | { readonly kind: "running"; readonly version: string }
-  | { readonly kind: "stopped" };
+  | { readonly kind: "stopped"; readonly reason: RuntimeStopReason };
 
 export type OllamaState =
   { readonly kind: "notInstalled" } | { readonly kind: "stopped" } | { readonly kind: "running" };
@@ -46,8 +48,8 @@ export const ManagedRuntimeState = {
   running(version: string): ManagedRuntimeState {
     return { kind: "running", version };
   },
-  stopped(): ManagedRuntimeState {
-    return { kind: "stopped" };
+  stopped(reason: RuntimeStopReason = "requested"): ManagedRuntimeState {
+    return { kind: "stopped", reason };
   },
 };
 

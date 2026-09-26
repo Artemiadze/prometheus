@@ -7,7 +7,11 @@ import type { RagGateway } from "../ports/RagGateway";
 import type { RuntimeConnection, RuntimeGateway } from "../ports/RuntimeGateway";
 import type { SettingsRepository } from "../ports/SettingsRepository";
 import type { RuntimeSessionRegistry } from "../services/RuntimeSessionRegistry";
-import { isAbortError, RuntimeVersionIncompatibleError } from "../../domain/errors";
+import {
+  isAbortError,
+  RuntimeStartTimeoutError,
+  RuntimeVersionIncompatibleError,
+} from "../../domain/errors";
 import type { HealthInfo } from "../dto/rag";
 
 export type StartRuntimeResult =
@@ -30,7 +34,9 @@ export type StartRuntimeResult =
     };
 
 export type StartRuntimeOptions = {
-  readonly healthPollIntervalMs?: number;
+  readonly healthInitialPollIntervalMs?: number;
+  readonly healthMaxPollIntervalMs?: number;
+  readonly healthBackoffFactor?: number;
   readonly healthTimeoutMs?: number;
 };
 
@@ -93,11 +99,7 @@ export class StartRuntime {
 
     let health: HealthInfo;
     try {
-      health = await this.waitForHealth(
-        signal,
-        options.healthPollIntervalMs ?? 20,
-        options.healthTimeoutMs ?? 5_000,
-      );
+      health = await this.waitForHealth(signal, options);
     } catch (error) {
       if (error instanceof RuntimeVersionIncompatibleError) {
         return {
@@ -140,10 +142,14 @@ export class StartRuntime {
 
   private async waitForHealth(
     signal: AbortSignal | undefined,
-    intervalMs: number,
-    timeoutMs: number,
+    options: StartRuntimeOptions,
   ): Promise<HealthInfo> {
+    const initialIntervalMs = options.healthInitialPollIntervalMs ?? 250;
+    const maxIntervalMs = options.healthMaxPollIntervalMs ?? 2_000;
+    const backoffFactor = options.healthBackoffFactor ?? 1.5;
+    const timeoutMs = options.healthTimeoutMs ?? 5_000;
     const deadline = this.clock.now().getTime() + timeoutMs;
+    let intervalMs = initialIntervalMs;
     for (;;) {
       if (signal?.aborted) {
         throw new DOMException("The operation was aborted", "AbortError");
@@ -158,8 +164,12 @@ export class StartRuntime {
           throw error;
         }
         if (this.clock.now().getTime() >= deadline) {
-          throw error;
+          throw new RuntimeStartTimeoutError();
         }
+        intervalMs = Math.min(
+          maxIntervalMs,
+          Math.max(initialIntervalMs, Math.round(intervalMs * backoffFactor)),
+        );
         await this.clock.sleep(intervalMs, signal);
       }
     }

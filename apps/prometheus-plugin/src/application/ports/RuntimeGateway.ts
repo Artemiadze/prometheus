@@ -30,4 +30,5 @@ export interface RuntimeGateway {
   stop(mode?: RuntimeStopMode, signal?: AbortSignal): Promise<void>;
   getProcessState(): ManagedRuntimeState;
   getInstalledVersion(): Promise<string | null>;
+  getDiagnostics(): readonly string[];
 }
