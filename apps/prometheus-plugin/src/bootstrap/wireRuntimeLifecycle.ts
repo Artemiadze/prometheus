@@ -21,6 +21,7 @@ export type WireRuntimeLifecycleDeps = {
 export type WiredRuntimeLifecycle = {
   readonly runtimeGateway: ManagedRuntimeGateway;
   readonly sessions: RuntimeSessionRegistry;
+  readonly rag: HttpRagGateway;
   readonly startRuntime: StartRuntime;
   readonly stopRuntime: StopRuntime;
   readonly dispose: () => void;
@@ -85,6 +86,7 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
   return {
     runtimeGateway,
     sessions,
+    rag,
     startRuntime,
     stopRuntime,
     dispose,

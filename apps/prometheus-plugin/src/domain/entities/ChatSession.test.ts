@@ -25,6 +25,17 @@ describe("ChatMessage", () => {
 });
 
 describe("ChatSession", () => {
+  it("replaces a message by id", () => {
+    const pending = ChatMessage.assistant("", { state: "pending" });
+    const session = ChatSession.empty("session-1").appendMessage(pending);
+    const complete = ChatMessage.assistant("Done", { id: pending.id, state: "complete" });
+    const next = session.replaceMessage(pending.id, complete);
+    expect(next.messages[0]?.kind).toBe("assistant");
+    if (next.messages[0]?.kind === "assistant") {
+      expect(next.messages[0].state).toBe("complete");
+    }
+  });
+
   it("appends messages immutably and preserves order", () => {
     const session = ChatSession.empty("session-1");
     const user = ChatMessage.user("Hello");

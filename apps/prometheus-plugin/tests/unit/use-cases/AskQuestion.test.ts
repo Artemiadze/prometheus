@@ -34,6 +34,43 @@ describe("AskQuestion", () => {
     }
   });
 
+  it("returns validation without mutating the session", async () => {
+    const rag = new FakeRagGateway();
+    const useCase = new AskQuestion(
+      rag,
+      new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS, vaultId: "vault-a1" }),
+    );
+    const session = ChatSession.empty("s1");
+    const result = await useCase.execute(session, "no", SearchScope.entireVault());
+    expect(result.kind).toBe("validation");
+    expect(session.messages).toHaveLength(0);
+    expect(rag.chatCalls).toBe(0);
+  });
+
+  it("marks assistant message as error when chat fails", async () => {
+    const rag = new FakeRagGateway();
+    rag.chat = async () => {
+      throw new Error("network");
+    };
+    const useCase = new AskQuestion(
+      rag,
+      new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS, vaultId: "vault-a1" }),
+    );
+    const result = await useCase.execute(
+      ChatSession.empty("s1"),
+      "What is Prometheus?",
+      SearchScope.entireVault(),
+    );
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      const assistant = result.session.messages[1];
+      expect(assistant?.kind).toBe("assistant");
+      if (assistant?.kind === "assistant") {
+        expect(assistant.state).toBe("error");
+      }
+    }
+  });
+
   it("marks assistant message cancelled on abort", async () => {
     const rag = new FakeRagGateway();
     rag.chatDelayMs = 50;
