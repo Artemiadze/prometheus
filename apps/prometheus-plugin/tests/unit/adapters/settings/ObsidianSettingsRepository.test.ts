@@ -45,6 +45,8 @@ describe("ObsidianSettingsRepository", () => {
     expect(settings.indexingDebounceMs).toBe(100);
     expect(settings.maxConcurrentSyncs).toBe(DEFAULT_PLUGIN_SETTINGS.maxConcurrentSyncs);
     expect(settings.ignoredFolders).toEqual(DEFAULT_PLUGIN_SETTINGS.ignoredFolders);
+    expect(settings.searchScopeMode).toBe("entire_vault");
+    expect(settings.applySearchScopeToChat).toBe(false);
 
     await repo.save({ ...settings, autoIndexing: false });
     expect((stored as { autoIndexing: boolean }).autoIndexing).toBe(false);

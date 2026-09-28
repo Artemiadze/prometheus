@@ -19,7 +19,8 @@ export type ChatStoreDeps = {
   readonly askQuestion: Pick<AskQuestion, "execute">;
   readonly ensureRuntime: (signal: AbortSignal) => Promise<ChatRuntimeReadiness>;
   readonly openSource: (source: SourceReference) => Promise<void>;
-  readonly newSessionId?: () => string;
+  readonly resolveScope?: (() => Promise<SearchScope>) | undefined;
+  readonly newSessionId?: (() => string) | undefined;
 };
 
 type Listener = (state: ChatViewState) => void;
@@ -82,10 +83,17 @@ export class ChatStore {
       return;
     }
 
+    const scope = this.deps.resolveScope
+      ? await this.deps.resolveScope()
+      : SearchScope.entireVault();
+    if (this.activeRequest !== controller) {
+      return;
+    }
+
     const result = await this.deps.askQuestion.execute(
       this.session,
       trimmed,
-      SearchScope.entireVault(),
+      scope,
       controller.signal,
     );
 

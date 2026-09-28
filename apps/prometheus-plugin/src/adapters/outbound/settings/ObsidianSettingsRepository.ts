@@ -33,6 +33,9 @@ export function mergeSettings(raw: Partial<PluginSettings> | null | undefined): 
       : [...DEFAULT_PLUGIN_SETTINGS.ignoredFolders],
     indexingDebounceMs: raw?.indexingDebounceMs ?? DEFAULT_PLUGIN_SETTINGS.indexingDebounceMs,
     maxConcurrentSyncs: raw?.maxConcurrentSyncs ?? DEFAULT_PLUGIN_SETTINGS.maxConcurrentSyncs,
+    searchScopeMode: raw?.searchScopeMode ?? DEFAULT_PLUGIN_SETTINGS.searchScopeMode,
+    applySearchScopeToChat:
+      raw?.applySearchScopeToChat ?? DEFAULT_PLUGIN_SETTINGS.applySearchScopeToChat,
   };
 }
 

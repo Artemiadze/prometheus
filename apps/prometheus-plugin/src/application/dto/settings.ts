@@ -4,6 +4,9 @@ export type NetworkAccessMode = "updates_only" | "disabled";
 
 export type NoteOpenMode = "reuse_active" | "open_new_pane";
 
+/** UI-selectable search scopes (selected_folders is API-only for now). */
+export type SearchScopePreference = "entire_vault" | "current_folder" | "current_note";
+
 /**
  * Plugin-owned settings persisted in Obsidian data.json (Project_analytics §48).
  * Embedding/chunk size live in the runtime, not here.
@@ -20,6 +23,8 @@ export type PluginSettings = {
   readonly noteOpenMode: NoteOpenMode;
   readonly indexingDebounceMs: number;
   readonly maxConcurrentSyncs: number;
+  readonly searchScopeMode: SearchScopePreference;
+  readonly applySearchScopeToChat: boolean;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -34,6 +39,8 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   noteOpenMode: "reuse_active",
   indexingDebounceMs: 750,
   maxConcurrentSyncs: 2,
+  searchScopeMode: "entire_vault",
+  applySearchScopeToChat: false,
 };
 
 /** Always ignored regardless of user settings. */

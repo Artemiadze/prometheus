@@ -134,4 +134,31 @@ describe("ChatStore", () => {
     store.clear();
     expect(count).toBe(1);
   });
+
+  it("passes resolved scope into AskQuestion", async () => {
+    const { SearchScope } = await import("../../../../../src/domain/value-objects/SearchScope");
+    const { NotePath } = await import("../../../../../src/domain/value-objects/NotePath");
+    const askQuestion = {
+      execute: vi.fn(async (): Promise<AskQuestionResult> => ({
+        kind: "ok",
+        session: ChatSession.empty("session-1")
+          .appendMessage(ChatMessage.user("hello world"))
+          .appendMessage(ChatMessage.assistant("ok", { state: "complete" })),
+      })),
+    };
+    const scoped = SearchScope.currentNote(NotePath.create("notes/a.md"));
+    const store = new ChatStore({
+      askQuestion,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      resolveScope: async () => scoped,
+    });
+    await store.send("hello world");
+    expect(askQuestion.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      "hello world",
+      scoped,
+      expect.anything(),
+    );
+  });
 });
