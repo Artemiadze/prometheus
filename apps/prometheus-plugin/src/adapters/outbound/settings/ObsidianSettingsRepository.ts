@@ -36,6 +36,8 @@ export function mergeSettings(raw: Partial<PluginSettings> | null | undefined): 
     searchScopeMode: raw?.searchScopeMode ?? DEFAULT_PLUGIN_SETTINGS.searchScopeMode,
     applySearchScopeToChat:
       raw?.applySearchScopeToChat ?? DEFAULT_PLUGIN_SETTINGS.applySearchScopeToChat,
+    hasCompletedOnboarding:
+      raw?.hasCompletedOnboarding ?? DEFAULT_PLUGIN_SETTINGS.hasCompletedOnboarding,
   };
 }
 

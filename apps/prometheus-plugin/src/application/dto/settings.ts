@@ -25,6 +25,7 @@ export type PluginSettings = {
   readonly maxConcurrentSyncs: number;
   readonly searchScopeMode: SearchScopePreference;
   readonly applySearchScopeToChat: boolean;
+  readonly hasCompletedOnboarding: boolean;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -41,6 +42,7 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   maxConcurrentSyncs: 2,
   searchScopeMode: "entire_vault",
   applySearchScopeToChat: false,
+  hasCompletedOnboarding: false,
 };
 
 /** Always ignored regardless of user settings. */

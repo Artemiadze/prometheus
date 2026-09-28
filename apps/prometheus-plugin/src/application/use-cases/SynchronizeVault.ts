@@ -34,10 +34,12 @@ export type SyncVaultResult = {
 export type SynchronizeVaultOptions = {
   readonly batchSize?: number;
   readonly onProgress?: (progress: SyncVaultProgress) => void;
+  readonly onJobUpdate?: (job: JobInfo) => void;
 };
 
 export class SynchronizeVault {
   private readonly jobs: JobTracker;
+  private activeJobId: string | null = null;
 
   constructor(
     private readonly vault: VaultGateway,
@@ -130,12 +132,33 @@ export class SynchronizeVault {
       total: files.length,
     });
     const started = await this.rag.syncComplete(vaultId, entries, signal);
-    const job = await this.jobs.watch(started.jobId, undefined, signal);
+    this.activeJobId = started.jobId;
+    const job = await this.jobs.watch(
+      started.jobId,
+      (update) => {
+        options.onJobUpdate?.(update);
+      },
+      signal,
+    );
+    if (job.status !== "pending" && job.status !== "running") {
+      this.activeJobId = null;
+    }
     options.onProgress?.({
       phase: "completed",
       processed: files.length,
       total: files.length,
     });
     return { job, failures };
+  }
+
+  async cancel(signal?: AbortSignal): Promise<JobInfo | null> {
+    if (!this.activeJobId) {
+      return null;
+    }
+    const jobId = this.activeJobId;
+    await this.rag.cancelJob(jobId, signal);
+    const job = await this.rag.getJob(jobId, signal);
+    this.activeJobId = null;
+    return job;
   }
 }

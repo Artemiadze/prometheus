@@ -60,4 +60,39 @@ describe("SynchronizeVault", () => {
     expect(rag.upsertCalls).toBe(2);
     expect(notifier.records.some((r) => r.level === "warning")).toBe(true);
   });
+
+  it("cancel stops the active syncComplete job on the runtime", async () => {
+    const vault = new FakeVaultGateway();
+    vault.seed("notes/a.md", "alpha");
+    const rag = new FakeRagGateway();
+    rag.holdJobsPending = true;
+    const clock = new FakeClock();
+    const useCase = new SynchronizeVault(
+      vault,
+      rag,
+      new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS, vaultId: "vault-a1" }),
+      new DocumentSyncState(),
+      new FakeNotifier(),
+      clock,
+    );
+
+    let resolveStarted = (_value: undefined): void => undefined;
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve;
+    });
+
+    const syncPromise = useCase.execute(undefined, {
+      onJobUpdate: () => {
+        resolveStarted(undefined);
+      },
+    });
+
+    await started;
+    const cancelled = await useCase.cancel();
+    expect(cancelled?.status).toBe("cancelled");
+    clock.advance(250);
+    await Promise.resolve();
+    const result = await syncPromise;
+    expect(result.job.status).toBe("cancelled");
+  });
 });

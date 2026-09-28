@@ -1,0 +1,266 @@
+import type { LlmModelChoice } from "../../../../application/use-cases/SelectLlmModel";
+import type { SystemStatus } from "../../../../application/dto/system";
+import type { SyncVaultProgress } from "../../../../application/use-cases/SynchronizeVault";
+import type { JobInfo } from "../../../../application/dto/rag";
+import {
+  recommendedActionForIndex,
+  type IndexRecommendedAction,
+} from "../../../../domain/entities/IndexStatus";
+import {
+  recommendedActionForRuntime,
+  type ManagedRuntimeState,
+  type RuntimeRecommendedAction,
+} from "../../../../domain/entities/RuntimeStatus";
+import { isAbortError } from "../../../../domain/errors";
+import type { GetSystemStatus } from "../../../../application/use-cases/GetSystemStatus";
+import type { InstallRuntime } from "../../../../application/use-cases/InstallRuntime";
+import type { StartRuntime } from "../../../../application/use-cases/StartRuntime";
+import type { SelectLlmModel } from "../../../../application/use-cases/SelectLlmModel";
+import { estimateIndexingProgress, type IndexingProgressEstimate } from "./indexingProgress";
+
+export type StatusViewState = {
+  readonly status: SystemStatus | null;
+  readonly runtimeAction: RuntimeRecommendedAction;
+  readonly indexAction: IndexRecommendedAction;
+  readonly models: readonly LlmModelChoice[];
+  readonly actionBusy: boolean;
+  readonly actionError: string | null;
+  readonly indexingProgress: IndexingProgressEstimate | null;
+  readonly installState: ManagedRuntimeState | null;
+};
+
+export type StatusStoreDeps = {
+  readonly getSystemStatus: Pick<GetSystemStatus, "execute" | "poll">;
+  readonly installRuntime: Pick<InstallRuntime, "execute">;
+  readonly startRuntime: Pick<StartRuntime, "execute">;
+  readonly selectLlmModel: Pick<SelectLlmModel, "list" | "select">;
+  readonly startInitialSync: (
+    signal?: AbortSignal,
+    onProgress?: (progress: SyncVaultProgress) => void,
+  ) => Promise<unknown>;
+  readonly startReindex: (
+    signal?: AbortSignal,
+    onJobUpdate?: (job: JobInfo) => void,
+  ) => Promise<unknown>;
+  readonly cancelActive: (signal?: AbortSignal) => Promise<JobInfo | null>;
+  readonly pollIntervalMs?: number;
+};
+
+type Listener = (state: StatusViewState) => void;
+
+const IDLE_ACTIONS = {
+  runtimeAction: "none" as const,
+  indexAction: "none" as const,
+};
+
+export class StatusStore {
+  private status: SystemStatus | null = null;
+  private models: readonly LlmModelChoice[] = [];
+  private actionBusy = false;
+  private actionError: string | null = null;
+  private indexingProgress: IndexingProgressEstimate | null = null;
+  private installState: ManagedRuntimeState | null = null;
+  private readonly listeners = new Set<Listener>();
+  private readonly pollController = new AbortController();
+  private actionController: AbortController | null = null;
+  private disposed = false;
+  private indexingStartedAtMs: number | null = null;
+  private lastUploadTotal = 0;
+  private readonly pollIntervalMs: number;
+  private readonly pollLoop: Promise<void>;
+
+  constructor(private readonly deps: StatusStoreDeps) {
+    this.pollIntervalMs = deps.pollIntervalMs ?? 1_000;
+    this.pollLoop = this.startPolling();
+  }
+
+  getState(): StatusViewState {
+    const runtimeAction = this.status
+      ? recommendedActionForRuntime(this.status.runtime.runtime)
+      : IDLE_ACTIONS.runtimeAction;
+    const indexAction = this.status
+      ? recommendedActionForIndex(this.status.index)
+      : IDLE_ACTIONS.indexAction;
+    return {
+      status: this.status,
+      runtimeAction,
+      indexAction,
+      models: this.models,
+      actionBusy: this.actionBusy,
+      actionError: this.actionError,
+      indexingProgress: this.indexingProgress,
+      installState: this.installState,
+    };
+  }
+
+  subscribe(listener: Listener): () => void {
+    if (this.disposed) {
+      return () => undefined;
+    }
+    this.listeners.add(listener);
+    listener(this.getState());
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  async installRuntime(): Promise<void> {
+    await this.runAction(async (signal) => {
+      this.installState = null;
+      this.notify();
+      await this.deps.installRuntime.execute((state) => {
+        this.installState = state;
+        this.notify();
+      }, signal);
+      await this.deps.startRuntime.execute(signal);
+      this.installState = null;
+      await this.refresh(signal);
+    });
+  }
+
+  async restartRuntime(): Promise<void> {
+    await this.runAction(async (signal) => {
+      await this.deps.startRuntime.execute(signal);
+      await this.refresh(signal);
+    });
+  }
+
+  async reindex(): Promise<void> {
+    await this.runAction(async (signal) => {
+      this.indexingStartedAtMs = Date.now();
+      this.lastUploadTotal = 0;
+      await this.deps.startInitialSync(signal, (progress) => {
+        if (progress.total > 0) {
+          this.lastUploadTotal = progress.total;
+        }
+        const elapsedMs =
+          this.indexingStartedAtMs === null ? 0 : Date.now() - this.indexingStartedAtMs;
+        this.indexingProgress = estimateIndexingProgress({
+          phase: progress.phase,
+          processed: progress.processed,
+          total: progress.total > 0 ? progress.total : this.lastUploadTotal,
+          jobProgress: this.status?.activeJob?.progress ?? 0,
+          elapsedMs,
+        });
+        this.notify();
+      });
+      this.indexingProgress = null;
+      this.indexingStartedAtMs = null;
+      await this.refresh(signal);
+    });
+  }
+
+  async cancelIndexing(): Promise<void> {
+    this.actionController?.abort();
+    try {
+      await this.deps.cancelActive();
+    } catch {
+      // best-effort cancel
+    }
+    this.indexingProgress = null;
+    this.indexingStartedAtMs = null;
+    this.actionBusy = false;
+    this.notify();
+  }
+
+  async refreshModels(): Promise<void> {
+    await this.runAction(async (signal) => {
+      this.models = await this.deps.selectLlmModel.list(signal);
+    });
+  }
+
+  async selectModel(modelName: string): Promise<void> {
+    await this.runAction(async (signal) => {
+      await this.deps.selectLlmModel.select(modelName, signal);
+      this.models = await this.deps.selectLlmModel.list(signal);
+      await this.refresh(signal);
+    });
+  }
+
+  dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    this.pollController.abort();
+    this.actionController?.abort();
+    this.listeners.clear();
+    void this.pollLoop.catch(() => undefined);
+  }
+
+  private async startPolling(): Promise<void> {
+    try {
+      await this.deps.getSystemStatus.poll(
+        (status) => {
+          if (this.disposed) {
+            return;
+          }
+          this.status = status;
+          if (
+            status.activeJob &&
+            (status.activeJob.status === "pending" || status.activeJob.status === "running")
+          ) {
+            const elapsedMs =
+              this.indexingStartedAtMs === null ? 0 : Date.now() - this.indexingStartedAtMs;
+            this.indexingProgress = estimateIndexingProgress({
+              phase: "job",
+              processed: 0,
+              total: this.lastUploadTotal,
+              jobProgress: status.activeJob.progress,
+              elapsedMs,
+            });
+          } else if (!this.actionBusy) {
+            this.indexingProgress = null;
+          }
+          this.notify();
+        },
+        this.pollController.signal,
+        this.pollIntervalMs,
+      );
+    } catch (error) {
+      if (!isAbortError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  private async refresh(signal?: AbortSignal): Promise<void> {
+    this.status = await this.deps.getSystemStatus.execute(
+      signal ? { pollAllowed: true, signal } : { pollAllowed: true },
+    );
+    this.notify();
+  }
+
+  private async runAction(fn: (signal: AbortSignal) => Promise<void>): Promise<void> {
+    if (this.disposed || this.actionBusy) {
+      return;
+    }
+    this.actionController?.abort();
+    const controller = new AbortController();
+    this.actionController = controller;
+    this.actionBusy = true;
+    this.actionError = null;
+    this.notify();
+    try {
+      await fn(controller.signal);
+    } catch (error) {
+      if (isAbortError(error) || controller.signal.aborted) {
+        return;
+      }
+      this.actionError = error instanceof Error ? error.message : "Action failed";
+    } finally {
+      if (this.actionController === controller) {
+        this.actionController = null;
+        this.actionBusy = false;
+        this.notify();
+      }
+    }
+  }
+
+  private notify(): void {
+    const snapshot = this.getState();
+    for (const listener of this.listeners) {
+      listener(snapshot);
+    }
+  }
+}

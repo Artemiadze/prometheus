@@ -8,6 +8,7 @@ export {
   type DocumentChangeSyncExecutor,
 } from "./DocumentChangeDebouncer";
 export { DocumentSyncState, type DocumentSyncRecord } from "./DocumentSyncState";
+export { ActiveJobRegistry } from "./ActiveJobRegistry";
 export { JobTracker, type JobTrackerOptions, type JobUpdateCallback } from "./JobTracker";
 export {
   RuntimeSessionRegistry,
