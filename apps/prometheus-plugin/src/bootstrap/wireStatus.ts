@@ -33,7 +33,7 @@ export function wireStatus(deps: WireStatusDeps): WiredStatus {
     minIntervalMs: 1_000,
     getActiveJob: () => deps.jobRegistry.get(),
   });
-  const installRuntime = new InstallRuntime(deps.runtimeGateway);
+  const installRuntime = new InstallRuntime(deps.runtimeGateway, deps.settings);
   const selectLlmModel = new SelectLlmModel(deps.rag, deps.settings);
 
   const store = new StatusStore({

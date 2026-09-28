@@ -93,6 +93,10 @@ export class FakeRuntimeGateway implements RuntimeGateway {
     return [];
   }
 
+  getDataRootPath(): string {
+    return "/tmp/prometheus-fake";
+  }
+
   async getInstalledVersion(): Promise<string | null> {
     return this.installedVersion;
   }

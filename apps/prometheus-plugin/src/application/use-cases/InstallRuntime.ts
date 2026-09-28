@@ -2,18 +2,31 @@ import {
   ManagedRuntimeState,
   type ManagedRuntimeState as ManagedRuntimeStateType,
 } from "../../domain/entities/RuntimeStatus";
-import { isAbortError, RuntimeChecksumMismatchError } from "../../domain/errors";
+import {
+  isAbortError,
+  NetworkAccessDisabledError,
+  RuntimeChecksumMismatchError,
+} from "../../domain/errors";
 import type { ProgressCallback, RuntimeGateway } from "../ports/RuntimeGateway";
+import type { SettingsRepository } from "../ports/SettingsRepository";
 
 export type InstallRuntimeProgressCallback = (state: ManagedRuntimeStateType) => void;
 
 export class InstallRuntime {
-  constructor(private readonly runtime: RuntimeGateway) {}
+  constructor(
+    private readonly runtime: RuntimeGateway,
+    private readonly settings: SettingsRepository,
+  ) {}
 
   async execute(
     onState?: InstallRuntimeProgressCallback,
     signal?: AbortSignal,
   ): Promise<ManagedRuntimeStateType> {
+    const settings = await this.settings.get();
+    if (settings.networkAccess === "disabled") {
+      throw new NetworkAccessDisabledError();
+    }
+
     const progress: ProgressCallback = (download) => {
       onState?.(ManagedRuntimeState.downloading(download.percent));
     };

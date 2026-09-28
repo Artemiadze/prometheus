@@ -450,3 +450,26 @@
 .prometheus-onboarding__done {
   color: var(--text-normal);
 }
+
+.prometheus-settings__error {
+  color: var(--text-error);
+  font-size: var(--font-ui-small);
+  margin-bottom: var(--size-4-2);
+}
+
+.prometheus-settings__warning {
+  color: var(--color-orange);
+  font-size: var(--font-ui-small);
+  margin: var(--size-2-2) 0 var(--size-4-2);
+}
+
+.prometheus-settings__note {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin: var(--size-2-2) 0 var(--size-4-2);
+}
+
+.prometheus-settings__section textarea {
+  width: 100%;
+  min-height: 4.5em;
+}

@@ -9,11 +9,13 @@ import { SEARCH_VIEW_TYPE, SearchView } from "../adapters/inbound/obsidian/views
 import { STATUS_VIEW_TYPE, StatusView } from "../adapters/inbound/obsidian/views/StatusView";
 import { formatStatusBarLabel } from "../adapters/inbound/obsidian/status/formatStatusBarLabel";
 import { ensureVaultId, ObsidianSettingsRepository } from "../adapters/outbound/settings";
+import { wireAutoIndexing } from "./wireAutoIndexing";
 import { wireChat } from "./wireChat";
 import { wireIndexing } from "./wireIndexing";
 import { wireOnboarding } from "./wireOnboarding";
 import { createChatScopeResolver, wireSearch } from "./wireSearch";
 import { wireRuntimeLifecycle } from "./wireRuntimeLifecycle";
+import { wireSettingsTab } from "./wireSettingsTab";
 import { wireStatus } from "./wireStatus";
 
 /**
@@ -26,11 +28,13 @@ export default class PrometheusPlugin extends Plugin {
   private disposeIndexing: (() => void) | null = null;
   private disposeStatus: (() => void) | null = null;
   private disposeStatusBar: (() => void) | null = null;
+  private disposeAutoIndexing: (() => void) | null = null;
+  private disposeSettings: (() => void) | null = null;
 
   override async onload(): Promise<void> {
-    const settings = new ObsidianSettingsRepository(this);
-    await ensureVaultId(settings);
     const notifier = new ObsidianNotifier();
+    const settings = new ObsidianSettingsRepository(this, notifier);
+    await ensureVaultId(settings);
     const runtime = wireRuntimeLifecycle({
       settings,
       notifier,
@@ -53,6 +57,15 @@ export default class PrometheusPlugin extends Plugin {
       notifier,
     });
     this.disposeIndexing = indexing.dispose;
+
+    const autoIndexing = wireAutoIndexing({
+      vault: search.vault,
+      rag: runtime.rag,
+      settings,
+      syncState: indexing.syncState,
+      notifier,
+    });
+    this.disposeAutoIndexing = autoIndexing.dispose;
 
     const status = wireStatus({
       rag: runtime.rag,
@@ -83,6 +96,23 @@ export default class PrometheusPlugin extends Plugin {
       resolveScope: createChatScopeResolver({ settings, vault: search.vault }),
     });
     this.disposeChat = chat.dispose;
+
+    const settingsTab = wireSettingsTab({
+      app: this.app,
+      plugin: this,
+      settings,
+      notifier,
+      runtimeGateway: runtime.runtimeGateway,
+      rag: runtime.rag,
+      startRuntime: runtime.startRuntime,
+      stopRuntime: runtime.stopRuntime,
+      statusStore: status.store,
+      indexing,
+      autoIndexing,
+      syncState: indexing.syncState,
+    });
+    this.disposeSettings = settingsTab.dispose;
+    this.addSettingTab(settingsTab.tab);
 
     this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, { store: chat.store }));
     this.registerView(SEARCH_VIEW_TYPE, (leaf) => new SearchView(leaf, { store: search.store }));
@@ -156,6 +186,8 @@ export default class PrometheusPlugin extends Plugin {
   }
 
   override onunload(): void {
+    this.disposeSettings?.();
+    this.disposeSettings = null;
     this.disposeStatusBar?.();
     this.disposeStatusBar = null;
     this.disposeChat?.();
@@ -164,6 +196,8 @@ export default class PrometheusPlugin extends Plugin {
     this.disposeSearch = null;
     this.disposeStatus?.();
     this.disposeStatus = null;
+    this.disposeAutoIndexing?.();
+    this.disposeAutoIndexing = null;
     this.disposeIndexing?.();
     this.disposeIndexing = null;
     this.disposeRuntimeLifecycle?.();

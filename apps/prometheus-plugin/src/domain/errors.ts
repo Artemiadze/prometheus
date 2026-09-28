@@ -33,7 +33,8 @@ export type PrometheusPluginErrorCode =
   | "LLM_TIMEOUT"
   | "INTERNAL_ERROR"
   | "QUERY_TOO_SHORT"
-  | "NOTE_NOT_FOUND";
+  | "NOTE_NOT_FOUND"
+  | "NETWORK_ACCESS_DISABLED";
 
 export type RuntimeRecoveryAction =
   | "retry"
@@ -248,6 +249,16 @@ export class NoteNotFoundError extends PrometheusPluginError {
   constructor(path: string) {
     super(`Note not found: ${path}`);
     this.path = path;
+  }
+}
+
+export class NetworkAccessDisabledError extends PrometheusPluginError {
+  readonly code = "NETWORK_ACCESS_DISABLED" as const;
+
+  constructor(
+    message = "Runtime download is blocked because network access is disabled. Enable it in Settings → Privacy, or switch back after installing.",
+  ) {
+    super(message);
   }
 }
 

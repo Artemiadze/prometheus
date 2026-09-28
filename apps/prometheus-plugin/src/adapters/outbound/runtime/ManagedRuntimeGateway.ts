@@ -158,6 +158,10 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
     return this.diagnostics.snapshot();
   }
 
+  getDataRootPath(): string {
+    return this.locator.dataRootPath();
+  }
+
   /** Test hook: simulate unexpected process exit. */
   notifyProcessExit(reason: RuntimeStopReason): void {
     this.process.forceStopped(reason);

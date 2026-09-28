@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_PLUGIN_SETTINGS } from "../../../src/application/dto/settings";
 import { InstallRuntime } from "../../../src/application/use-cases/InstallRuntime";
-import { RuntimeChecksumMismatchError } from "../../../src/domain/errors";
+import {
+  NetworkAccessDisabledError,
+  RuntimeChecksumMismatchError,
+} from "../../../src/domain/errors";
 import { FakeRuntimeGateway } from "../../fakes/FakeRuntimeGateway";
+import { FakeSettingsRepository } from "../../fakes/FakeSettingsRepository";
 
 describe("InstallRuntime", () => {
   it("downloads with progress then verifies", async () => {
     const runtime = new FakeRuntimeGateway();
+    const settings = new FakeSettingsRepository();
     const states: string[] = [];
-    const useCase = new InstallRuntime(runtime);
+    const useCase = new InstallRuntime(runtime, settings);
     const result = await useCase.execute((state) => {
       states.push(state.kind);
     });
@@ -21,7 +27,18 @@ describe("InstallRuntime", () => {
   it("maps checksum failure", async () => {
     const runtime = new FakeRuntimeGateway();
     runtime.verifyShouldFail = true;
-    const useCase = new InstallRuntime(runtime);
+    const useCase = new InstallRuntime(runtime, new FakeSettingsRepository());
     await expect(useCase.execute()).rejects.toBeInstanceOf(RuntimeChecksumMismatchError);
+  });
+
+  it("blocks download when network access is disabled", async () => {
+    const runtime = new FakeRuntimeGateway();
+    const settings = new FakeSettingsRepository({
+      ...DEFAULT_PLUGIN_SETTINGS,
+      networkAccess: "disabled",
+    });
+    const useCase = new InstallRuntime(runtime, settings);
+    await expect(useCase.execute()).rejects.toBeInstanceOf(NetworkAccessDisabledError);
+    expect(runtime.downloadProgress).toHaveLength(0);
   });
 });

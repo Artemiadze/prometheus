@@ -26,7 +26,7 @@ export type WiredOnboarding = {
 };
 
 export function wireOnboarding(deps: WireOnboardingDeps): WiredOnboarding {
-  const installRuntime = new InstallRuntime(deps.runtimeGateway);
+  const installRuntime = new InstallRuntime(deps.runtimeGateway, deps.settings);
   const selectLlmModel = new SelectLlmModel(deps.rag, deps.settings);
 
   const createController = (): OnboardingController =>

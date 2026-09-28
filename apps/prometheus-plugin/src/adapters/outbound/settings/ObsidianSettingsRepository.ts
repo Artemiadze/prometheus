@@ -1,16 +1,32 @@
 import { DEFAULT_PLUGIN_SETTINGS, type PluginSettings } from "../../../application/dto/settings";
+import type { Notifier } from "../../../application/ports/Notifier";
 import type { SettingsRepository } from "../../../application/ports/SettingsRepository";
 import { VaultId } from "../../../domain/value-objects/VaultId";
+import { sanitizePluginSettings } from "./sanitizePluginSettings";
 
 /**
- * Minimal Obsidian data.json settings adapter (vaultId + shared PluginSettings).
+ * Obsidian data.json settings adapter (vaultId + shared PluginSettings).
+ * Invalid values are replaced with defaults and surfaced via Notifier.
  */
 export class ObsidianSettingsRepository implements SettingsRepository {
-  constructor(private readonly plugin: DataPlugin) {}
+  private readonly notifier: Notifier | null;
+  private warnedAboutCorrections = false;
+
+  constructor(
+    private readonly plugin: DataPlugin,
+    notifier?: Notifier,
+  ) {
+    this.notifier = notifier ?? null;
+  }
 
   async get(): Promise<PluginSettings> {
-    const raw = (await this.plugin.loadData()) as Partial<PluginSettings> | null;
-    return mergeSettings(raw);
+    const raw = await this.plugin.loadData();
+    const { settings, corrections } = sanitizePluginSettings(raw);
+    if (corrections.length > 0 && this.notifier && !this.warnedAboutCorrections) {
+      this.warnedAboutCorrections = true;
+      this.notifier.warning(`Prometheus settings were corrected: ${corrections.join("; ")}.`);
+    }
+    return settings;
   }
 
   async save(settings: PluginSettings): Promise<void> {
@@ -24,21 +40,12 @@ export type DataPlugin = {
   saveData(data: unknown): Promise<void>;
 };
 
+/**
+ * @deprecated Prefer sanitizePluginSettings for correction tracking.
+ * Kept for callers that only need a merged PluginSettings object.
+ */
 export function mergeSettings(raw: Partial<PluginSettings> | null | undefined): PluginSettings {
-  return {
-    ...DEFAULT_PLUGIN_SETTINGS,
-    ...raw,
-    ignoredFolders: raw?.ignoredFolders
-      ? [...raw.ignoredFolders]
-      : [...DEFAULT_PLUGIN_SETTINGS.ignoredFolders],
-    indexingDebounceMs: raw?.indexingDebounceMs ?? DEFAULT_PLUGIN_SETTINGS.indexingDebounceMs,
-    maxConcurrentSyncs: raw?.maxConcurrentSyncs ?? DEFAULT_PLUGIN_SETTINGS.maxConcurrentSyncs,
-    searchScopeMode: raw?.searchScopeMode ?? DEFAULT_PLUGIN_SETTINGS.searchScopeMode,
-    applySearchScopeToChat:
-      raw?.applySearchScopeToChat ?? DEFAULT_PLUGIN_SETTINGS.applySearchScopeToChat,
-    hasCompletedOnboarding:
-      raw?.hasCompletedOnboarding ?? DEFAULT_PLUGIN_SETTINGS.hasCompletedOnboarding,
-  };
+  return sanitizePluginSettings(raw ?? DEFAULT_PLUGIN_SETTINGS).settings;
 }
 
 /**

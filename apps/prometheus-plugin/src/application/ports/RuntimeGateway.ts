@@ -31,4 +31,6 @@ export interface RuntimeGateway {
   getProcessState(): ManagedRuntimeState;
   getInstalledVersion(): Promise<string | null>;
   getDiagnostics(): readonly string[];
+  /** Platform data root used for managed binary and vector index storage. */
+  getDataRootPath(): string;
 }

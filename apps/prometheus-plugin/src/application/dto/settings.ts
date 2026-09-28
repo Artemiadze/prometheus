@@ -9,7 +9,8 @@ export type SearchScopePreference = "entire_vault" | "current_folder" | "current
 
 /**
  * Plugin-owned settings persisted in Obsidian data.json (Project_analytics §48).
- * Embedding/chunk size live in the runtime, not here.
+ * Chunk size / LLM temperature / context size are local-only until the runtime
+ * exposes a config surface; they do not yet change sidecar behaviour.
  */
 export type PluginSettings = {
   readonly runtimeMode: RuntimeMode;
@@ -26,6 +27,14 @@ export type PluginSettings = {
   readonly searchScopeMode: SearchScopePreference;
   readonly applySearchScopeToChat: boolean;
   readonly hasCompletedOnboarding: boolean;
+  /** Local-only preference; runtime chunking not yet configurable via plugin. */
+  readonly chunkSizeTokens: number;
+  /** Local-only preference; runtime chunking not yet configurable via plugin. */
+  readonly chunkOverlapTokens: number;
+  /** Local-only preference; runtime LLM params not yet configurable via plugin. */
+  readonly llmTemperature: number;
+  /** Local-only preference; runtime LLM params not yet configurable via plugin. */
+  readonly llmContextSize: number;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -43,6 +52,10 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   searchScopeMode: "entire_vault",
   applySearchScopeToChat: false,
   hasCompletedOnboarding: false,
+  chunkSizeTokens: 700,
+  chunkOverlapTokens: 80,
+  llmTemperature: 0.2,
+  llmContextSize: 4096,
 };
 
 /** Always ignored regardless of user settings. */

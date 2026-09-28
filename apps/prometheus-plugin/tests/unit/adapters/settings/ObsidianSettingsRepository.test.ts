@@ -7,6 +7,7 @@ import {
 } from "../../../../src/adapters/outbound/settings/ObsidianSettingsRepository";
 import { DEFAULT_PLUGIN_SETTINGS } from "../../../../src/application/dto/settings";
 import { VaultId } from "../../../../src/domain/value-objects/VaultId";
+import { FakeNotifier } from "../../../fakes/FakeNotifier";
 import { FakeSettingsRepository } from "../../../fakes/FakeSettingsRepository";
 
 describe("generateVaultId / ensureVaultId", () => {
@@ -48,8 +49,23 @@ describe("ObsidianSettingsRepository", () => {
     expect(settings.searchScopeMode).toBe("entire_vault");
     expect(settings.applySearchScopeToChat).toBe(false);
     expect(settings.hasCompletedOnboarding).toBe(false);
+    expect(settings.chunkSizeTokens).toBe(700);
 
     await repo.save({ ...settings, autoIndexing: false });
     expect((stored as { autoIndexing: boolean }).autoIndexing).toBe(false);
+  });
+
+  it("notifies once when corrupted values are corrected", async () => {
+    const stored: unknown = { runtimeMode: "cloud", indexingDebounceMs: -5 };
+    const notifier = new FakeNotifier();
+    const plugin = {
+      loadData: async () => stored,
+      saveData: async () => undefined,
+    };
+    const repo = new ObsidianSettingsRepository(plugin, notifier);
+    await repo.get();
+    await repo.get();
+    expect(notifier.records.filter((r) => r.level === "warning")).toHaveLength(1);
+    expect(notifier.records[0]?.message).toContain("corrected");
   });
 });
