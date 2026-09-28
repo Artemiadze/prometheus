@@ -34,4 +34,23 @@ describe("scopeOptions", () => {
     expect(scope.mode).toBe("current_folder");
     expect(scope.folders[0]?.value).toBe("folder");
   });
+
+  it("enables current folder via pinnedFolder without an active note", () => {
+    const pinned = NotePath.create("Projects");
+    const options = buildScopeOptions(null, null, pinned);
+    expect(options.find((o) => o.mode === "current_folder")?.enabled).toBe(true);
+    expect(options.find((o) => o.mode === "current_folder")?.label).toContain("Projects");
+
+    const scope = resolveScope("current_folder", null, null, pinned);
+    expect(scope.mode).toBe("current_folder");
+    expect(scope.folders[0]?.value).toBe("Projects");
+  });
+
+  it("prefers pinnedFolder over active folder", () => {
+    const note = NotePath.create("other/note.md");
+    const activeFolder = NotePath.create("other");
+    const pinned = NotePath.create("Projects");
+    const scope = resolveScope("current_folder", note, activeFolder, pinned);
+    expect(scope.folders[0]?.value).toBe("Projects");
+  });
 });

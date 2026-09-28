@@ -6,6 +6,7 @@ import type { VaultGateway } from "../../../../application/ports/VaultGateway";
 import type { SearchNotes } from "../../../../application/use-cases/SearchNotes";
 import { MIN_QUERY_LENGTH } from "../../../../application/use-cases/SearchNotes";
 import { SourceReference } from "../../../../domain/entities/SourceReference";
+import type { NotePath } from "../../../../domain/value-objects/NotePath";
 import { createScopeOptionsState, resolveScope, type ScopeOptionsState } from "./scopeOptions";
 
 export type SearchStatus = "idle" | "tooShort" | "searching" | "results" | "empty" | "error";
@@ -44,6 +45,7 @@ export class SearchStore {
   private errorMessage: string | null = null;
   private scopeMode: SearchScopePreference = "entire_vault";
   private scope: ScopeOptionsState;
+  private pinnedFolder: NotePath | null = null;
   private readonly listeners = new Set<Listener>();
   private debounceController: AbortController | null = null;
   private searchController: AbortController | null = null;
@@ -126,8 +128,11 @@ export class SearchStore {
     if (this.disposed) {
       return;
     }
+    this.pinnedFolder = null;
+    this.refreshScopeOptions();
     const option = this.scope.options.find((item) => item.mode === mode);
     if (!option?.enabled) {
+      this.notify();
       return;
     }
     this.scopeMode = mode;
@@ -140,6 +145,22 @@ export class SearchStore {
       await this.runSearch(seq, this.query.trim());
     } else {
       this.notify();
+    }
+  }
+
+  async focusFolder(path: NotePath): Promise<void> {
+    await this.ready;
+    if (this.disposed) {
+      return;
+    }
+    this.pinnedFolder = path;
+    this.scopeMode = "current_folder";
+    this.refreshScopeOptions();
+    this.notify();
+    if (this.query.trim().length >= MIN_QUERY_LENGTH) {
+      this.searchController?.abort();
+      const seq = ++this.requestSeq;
+      await this.runSearch(seq, this.query.trim());
     }
   }
 
@@ -182,6 +203,7 @@ export class SearchStore {
       this.scopeMode,
       this.deps.vault.getActiveNotePath(),
       this.deps.vault.getActiveFolderPath(),
+      this.pinnedFolder,
     );
   }
 
@@ -207,6 +229,7 @@ export class SearchStore {
       this.scopeMode,
       this.deps.vault.getActiveNotePath(),
       this.deps.vault.getActiveFolderPath(),
+      this.pinnedFolder,
     );
 
     try {

@@ -193,4 +193,66 @@ describe("SearchStore", () => {
     await store.setQuery("hello");
     expect(count).toBe(1);
   });
+
+  it("focusFolder pins scope until the user changes mode manually", async () => {
+    const settings = new FakeSettingsRepository({
+      ...DEFAULT_PLUGIN_SETTINGS,
+      vaultId: "vault-a1",
+    });
+    const vault = createVaultStub(null);
+    const searchNotes = {
+      execute: vi.fn(async () => ({
+        kind: "ok" as const,
+        hits: [
+          {
+            path: NotePath.create("Projects/a.md"),
+            heading: null,
+            text: "hit",
+            score: 1,
+          },
+        ],
+      })),
+    };
+    const store = new SearchStore({
+      searchNotes,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      settings,
+      vault,
+      clock: new FakeClock(),
+      debounceMs: 0,
+    });
+    await Promise.resolve();
+
+    await store.focusFolder(NotePath.create("Projects"));
+    expect(store.getState().scope.selected).toBe("current_folder");
+    expect(store.getState().scope.options.find((o) => o.mode === "current_folder")?.enabled).toBe(
+      true,
+    );
+
+    vault.setActive(NotePath.create("other/note.md"));
+    await Promise.resolve();
+    expect(store.getState().scope.selected).toBe("current_folder");
+    expect(
+      store.getState().scope.options.find((o) => o.mode === "current_folder")?.label,
+    ).toContain("Projects");
+
+    await store.setQuery("hello");
+    expect(searchNotes.execute).toHaveBeenCalledWith(
+      "hello",
+      expect.objectContaining({
+        mode: "current_folder",
+        folders: [expect.objectContaining({ value: "Projects" })],
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
+
+    await store.setScopeMode("entire_vault");
+    expect(store.getState().scope.selected).toBe("entire_vault");
+    expect(store.getState().scope.options.find((o) => o.mode === "current_folder")?.label).toBe(
+      "Current folder",
+    );
+    store.dispose();
+  });
 });

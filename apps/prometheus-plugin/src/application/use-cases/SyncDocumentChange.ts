@@ -11,6 +11,10 @@ import {
   requireVaultId,
 } from "../services/settingsHelpers";
 
+export type SyncDocumentChangeOptions = {
+  readonly force?: boolean;
+};
+
 export class SyncDocumentChange {
   constructor(
     private readonly vault: VaultGateway,
@@ -20,14 +24,23 @@ export class SyncDocumentChange {
     private readonly notifier: Notifier,
   ) {}
 
-  async execute(event: VaultEvent, signal?: AbortSignal): Promise<void> {
-    await this.executeMany([event], signal);
+  async execute(
+    event: VaultEvent,
+    signal?: AbortSignal,
+    options?: SyncDocumentChangeOptions,
+  ): Promise<void> {
+    await this.executeMany([event], signal, options);
   }
 
-  async executeMany(events: readonly VaultEvent[], signal?: AbortSignal): Promise<void> {
+  async executeMany(
+    events: readonly VaultEvent[],
+    signal?: AbortSignal,
+    options?: SyncDocumentChangeOptions,
+  ): Promise<void> {
     const settings = await this.settings.get();
     const vaultId = requireVaultId(settings);
     const ignored = effectiveIgnoredFolders(settings);
+    const force = options?.force === true;
 
     for (const event of events) {
       try {
@@ -40,7 +53,7 @@ export class SyncDocumentChange {
             const file = await this.vault.readFile(event.path, signal);
             const contentHash = computeContentHash(file.content);
             const existing = this.syncState.getByPath(event.path);
-            if (existing?.contentHash === contentHash) {
+            if (!force && existing?.contentHash === contentHash) {
               break;
             }
             const documentId = this.syncState.resolveOrCreate(event.path);

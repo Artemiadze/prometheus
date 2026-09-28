@@ -17,9 +17,11 @@ export type ScopeOptionsState = {
 export function buildScopeOptions(
   activeNote: NotePath | null,
   activeFolder: NotePath | null,
+  pinnedFolder: NotePath | null = null,
 ): readonly ScopeOption[] {
-  const noActiveNote = activeNote === null;
-  const noteInRoot = activeNote !== null && activeFolder === null;
+  const folder = pinnedFolder ?? activeFolder;
+  const noActiveNote = activeNote === null && pinnedFolder === null;
+  const noteInRoot = pinnedFolder === null && activeNote !== null && activeFolder === null;
 
   return [
     {
@@ -30,19 +32,22 @@ export function buildScopeOptions(
     },
     {
       mode: "current_folder",
-      label: "Current folder",
-      enabled: !noActiveNote && !noteInRoot,
-      reason: noActiveNote
-        ? "Open a note to use this scope"
-        : noteInRoot
-          ? "Active note is in the vault root"
-          : null,
+      label: pinnedFolder ? `Folder: ${pinnedFolder.value}` : "Current folder",
+      enabled: folder !== null,
+      reason:
+        folder !== null
+          ? null
+          : noActiveNote
+            ? "Open a note to use this scope"
+            : noteInRoot
+              ? "Active note is in the vault root"
+              : "Open a note to use this scope",
     },
     {
       mode: "current_note",
       label: "Current note",
-      enabled: !noActiveNote,
-      reason: noActiveNote ? "Open a note to use this scope" : null,
+      enabled: activeNote !== null,
+      reason: activeNote === null ? "Open a note to use this scope" : null,
     },
   ];
 }
@@ -51,17 +56,19 @@ export function resolveScope(
   mode: SearchScopePreference,
   activeNote: NotePath | null,
   activeFolder: NotePath | null,
+  pinnedFolder: NotePath | null = null,
 ): SearchScope {
-  const options = buildScopeOptions(activeNote, activeFolder);
+  const options = buildScopeOptions(activeNote, activeFolder, pinnedFolder);
   const selected = options.find((option) => option.mode === mode);
   if (!selected?.enabled) {
     return SearchScope.entireVault();
   }
+  const folder = pinnedFolder ?? activeFolder;
   switch (mode) {
     case "entire_vault":
       return SearchScope.entireVault();
     case "current_folder":
-      return SearchScope.currentFolder(activeFolder!);
+      return SearchScope.currentFolder(folder!);
     case "current_note":
       return SearchScope.currentNote(activeNote!);
     default: {
@@ -75,9 +82,10 @@ export function createScopeOptionsState(
   selected: SearchScopePreference,
   activeNote: NotePath | null,
   activeFolder: NotePath | null,
+  pinnedFolder: NotePath | null = null,
 ): ScopeOptionsState {
   return {
     selected,
-    options: buildScopeOptions(activeNote, activeFolder),
+    options: buildScopeOptions(activeNote, activeFolder, pinnedFolder),
   };
 }

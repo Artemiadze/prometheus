@@ -161,4 +161,64 @@ describe("ChatStore", () => {
       expect.anything(),
     );
   });
+
+  it("focusNote pins scope for the next message only", async () => {
+    const { SearchScope } = await import("../../../../../src/domain/value-objects/SearchScope");
+    const { NotePath } = await import("../../../../../src/domain/value-objects/NotePath");
+    const askQuestion = {
+      execute: vi.fn(async (): Promise<AskQuestionResult> => ({
+        kind: "ok",
+        session: ChatSession.empty("session-1")
+          .appendMessage(ChatMessage.user("hello world"))
+          .appendMessage(ChatMessage.assistant("ok", { state: "complete" })),
+      })),
+    };
+    const defaultScope = SearchScope.entireVault();
+    const store = new ChatStore({
+      askQuestion,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      resolveScope: async () => defaultScope,
+      newSessionId: () => "session-1",
+    });
+    const note = NotePath.create("notes/pinned.md");
+    store.focusNote(note);
+    expect(store.getState().scopeOverrideLabel).toBe("notes/pinned.md");
+
+    await store.send("hello world");
+    expect(askQuestion.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      "hello world",
+      SearchScope.currentNote(note),
+      expect.anything(),
+    );
+    expect(store.getState().scopeOverrideLabel).toBeNull();
+
+    await store.send("second question");
+    expect(askQuestion.execute).toHaveBeenLastCalledWith(
+      expect.anything(),
+      "second question",
+      defaultScope,
+      expect.anything(),
+    );
+  });
+
+  it("keeps focusNote pin after runtime failure and clears via clear/clearScopeOverride", async () => {
+    const { NotePath } = await import("../../../../../src/domain/value-objects/NotePath");
+    const store = new ChatStore({
+      askQuestion: { execute: vi.fn() },
+      ensureRuntime: async () => ({ ok: false, message: "Runtime missing" }),
+      openSource: async () => undefined,
+    });
+    store.focusNote(NotePath.create("a.md"));
+    await store.send("hello world");
+    expect(store.getState().scopeOverrideLabel).toBe("a.md");
+
+    store.clearScopeOverride();
+    expect(store.getState().scopeOverrideLabel).toBeNull();
+
+    store.focusNote(NotePath.create("b.md"));
+    store.clear();
+    expect(store.getState().scopeOverrideLabel).toBeNull();
+  });
 });

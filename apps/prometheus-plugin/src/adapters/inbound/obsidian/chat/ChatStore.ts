@@ -2,6 +2,7 @@ import type { AskQuestion } from "../../../../application/use-cases/AskQuestion"
 import { ChatSession } from "../../../../domain/entities/ChatSession";
 import type { ChatMessage } from "../../../../domain/entities/ChatMessage";
 import type { SourceReference } from "../../../../domain/entities/SourceReference";
+import type { NotePath } from "../../../../domain/value-objects/NotePath";
 import { SearchScope } from "../../../../domain/value-objects/SearchScope";
 
 export type ChatStatus = "idle" | "sending" | "streaming" | "error";
@@ -10,6 +11,7 @@ export type ChatViewState = {
   readonly status: ChatStatus;
   readonly session: ChatSession;
   readonly errorMessage: string | null;
+  readonly scopeOverrideLabel: string | null;
 };
 
 export type ChatRuntimeReadiness =
@@ -23,12 +25,18 @@ export type ChatStoreDeps = {
   readonly newSessionId?: (() => string) | undefined;
 };
 
+type ScopeOverride = {
+  readonly scope: SearchScope;
+  readonly label: string;
+};
+
 type Listener = (state: ChatViewState) => void;
 
 export class ChatStore {
   private session: ChatSession;
   private status: ChatStatus = "idle";
   private errorMessage: string | null = null;
+  private scopeOverride: ScopeOverride | null = null;
   private readonly listeners = new Set<Listener>();
   private activeRequest: AbortController | null = null;
   private disposed = false;
@@ -42,6 +50,7 @@ export class ChatStore {
       status: this.status,
       session: this.session,
       errorMessage: this.errorMessage,
+      scopeOverrideLabel: this.scopeOverride?.label ?? null,
     };
   }
 
@@ -54,6 +63,25 @@ export class ChatStore {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  focusNote(path: NotePath): void {
+    if (this.disposed) {
+      return;
+    }
+    this.scopeOverride = {
+      scope: SearchScope.currentNote(path),
+      label: path.value,
+    };
+    this.notify();
+  }
+
+  clearScopeOverride(): void {
+    if (this.disposed || this.scopeOverride === null) {
+      return;
+    }
+    this.scopeOverride = null;
+    this.notify();
   }
 
   async send(text: string): Promise<void> {
@@ -83,9 +111,16 @@ export class ChatStore {
       return;
     }
 
-    const scope = this.deps.resolveScope
-      ? await this.deps.resolveScope()
-      : SearchScope.entireVault();
+    let scope: SearchScope;
+    if (this.scopeOverride) {
+      scope = this.scopeOverride.scope;
+      this.scopeOverride = null;
+      this.notify();
+    } else if (this.deps.resolveScope) {
+      scope = await this.deps.resolveScope();
+    } else {
+      scope = SearchScope.entireVault();
+    }
     if (this.activeRequest !== controller) {
       return;
     }
@@ -143,6 +178,8 @@ export class ChatStore {
   clear(): void {
     this.activeRequest?.abort();
     this.activeRequest = null;
+    const hadOverride = this.scopeOverride !== null;
+    this.scopeOverride = null;
     if (this.session.messages.length > 0) {
       this.setState({
         status: "idle",
@@ -151,7 +188,7 @@ export class ChatStore {
       });
       return;
     }
-    if (this.status !== "idle" || this.errorMessage !== null) {
+    if (this.status !== "idle" || this.errorMessage !== null || hadOverride) {
       this.setState({ status: "idle", errorMessage: null });
     }
   }
@@ -190,6 +227,10 @@ export class ChatStore {
     this.status = nextStatus;
     this.session = nextSession;
     this.errorMessage = nextError;
+    this.notify();
+  }
+
+  private notify(): void {
     const snapshot = this.getState();
     for (const listener of this.listeners) {
       listener(snapshot);

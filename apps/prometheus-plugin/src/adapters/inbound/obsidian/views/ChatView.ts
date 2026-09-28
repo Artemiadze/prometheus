@@ -23,9 +23,11 @@ export class ChatView extends ItemView {
   private textareaEl: HTMLTextAreaElement | null = null;
   private actionButtonEl: HTMLButtonElement | null = null;
   private errorEl: HTMLElement | null = null;
+  private scopeBadgeEl: HTMLElement | null = null;
   private readonly messageComponents = new Map<string, Component>();
   private readonly messageRoots = new Map<string, HTMLElement>();
   private prevRenderKeys: string[] = [];
+  private focusedScopeBadge = false;
 
   constructor(leaf: WorkspaceLeaf, options: ChatViewOptions) {
     super(leaf);
@@ -61,6 +63,9 @@ export class ChatView extends ItemView {
 
     this.errorEl = container.createDiv({ cls: "prometheus-chat-view__error" });
     this.messagesEl = container.createDiv({ cls: "prometheus-chat-view__messages" });
+
+    this.scopeBadgeEl = container.createDiv({ cls: "prometheus-chat-view__scope-badge" });
+    this.scopeBadgeEl.hide();
 
     const inputRow = container.createDiv({ cls: "prometheus-chat-view__input" });
     this.textareaEl = inputRow.createEl("textarea", {
@@ -121,7 +126,39 @@ export class ChatView extends ItemView {
   private render(state: ChatViewState): void {
     this.renderError(state);
     this.renderMessages(state);
+    this.renderScopeBadge(state);
     this.renderComposer(state);
+  }
+
+  private renderScopeBadge(state: ChatViewState): void {
+    const badge = this.scopeBadgeEl;
+    if (!badge) {
+      return;
+    }
+    if (!state.scopeOverrideLabel) {
+      badge.empty();
+      badge.hide();
+      this.focusedScopeBadge = false;
+      return;
+    }
+    badge.empty();
+    badge.show();
+    badge.createSpan({
+      cls: "prometheus-chat-view__scope-badge-text",
+      text: `Asking about: ${state.scopeOverrideLabel}`,
+    });
+    const clearButton = badge.createEl("button", {
+      cls: "prometheus-chat-view__scope-badge-clear",
+      text: "×",
+      attr: { "aria-label": "Clear note scope" },
+    });
+    clearButton.addEventListener("click", () => {
+      this.store.clearScopeOverride();
+    });
+    if (!this.focusedScopeBadge && this.textareaEl) {
+      this.focusedScopeBadge = true;
+      this.textareaEl.focus();
+    }
   }
 
   private renderError(state: ChatViewState): void {

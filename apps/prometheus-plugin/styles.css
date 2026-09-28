@@ -74,6 +74,41 @@
   font-size: var(--font-ui-small);
 }
 
+.prometheus-chat-view__scope-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  margin-bottom: var(--size-2-2);
+  padding: var(--size-2-1) var(--size-4-2);
+  background-color: var(--background-modifier-hover);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--button-radius);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.prometheus-chat-view__scope-badge-text {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prometheus-chat-view__scope-badge-clear {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 var(--size-2-1);
+  font-size: var(--font-ui-medium);
+  line-height: 1;
+}
+
+.prometheus-chat-view__scope-badge-clear:hover {
+  color: var(--text-normal);
+}
+
 .prometheus-chat-message {
   margin-bottom: var(--size-4-3);
   padding: var(--size-4-2);

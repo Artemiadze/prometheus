@@ -7,11 +7,13 @@ import type { SettingsRepository } from "../application/ports/SettingsRepository
 import { ActiveJobRegistry } from "../application/services/ActiveJobRegistry";
 import { DocumentSyncState } from "../application/services/DocumentSyncState";
 import { RequestReindex, type RequestReindexResult } from "../application/use-cases/RequestReindex";
+import { SyncDocumentChange } from "../application/use-cases/SyncDocumentChange";
 import {
   SynchronizeVault,
   type SyncVaultProgress,
   type SyncVaultResult,
 } from "../application/use-cases/SynchronizeVault";
+import type { NotePath } from "../domain/value-objects/NotePath";
 
 export type WireIndexingDeps = {
   readonly vault: ObsidianVaultGateway;
@@ -36,6 +38,7 @@ export type WiredIndexing = {
     signal?: AbortSignal,
     onJobUpdate?: IndexingJobCallback,
   ) => Promise<RequestReindexResult>;
+  readonly reindexFile: (path: NotePath, signal?: AbortSignal) => Promise<void>;
   readonly cancelActive: (signal?: AbortSignal) => Promise<JobInfo | null>;
   readonly dispose: () => void;
 };
@@ -56,6 +59,13 @@ export function wireIndexing(deps: WireIndexingDeps): WiredIndexing {
     clock,
   );
   const requestReindex = new RequestReindex(deps.rag, deps.vault, deps.settings, syncState, clock);
+  const syncDocumentChange = new SyncDocumentChange(
+    deps.vault,
+    deps.rag,
+    deps.settings,
+    syncState,
+    deps.notifier,
+  );
 
   const startInitialSync = async (
     signal?: AbortSignal,
@@ -90,6 +100,10 @@ export function wireIndexing(deps: WireIndexingDeps): WiredIndexing {
     return result;
   };
 
+  const reindexFile = async (path: NotePath, signal?: AbortSignal): Promise<void> => {
+    await syncDocumentChange.execute({ type: "modify", path }, signal, { force: true });
+  };
+
   const cancelActive = async (signal?: AbortSignal): Promise<JobInfo | null> => {
     const fromSync = await synchronizeVault.cancel(signal);
     if (fromSync) {
@@ -108,6 +122,7 @@ export function wireIndexing(deps: WireIndexingDeps): WiredIndexing {
     requestReindex,
     startInitialSync,
     startReindex,
+    reindexFile,
     cancelActive,
     dispose: () => {
       jobRegistry.clear();

@@ -41,6 +41,22 @@ describe("SyncDocumentChange", () => {
     expect(rag.upsertCalls).toBe(0);
   });
 
+  it("force-upserts unchanged content when force is true", async () => {
+    const { vault, rag, syncState, useCase } = setup();
+    vault.seed("a.md", "same");
+    const path = NotePath.create("a.md");
+    const documentId = DocumentId.fromNotePath(path);
+    const { computeContentHash } = await import("../../../src/application/services/contentHash");
+    syncState.upsert({
+      documentId,
+      path,
+      contentHash: computeContentHash("same"),
+      revision: 1,
+    });
+    await useCase.execute({ type: "modify", path }, undefined, { force: true });
+    expect(rag.upsertCalls).toBe(1);
+  });
+
   it("upserts modified content and deletes/renames with stable ids", async () => {
     const { vault, rag, syncState, useCase } = setup();
     vault.seed("old.md", "body");

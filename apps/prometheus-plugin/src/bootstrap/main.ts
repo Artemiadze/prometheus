@@ -1,6 +1,8 @@
 import { Plugin } from "obsidian";
 
 import { ObsidianNotifier } from "../adapters/inbound/notifier/ObsidianNotifier";
+import { registerCommands } from "../adapters/inbound/obsidian/commands/registerCommands";
+import { registerContextMenu } from "../adapters/inbound/obsidian/commands/registerContextMenu";
 import { activateChatView } from "../adapters/inbound/obsidian/views/activateChatView";
 import { activateSearchView } from "../adapters/inbound/obsidian/views/activateSearchView";
 import { activateStatusView } from "../adapters/inbound/obsidian/views/activateStatusView";
@@ -17,7 +19,6 @@ import { createChatScopeResolver, wireSearch } from "./wireSearch";
 import { wireRuntimeLifecycle } from "./wireRuntimeLifecycle";
 import { wireSettingsTab } from "./wireSettingsTab";
 import { wireStatus } from "./wireStatus";
-
 /**
  * Composition root for the Prometheus Obsidian plugin.
  */
@@ -140,43 +141,29 @@ export default class PrometheusPlugin extends Plugin {
       statusBarItem.toggleClass("prometheus-statusbar-item--busy", label.kind === "busy");
     });
 
-    this.addCommand({
-      id: "open-chat",
-      name: "Open chat",
-      callback: () => {
+    registerCommands(this, {
+      app: this.app,
+      chatStore: chat.store,
+      statusStore: status.store,
+      openOnboarding: (app) => {
+        onboarding.openOnboarding(app);
+      },
+      activateChat: activateChatView,
+      activateSearch: activateSearchView,
+      activateStatus: activateStatusView,
+    });
+
+    registerContextMenu(this, {
+      askAboutNote: (path) => {
+        chat.store.focusNote(path);
         void activateChatView(this.app);
       },
-    });
-
-    this.addCommand({
-      id: "clear-chat-session",
-      name: "Clear chat session",
-      callback: () => {
-        chat.store.clear();
-      },
-    });
-
-    this.addCommand({
-      id: "open-search",
-      name: "Open semantic search",
-      callback: () => {
+      searchInFolder: (path) => {
         void activateSearchView(this.app);
+        void search.store.focusFolder(path);
       },
-    });
-
-    this.addCommand({
-      id: "open-status",
-      name: "Open status",
-      callback: () => {
-        void activateStatusView(this.app);
-      },
-    });
-
-    this.addCommand({
-      id: "open-onboarding-wizard",
-      name: "Open setup wizard",
-      callback: () => {
-        onboarding.openOnboarding(this.app);
+      reindexFile: (path) => {
+        void indexing.reindexFile(path);
       },
     });
 
