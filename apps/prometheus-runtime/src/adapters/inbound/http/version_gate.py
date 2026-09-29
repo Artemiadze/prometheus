@@ -18,6 +18,7 @@ def require_compatible_plugin_version(request: Request) -> None:
 
     provided = request.headers.get(PLUGIN_VERSION_HEADER, "").strip()
     if not provided or not is_plugin_compatible(provided):
+        # Do not echo the client-supplied header value back into the envelope.
         raise RuntimeVersionIncompatibleError(
-            f"Plugin version {provided or 'missing'!r} is outside {COMPATIBLE_PLUGIN_RANGE}"
+            f"Plugin version is outside the compatible range {COMPATIBLE_PLUGIN_RANGE}"
         )

@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from adapters.inbound.http.auth import require_session_token
 from adapters.inbound.http.dependencies import get_base_container, get_vault_container
-from adapters.inbound.http.package_version import package_version
 from adapters.inbound.http.schemas.status import ModelResponse, ModelsResponse, StatusResponse
 from adapters.inbound.http.version_gate import require_compatible_plugin_version
+from application.services.version_compatibility import API_VERSION
 
 router = APIRouter(
     dependencies=[Depends(require_session_token), Depends(require_compatible_plugin_version)]
@@ -23,7 +23,7 @@ async def status(
     """Return status for the isolated Vault supplied as ``vault_id``."""
 
     result = await get_vault_container(request, vault_id).runtime_status.execute()
-    return StatusResponse.from_dto(result, package_version())
+    return StatusResponse.from_dto(result, API_VERSION)
 
 
 @router.get("/v1/models", response_model=ModelsResponse)

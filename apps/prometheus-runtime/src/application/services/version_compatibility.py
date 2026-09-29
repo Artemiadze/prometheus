@@ -9,11 +9,18 @@ MIN_PLUGIN_VERSION = (0, 1, 0)
 MAX_PLUGIN_VERSION_EXCLUSIVE = (0, 2, 0)
 COMPATIBLE_PLUGIN_RANGE = ">=0.1.0,<0.2.0"
 
+#: Stable localhost HTTP API contract version, independent of the package release.
+API_VERSION = "0.1.0"
+
 _SEMVER_PATTERN = r"([0-9]+)\.([0-9]+)\.([0-9]+)"
 
 
 def parse_semver(value: str) -> tuple[int, int, int] | None:
-    """Parse a strict MAJOR.MINOR.PATCH version string."""
+    """Parse a strict MAJOR.MINOR.PATCH version string.
+
+    Prerelease and build metadata (``-rc.1``, ``+meta``) are rejected so that
+    negotiation stays deterministic between plugin and runtime.
+    """
 
     match = fullmatch(_SEMVER_PATTERN, value.strip())
     if match is None:
