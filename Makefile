@@ -1,6 +1,7 @@
 .PHONY: \
 	sync format lint typecheck arch test openapi-check build check \
 	runtime-sync runtime-format runtime-lint runtime-typecheck runtime-arch runtime-test runtime-openapi-check runtime-check \
+	runtime-frozen \
 	plugin-sync plugin-lint plugin-typecheck plugin-test plugin-build plugin-check
 
 RUNTIME_DIR := apps/prometheus-runtime
@@ -28,6 +29,10 @@ runtime-openapi-check:
 	$(MAKE) -C $(RUNTIME_DIR) openapi-check
 
 runtime-check: runtime-lint runtime-typecheck runtime-arch runtime-test runtime-openapi-check
+
+runtime-frozen:
+	uv sync --project $(RUNTIME_DIR) --group packaging --group dev
+	uv run --project $(RUNTIME_DIR) --group packaging python packaging/build_frozen.py
 
 plugin-sync:
 	npm --prefix $(PLUGIN_DIR) ci

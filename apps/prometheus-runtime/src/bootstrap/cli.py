@@ -19,6 +19,7 @@ from bootstrap import __version__
 from bootstrap.config import LogLevel, load_settings
 from bootstrap.container import Container
 from bootstrap.container_registry import VaultContainerRegistry
+from bootstrap.doctor import doctor_exit_code, format_doctor_report, run_doctor
 from domain.errors import ConfigurationError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, pretty_exceptions_enable=False)
@@ -133,7 +134,31 @@ def export_openapi(
     )
 
 
+@app.command()
+def doctor(
+    data_dir: Annotated[
+        Path | None,
+        typer.Option(help="Directory for runtime models, indexes, state, and logs."),
+    ] = None,
+) -> None:
+    """Run read-only environment diagnostics and exit non-zero on blockers."""
+
+    try:
+        settings = load_settings({"data_dir": data_dir})
+    except ConfigurationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+
+    checks = run_doctor(settings)
+    typer.echo(format_doctor_report(checks), nl=False)
+    raise typer.Exit(code=doctor_exit_code(checks))
+
+
 def main() -> None:
     """Run the CLI application."""
 
     app()
+
+
+if __name__ == "__main__":
+    main()

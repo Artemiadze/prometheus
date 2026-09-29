@@ -1,0 +1,4 @@
+# PyInstaller outputs (local / CI worktrees)
+dist/
+build/
+*.spec.bak

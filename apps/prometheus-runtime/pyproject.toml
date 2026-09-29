@@ -31,6 +31,9 @@ dev = [
     "pytest-cov>=6,<7",
     "ruff>=0.9,<1",
 ]
+packaging = [
+    "pyinstaller>=6,<7",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/domain", "src/application", "src/adapters", "src/bootstrap"]

@@ -5,14 +5,18 @@ on:
     paths:
       - "apps/prometheus-runtime/**"
       - "apps/prometheus-plugin/**"
+      - "packaging/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/release-runtime.yml"
   pull_request:
     paths:
       - "apps/prometheus-runtime/**"
       - "apps/prometheus-plugin/**"
+      - "packaging/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/release-runtime.yml"
 
 permissions:
   contents: read

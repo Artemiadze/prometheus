@@ -1,0 +1,143 @@
+name: Release Runtime
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win-x64
+          - os: macos-13
+            target: macos-x64
+          - os: macos-14
+            target: macos-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.18"
+          enable-cache: true
+          cache-dependency-glob: "apps/prometheus-runtime/uv.lock"
+
+      - name: Install Python and packaging dependencies
+        run: uv sync --frozen --project apps/prometheus-runtime --group packaging --group dev
+
+      - name: Build frozen binary
+        env:
+          PROMETHEUS_RELEASE_TARGET: ${{ matrix.target }}
+        run: uv run --project apps/prometheus-runtime --group packaging python packaging/build_frozen.py --target ${{ matrix.target }} --skip-checksum
+
+      - name: Resolve artifact name
+        id: artifact
+        shell: bash
+        run: |
+          case "${{ matrix.target }}" in
+            linux-x64) name="prometheus-runtime-linux-x64" ;;
+            win-x64) name="prometheus-runtime.exe" ;;
+            macos-x64) name="prometheus-runtime-macos-x64" ;;
+            macos-arm64) name="prometheus-runtime-macos-arm64" ;;
+            *) echo "unknown target"; exit 1 ;;
+          esac
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "path=packaging/dist/${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke --version
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="${{ steps.artifact.outputs.path }}"
+          chmod +x "$ARTIFACT" || true
+          EXPECTED="$(uv run --project apps/prometheus-runtime python -c 'from importlib.metadata import version; print(version("prometheus-runtime"))')"
+          ACTUAL="$("$ARTIFACT" --version | tr -d '\r' | head -n1)"
+          echo "expected=${EXPECTED} actual=${ACTUAL}"
+          test "$ACTUAL" = "$EXPECTED"
+
+      - name: Write SHA256 checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="${{ steps.artifact.outputs.path }}"
+          NAME="${{ steps.artifact.outputs.name }}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            HASH="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
+          else
+            HASH="$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')"
+          fi
+          printf '%s  %s\n' "$HASH" "$NAME" > "${ARTIFACT}.sha256"
+          cat "${ARTIFACT}.sha256"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.target }}
+          path: |
+            ${{ steps.artifact.outputs.path }}
+            ${{ steps.artifact.outputs.path }}.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: runtime-*
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -la release-assets
+
+      - name: Read package version
+        id: version
+        run: |
+          VERSION="$(python -c "import re, pathlib; t=pathlib.Path('apps/prometheus-runtime/pyproject.toml').read_text(); print(re.search(r'^version\\s*=\\s*\\\"([^\\\"]+)\\\"', t, re.M).group(1))")"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" != "v${VERSION}" && "$TAG" != "v${VERSION}"* ]]; then
+            echo "Warning: tag ${TAG} does not match package version ${VERSION}"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Prometheus Runtime ${{ steps.version.outputs.version }}
+          body: |
+            Frozen prometheus-runtime binaries for Obsidian plugin managed download.
+
+            Package version: `${{ steps.version.outputs.version }}`
+
+            Artifacts (onefile) and matching `.sha256` checksums (GNU format):
+            - `prometheus-runtime-linux-x64`
+            - `prometheus-runtime.exe`
+            - `prometheus-runtime-macos-x64`
+            - `prometheus-runtime-macos-arm64`
+          files: |
+            release-assets/prometheus-runtime-linux-x64
+            release-assets/prometheus-runtime-linux-x64.sha256
+            release-assets/prometheus-runtime.exe
+            release-assets/prometheus-runtime.exe.sha256
+            release-assets/prometheus-runtime-macos-x64
+            release-assets/prometheus-runtime-macos-x64.sha256
+            release-assets/prometheus-runtime-macos-arm64
+            release-assets/prometheus-runtime-macos-arm64.sha256
+          fail_on_unmatched_files: true

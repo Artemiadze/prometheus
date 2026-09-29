@@ -156,3 +156,19 @@ def test_network_guard_skipped_when_embedding_download_allowed(
 
     assert result.exit_code == 0
     assert installed == []
+
+
+def test_doctor_exits_nonzero_on_blocking_problems(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["doctor", "--data-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "[FAIL] embedding_model" in result.stdout
+    assert "recommendation:" in result.stdout
+    assert "Prometheus runtime doctor" in result.stdout
+
+
+def test_doctor_does_not_mutate_data_dir(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["doctor", "--data-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert list(tmp_path.iterdir()) == []
