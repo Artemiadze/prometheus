@@ -1,6 +1,7 @@
 import type { RuntimeStopReason } from "../../domain/entities/RuntimeStatus";
 import { isAbortError } from "../../domain/errors";
 import type { Notifier } from "../ports/Notifier";
+import type { Logger } from "../ports/Logger";
 import type { Clock } from "../ports/Clock";
 import type { RuntimeSessionRegistry } from "./RuntimeSessionRegistry";
 import type { StartRuntime } from "../use-cases/StartRuntime";
@@ -21,6 +22,7 @@ export class RuntimeSupervisor {
   private restartCount = 0;
   private lastStartAt: number | null = null;
   private restartChain: Promise<void> = Promise.resolve();
+  private readonly logger: Logger | null;
 
   constructor(
     private readonly startRuntime: StartRuntime,
@@ -28,10 +30,12 @@ export class RuntimeSupervisor {
     private readonly clock: Clock,
     private readonly notifier: Notifier,
     options: RuntimeSupervisorOptions = {},
+    logger?: Logger,
   ) {
     this.maxRestarts = options.maxRestarts ?? 2;
     this.restartBackoffMs = options.restartBackoffMs ?? 1_000;
     this.stableUptimeMs = options.stableUptimeMs ?? 60_000;
+    this.logger = logger ?? null;
   }
 
   notifyStarted(): void {
@@ -65,12 +69,17 @@ export class RuntimeSupervisor {
 
   private async tryRestart(reason: RuntimeStopReason, signal?: AbortSignal): Promise<void> {
     if (this.restartCount >= this.maxRestarts) {
+      this.logger?.event("runtime.restart_gave_up", { reason });
       this.notifier.warning(
         "Prometheus runtime stopped unexpectedly. Restart it manually from the status panel.",
       );
       return;
     }
     this.restartCount += 1;
+    this.logger?.event("runtime.restart_attempt", {
+      reason,
+      attempt: this.restartCount,
+    });
     const backoff = this.restartBackoffMs * this.restartCount;
     try {
       await this.clock.sleep(backoff, signal);
@@ -91,6 +100,7 @@ export class RuntimeSupervisor {
       if (isAbortError(error)) {
         return;
       }
+      this.logger?.error("RUNTIME_START_FAILED", { reason });
       this.notifier.error("Prometheus runtime restart failed.");
     }
   }

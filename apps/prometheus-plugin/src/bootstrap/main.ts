@@ -1,5 +1,6 @@
 import { Plugin } from "obsidian";
 
+import { DedupNotifier } from "../adapters/inbound/notifier/DedupNotifier";
 import { ObsidianNotifier } from "../adapters/inbound/notifier/ObsidianNotifier";
 import { registerCommands } from "../adapters/inbound/obsidian/commands/registerCommands";
 import { registerContextMenu } from "../adapters/inbound/obsidian/commands/registerContextMenu";
@@ -10,15 +11,19 @@ import { CHAT_VIEW_TYPE, ChatView } from "../adapters/inbound/obsidian/views/Cha
 import { SEARCH_VIEW_TYPE, SearchView } from "../adapters/inbound/obsidian/views/SearchView";
 import { STATUS_VIEW_TYPE, StatusView } from "../adapters/inbound/obsidian/views/StatusView";
 import { formatStatusBarLabel } from "../adapters/inbound/obsidian/status/formatStatusBarLabel";
+import { CompositeLogger, ConsoleLogger, RecentEventsBuffer } from "../adapters/outbound/logging";
 import { ensureVaultId, ObsidianSettingsRepository } from "../adapters/outbound/settings";
+import { SystemClock } from "../adapters/outbound/system/SystemClock";
 import { wireAutoIndexing } from "./wireAutoIndexing";
 import { wireChat } from "./wireChat";
+import { wireDiagnostics } from "./wireDiagnostics";
 import { wireIndexing } from "./wireIndexing";
 import { wireOnboarding } from "./wireOnboarding";
 import { createChatScopeResolver, wireSearch } from "./wireSearch";
 import { wireRuntimeLifecycle } from "./wireRuntimeLifecycle";
 import { wireSettingsTab } from "./wireSettingsTab";
 import { wireStatus } from "./wireStatus";
+
 /**
  * Composition root for the Prometheus Obsidian plugin.
  */
@@ -33,12 +38,23 @@ export default class PrometheusPlugin extends Plugin {
   private disposeSettings: (() => void) | null = null;
 
   override async onload(): Promise<void> {
-    const notifier = new ObsidianNotifier();
+    const clock = new SystemClock();
+    const consoleLogger = new ConsoleLogger();
+    const recentEvents = new RecentEventsBuffer(clock);
+    const logger = new CompositeLogger([consoleLogger, recentEvents], [consoleLogger]);
+
+    const rawNotifier = new ObsidianNotifier();
+    const notifier = new DedupNotifier(rawNotifier, clock);
     const settings = new ObsidianSettingsRepository(this, notifier);
     await ensureVaultId(settings);
+
+    const initialSettings = await settings.get();
+    logger.setVerbose(initialSettings.verboseLogging);
+
     const runtime = wireRuntimeLifecycle({
       settings,
       notifier,
+      logger,
     });
     this.disposeRuntimeLifecycle = runtime.dispose;
 
@@ -78,6 +94,17 @@ export default class PrometheusPlugin extends Plugin {
     });
     this.disposeStatus = status.dispose;
 
+    const diagnostics = wireDiagnostics({
+      app: this.app,
+      pluginVersion: this.manifest.version,
+      runtimeGateway: runtime.runtimeGateway,
+      sessions: runtime.sessions,
+      settings,
+      recentEvents,
+      statusStore: status.store,
+      notifier,
+    });
+
     const onboarding = wireOnboarding({
       settings,
       runtimeGateway: runtime.runtimeGateway,
@@ -111,13 +138,28 @@ export default class PrometheusPlugin extends Plugin {
       indexing,
       autoIndexing,
       syncState: indexing.syncState,
+      setVerboseLogging: (enabled) => {
+        logger.setVerbose(enabled);
+      },
+      openDiagnostics: () => {
+        diagnostics.openDiagnostics(this.app);
+      },
     });
     this.disposeSettings = settingsTab.dispose;
     this.addSettingTab(settingsTab.tab);
 
     this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, { store: chat.store }));
     this.registerView(SEARCH_VIEW_TYPE, (leaf) => new SearchView(leaf, { store: search.store }));
-    this.registerView(STATUS_VIEW_TYPE, (leaf) => new StatusView(leaf, { store: status.store }));
+    this.registerView(
+      STATUS_VIEW_TYPE,
+      (leaf) =>
+        new StatusView(leaf, {
+          store: status.store,
+          openDiagnostics: () => {
+            diagnostics.openDiagnostics(this.app);
+          },
+        }),
+    );
 
     this.addRibbonIcon("message-square", "Open Prometheus chat", () => {
       void activateChatView(this.app);
@@ -147,6 +189,9 @@ export default class PrometheusPlugin extends Plugin {
       statusStore: status.store,
       openOnboarding: (app) => {
         onboarding.openOnboarding(app);
+      },
+      openDiagnostics: (app) => {
+        diagnostics.openDiagnostics(app);
       },
       activateChat: activateChatView,
       activateSearch: activateSearchView,

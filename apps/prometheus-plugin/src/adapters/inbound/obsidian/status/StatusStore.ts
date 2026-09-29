@@ -16,6 +16,7 @@ import type { GetSystemStatus } from "../../../../application/use-cases/GetSyste
 import type { InstallRuntime } from "../../../../application/use-cases/InstallRuntime";
 import type { StartRuntime } from "../../../../application/use-cases/StartRuntime";
 import type { SelectLlmModel } from "../../../../application/use-cases/SelectLlmModel";
+import { presentError } from "../errors/presentError";
 import { estimateIndexingProgress, type IndexingProgressEstimate } from "./indexingProgress";
 
 export type StatusViewState = {
@@ -247,7 +248,7 @@ export class StatusStore {
       if (isAbortError(error) || controller.signal.aborted) {
         return;
       }
-      this.actionError = error instanceof Error ? error.message : "Action failed";
+      this.actionError = presentError(error).message;
     } finally {
       if (this.actionController === controller) {
         this.actionController = null;

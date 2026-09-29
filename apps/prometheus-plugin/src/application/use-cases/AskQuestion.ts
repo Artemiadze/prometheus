@@ -12,7 +12,7 @@ export type AskQuestionResult =
   | { readonly kind: "ok"; readonly session: ChatSession }
   | { readonly kind: "validation"; readonly error: QueryTooShortError }
   | { readonly kind: "aborted"; readonly session: ChatSession }
-  | { readonly kind: "error"; readonly session: ChatSession };
+  | { readonly kind: "error"; readonly session: ChatSession; readonly cause: unknown };
 
 export class AskQuestion {
   constructor(
@@ -72,7 +72,7 @@ export class AskQuestion {
           insufficientContext: false,
         }),
       );
-      return { kind: "error", session: next };
+      return { kind: "error", session: next, cause: error };
     }
   }
 }

@@ -30,6 +30,8 @@ export type WireSettingsTabDeps = {
   readonly indexing: WiredIndexing;
   readonly autoIndexing: WiredAutoIndexing;
   readonly syncState: DocumentSyncState;
+  readonly setVerboseLogging?: (enabled: boolean) => void;
+  readonly openDiagnostics?: () => void;
 };
 
 export type WiredSettingsTab = {
@@ -65,6 +67,8 @@ export function wireSettingsTab(deps: WireSettingsTabDeps): WiredSettingsTab {
       return abstract instanceof TFolder;
     },
     bundledReleaseVersion: RUNTIME_RELEASE_VERSION,
+    ...(deps.setVerboseLogging ? { setVerboseLogging: deps.setVerboseLogging } : {}),
+    ...(deps.openDiagnostics ? { openDiagnostics: deps.openDiagnostics } : {}),
   });
 
   const tab = new SettingsTab(deps.app, deps.plugin, controller);

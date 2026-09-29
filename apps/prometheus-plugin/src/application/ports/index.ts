@@ -1,6 +1,13 @@
 export type { Clock } from "./Clock";
 export type { Notifier } from "./Notifier";
 export type {
+  Logger,
+  LoggerWithVerbose,
+  LogFields,
+  RecentEventsReader,
+  RecentLogEvent,
+} from "./Logger";
+export type {
   DownloadProgress,
   ProgressCallback,
   RuntimeConnection,

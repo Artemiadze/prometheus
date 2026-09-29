@@ -46,9 +46,8 @@ export class ApplyIgnoredFolderChange {
         this.syncState.removeByPath(record.path);
         await this.rag.deleteDocument(vaultId, record.documentId, signal);
         removed += 1;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "delete failed";
-        this.notifier.warning(`Failed to unindex ${pathValue}: ${message}`);
+      } catch {
+        this.notifier.warning(`Failed to unindex ${pathValue}. Check Diagnostics.`);
       }
     }
     return removed;

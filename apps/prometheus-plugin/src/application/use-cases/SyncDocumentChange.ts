@@ -118,10 +118,8 @@ export class SyncDocumentChange {
             break;
           }
         }
-      } catch (error) {
-        const path = event.path.value;
-        const message = error instanceof Error ? error.message : "sync failed";
-        this.notifier.warning(`Failed to sync ${path}: ${message}`);
+      } catch {
+        this.notifier.warning(`Failed to sync ${event.path.value}. Check Diagnostics.`);
       }
     }
   }

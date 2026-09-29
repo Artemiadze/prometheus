@@ -8,10 +8,12 @@ export const STATUS_VIEW_TYPE = "prometheus-status";
 
 export type StatusViewOptions = {
   readonly store: StatusStore;
+  readonly openDiagnostics?: () => void;
 };
 
 export class StatusView extends ItemView {
   private readonly store: StatusStore;
+  private readonly openDiagnostics: (() => void) | null;
   private unsubscribe: (() => void) | null = null;
   private panelEl: HTMLElement | null = null;
   private actionsEl: HTMLElement | null = null;
@@ -22,6 +24,7 @@ export class StatusView extends ItemView {
   constructor(leaf: WorkspaceLeaf, options: StatusViewOptions) {
     super(leaf);
     this.store = options.store;
+    this.openDiagnostics = options.openDiagnostics ?? null;
   }
 
   override getViewType(): string {
@@ -176,6 +179,16 @@ export class StatusView extends ItemView {
       choose.disabled = state.actionBusy;
       choose.addEventListener("click", () => {
         void this.store.refreshModels();
+      });
+    }
+
+    if (this.openDiagnostics) {
+      const diagnostics = actionsEl.createEl("button", {
+        text: "Diagnostics",
+        cls: "prometheus-status-view__action",
+      });
+      diagnostics.addEventListener("click", () => {
+        this.openDiagnostics?.();
       });
     }
   }

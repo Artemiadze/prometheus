@@ -46,6 +46,7 @@ export class SettingsTab extends PluginSettingTab {
     this.renderEmbeddings(containerEl, state);
     this.renderLlm(containerEl, state);
     this.renderPrivacy(containerEl, state);
+    this.renderDiagnostics(containerEl, state);
   }
 
   private renderRuntime(containerEl: HTMLElement, state: SettingsViewState): void {
@@ -367,6 +368,39 @@ export class SettingsTab extends PluginSettingTab {
       cls: "prometheus-settings__note",
       text: "No cloud LLM or embedding API is used in the base mode. Local requests to the Prometheus runtime and Ollama are unaffected by this setting.",
     });
+  }
+
+  private renderDiagnostics(containerEl: HTMLElement, state: SettingsViewState): void {
+    containerEl.createEl("h3", {
+      text: "Diagnostics",
+      cls: "prometheus-settings__section-title",
+    });
+    const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
+
+    new Setting(section)
+      .setName("Verbose logging")
+      .setDesc(
+        "Off by default. When enabled, structured debug events go to the developer console. Note text is never logged.",
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(state.settings.verboseLogging)
+          .setDisabled(state.actionBusy)
+          .onChange((value) => {
+            void this.controller.setVerboseLogging(value);
+          });
+      });
+
+    new Setting(section)
+      .setName("Diagnostics report")
+      .setDesc(
+        "Versions, ports, recent errors, and runtime process output. Safe to share in an issue.",
+      )
+      .addButton((button) => {
+        button.setButtonText("Open diagnostics").onClick(() => {
+          this.controller.openDiagnostics();
+        });
+      });
   }
 
   private async syncIgnoredFolders(

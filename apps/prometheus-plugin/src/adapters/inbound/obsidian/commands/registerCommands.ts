@@ -9,6 +9,7 @@ export type RegisterCommandsDeps = {
   readonly chatStore: Pick<ChatStore, "clear">;
   readonly statusStore: Pick<StatusStore, "getState" | "reindex" | "restartRuntime">;
   readonly openOnboarding: (app: App) => void;
+  readonly openDiagnostics: (app: App) => void;
   readonly activateChat: (app: App) => void | Promise<void>;
   readonly activateSearch: (app: App) => void | Promise<void>;
   readonly activateStatus: (app: App) => void | Promise<void>;
@@ -52,6 +53,14 @@ export function registerCommands(plugin: Plugin, deps: RegisterCommandsDeps): vo
     name: "Open setup wizard",
     callback: () => {
       deps.openOnboarding(deps.app);
+    },
+  });
+
+  plugin.addCommand({
+    id: "open-diagnostics",
+    name: "Open diagnostics",
+    callback: () => {
+      deps.openDiagnostics(deps.app);
     },
   });
 

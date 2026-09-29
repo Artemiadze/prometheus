@@ -64,12 +64,13 @@ describe("registerCommands", () => {
       chatStore: { clear: vi.fn() },
       statusStore,
       openOnboarding: vi.fn(),
+      openDiagnostics: vi.fn(),
       activateChat: vi.fn(),
       activateSearch: vi.fn(),
       activateStatus: vi.fn(),
     });
 
-    expect(commands).toHaveLength(7);
+    expect(commands).toHaveLength(8);
     for (const command of commands) {
       expect("hotkeys" in command ? command.hotkeys : undefined).toBeUndefined();
     }
@@ -79,6 +80,7 @@ describe("registerCommands", () => {
       "open-search",
       "open-status",
       "open-onboarding-wizard",
+      "open-diagnostics",
       "reindex-vault",
       "restart-runtime",
     ]);
@@ -97,6 +99,7 @@ describe("registerCommands", () => {
       chatStore: { clear: vi.fn() },
       statusStore,
       openOnboarding: vi.fn(),
+      openDiagnostics: vi.fn(),
       activateChat: vi.fn(),
       activateSearch: vi.fn(),
       activateStatus: vi.fn(),

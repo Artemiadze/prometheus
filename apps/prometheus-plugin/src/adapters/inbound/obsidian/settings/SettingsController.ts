@@ -18,6 +18,7 @@ import type { StopRuntime } from "../../../../application/use-cases/StopRuntime"
 import type { ManagedRuntimeState } from "../../../../domain/entities/RuntimeStatus";
 import { isAbortError } from "../../../../domain/errors";
 import type { StatusStore, StatusViewState } from "../status/StatusStore";
+import { presentError } from "../errors/presentError";
 import { validateIgnoredFolderPath } from "./folderValidation";
 import { isUpdateAvailable } from "./runtimeUpdateCheck";
 
@@ -54,6 +55,8 @@ export type SettingsControllerDeps = {
   };
   readonly folderExists: (path: string) => boolean;
   readonly bundledReleaseVersion: string;
+  readonly setVerboseLogging?: (enabled: boolean) => void;
+  readonly openDiagnostics?: () => void;
 };
 
 type Listener = (state: SettingsViewState) => void;
@@ -281,6 +284,15 @@ export class SettingsController {
     await this.patchSettings({ networkAccess: mode });
   }
 
+  async setVerboseLogging(enabled: boolean): Promise<void> {
+    await this.patchSettings({ verboseLogging: enabled });
+    this.deps.setVerboseLogging?.(enabled);
+  }
+
+  openDiagnostics(): void {
+    this.deps.openDiagnostics?.();
+  }
+
   dispose(): void {
     if (this.disposed) {
       return;
@@ -340,7 +352,7 @@ export class SettingsController {
       if (isAbortError(error) || controller.signal.aborted) {
         return;
       }
-      this.actionError = error instanceof Error ? error.message : "Action failed";
+      this.actionError = presentError(error).message;
       this.deps.notifier.error(this.actionError);
     } finally {
       if (this.actionController === controller) {
@@ -431,5 +443,6 @@ function fallbackSettings(): PluginSettings {
     chunkOverlapTokens: 80,
     llmTemperature: 0.2,
     llmContextSize: 4096,
+    verboseLogging: false,
   };
 }

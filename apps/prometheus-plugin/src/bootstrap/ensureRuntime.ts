@@ -1,4 +1,6 @@
 import type { StartRuntime } from "../application/use-cases/StartRuntime";
+import { presentError } from "../adapters/inbound/obsidian/errors/presentError";
+import { RuntimeNotInstalledError, RuntimeVersionIncompatibleError } from "../domain/errors";
 
 export type RuntimeReadiness =
   { readonly ok: true } | { readonly ok: false; readonly message: string };
@@ -17,13 +19,17 @@ export function createEnsureRuntime(
       case "missing":
         return {
           ok: false,
-          message: "Prometheus runtime is not installed. Install it from the status panel.",
+          message: presentError(new RuntimeNotInstalledError()).message,
         };
-      case "incompatible":
+      case "incompatible": {
+        const runtime = result.runtime;
+        const installed = runtime.kind === "incompatible" ? runtime.installedVersion : "unknown";
+        const required = runtime.kind === "incompatible" ? runtime.requiredRange : "unknown";
         return {
           ok: false,
-          message: "Prometheus runtime version is incompatible. Update the sidecar.",
+          message: presentError(new RuntimeVersionIncompatibleError(installed, required)).message,
         };
+      }
       default: {
         const _exhaustive: never = result;
         return _exhaustive;

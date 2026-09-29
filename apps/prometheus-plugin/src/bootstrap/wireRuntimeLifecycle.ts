@@ -7,6 +7,7 @@ import { RuntimeHealthMonitor } from "../application/services/RuntimeHealthMonit
 import { RuntimeSessionRegistry } from "../application/services/RuntimeSessionRegistry";
 import { RuntimeSupervisor } from "../application/services/RuntimeSupervisor";
 import type { Notifier } from "../application/ports/Notifier";
+import type { Logger } from "../application/ports/Logger";
 import type { SettingsRepository } from "../application/ports/SettingsRepository";
 import { StartRuntime } from "../application/use-cases/StartRuntime";
 import { StopRuntime } from "../application/use-cases/StopRuntime";
@@ -14,6 +15,7 @@ import { StopRuntime } from "../application/use-cases/StopRuntime";
 export type WireRuntimeLifecycleDeps = {
   readonly settings: SettingsRepository;
   readonly notifier: Notifier;
+  readonly logger?: Logger;
   readonly fetchFn?: FetchFn;
   readonly onRuntimeStateChange?: (state: ManagedRuntimeState) => void;
 };
@@ -57,7 +59,14 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
 
   const startRuntime = new StartRuntime(runtimeGateway, rag, deps.settings, sessions, clock);
   const stopRuntime = new StopRuntime(runtimeGateway, sessions, clock);
-  supervisorHolder.supervisor = new RuntimeSupervisor(startRuntime, sessions, clock, deps.notifier);
+  supervisorHolder.supervisor = new RuntimeSupervisor(
+    startRuntime,
+    sessions,
+    clock,
+    deps.notifier,
+    {},
+    deps.logger,
+  );
 
   const monitor = new RuntimeHealthMonitor(rag, sessions, clock);
   monitor.start(
@@ -67,6 +76,9 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
         if (state.kind === "running") {
           runtimeGateway.markRunning(state.version);
           supervisorHolder.supervisor?.notifyStarted();
+          deps.logger?.event("runtime.started", { version: state.version });
+        } else if (state.kind === "stopped") {
+          deps.logger?.event("runtime.stopped", { reason: state.reason });
         }
       },
       onUnavailable: () => {

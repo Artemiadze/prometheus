@@ -22,6 +22,17 @@ export class FakeRuntimeGateway implements RuntimeGateway {
   startCalls = 0;
   verifyShouldFail = false;
   hangGracefulStop = false;
+  diagnosticsLines: string[] = [];
+
+  setProcessState(state: ManagedRuntimeStateType): void {
+    this.state = state;
+    if (state.kind === "running") {
+      this.installedVersion = state.version;
+      this.locateKind = "managed";
+    } else if (state.kind === "incompatible") {
+      this.installedVersion = state.installedVersion;
+    }
+  }
 
   setLocateResult(kind: RuntimeLocateResult["kind"], version: string | null = null): void {
     this.locateKind = kind;
@@ -90,7 +101,7 @@ export class FakeRuntimeGateway implements RuntimeGateway {
   }
 
   getDiagnostics(): readonly string[] {
-    return [];
+    return [...this.diagnosticsLines];
   }
 
   getDataRootPath(): string {

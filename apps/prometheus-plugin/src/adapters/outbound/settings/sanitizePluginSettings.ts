@@ -161,6 +161,12 @@ export function sanitizePluginSettings(raw: unknown): SanitizeResult {
       "llmContextSize",
       corrections,
     ),
+    verboseLogging: pickBoolean(
+      source.verboseLogging,
+      DEFAULT_PLUGIN_SETTINGS.verboseLogging,
+      "verboseLogging",
+      corrections,
+    ),
   };
 
   return { settings, corrections };

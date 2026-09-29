@@ -7,6 +7,7 @@ import type { SearchNotes } from "../../../../application/use-cases/SearchNotes"
 import { MIN_QUERY_LENGTH } from "../../../../application/use-cases/SearchNotes";
 import { SourceReference } from "../../../../domain/entities/SourceReference";
 import type { NotePath } from "../../../../domain/value-objects/NotePath";
+import { presentError } from "../errors/presentError";
 import { createScopeOptionsState, resolveScope, type ScopeOptionsState } from "./scopeOptions";
 
 export type SearchStatus = "idle" | "tooShort" | "searching" | "results" | "empty" | "error";
@@ -258,7 +259,7 @@ export class SearchStore {
       if (seq !== this.requestSeq || this.disposed || controller.signal.aborted) {
         return;
       }
-      this.applyStatus(seq, "error", [], "Unable to search notes.");
+      this.applyStatus(seq, "error", [], presentError(error).message);
       void error;
     }
   }

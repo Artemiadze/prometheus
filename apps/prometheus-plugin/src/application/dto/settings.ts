@@ -35,6 +35,8 @@ export type PluginSettings = {
   readonly llmTemperature: number;
   /** Local-only preference; runtime LLM params not yet configurable via plugin. */
   readonly llmContextSize: number;
+  /** When true, console receives debug-level structured events (PLG-76). Off by default. */
+  readonly verboseLogging: boolean;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -56,6 +58,7 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   chunkOverlapTokens: 80,
   llmTemperature: 0.2,
   llmContextSize: 4096,
+  verboseLogging: false,
 };
 
 /** Always ignored regardless of user settings. */

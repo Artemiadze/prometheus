@@ -4,6 +4,7 @@ import type { ChatMessage } from "../../../../domain/entities/ChatMessage";
 import type { SourceReference } from "../../../../domain/entities/SourceReference";
 import type { NotePath } from "../../../../domain/value-objects/NotePath";
 import { SearchScope } from "../../../../domain/value-objects/SearchScope";
+import { presentError } from "../errors/presentError";
 
 export type ChatStatus = "idle" | "sending" | "streaming" | "error";
 
@@ -155,7 +156,7 @@ export class ChatStore {
       case "error":
         this.setState({
           status: "error",
-          errorMessage: "Unable to answer the question.",
+          errorMessage: presentError(result.cause).message,
           session: result.session,
         });
         break;

@@ -508,3 +508,27 @@
   width: 100%;
   min-height: 4.5em;
 }
+
+.prometheus-diagnostics__actions {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+
+.prometheus-diagnostics__button {
+  cursor: pointer;
+}
+
+.prometheus-diagnostics__report {
+  max-height: 60vh;
+  overflow: auto;
+  padding: var(--size-4-2);
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
