@@ -101,3 +101,9 @@ def _envelope(request: Request, code: str, message: str, status: int) -> JSONRes
         status_code=status,
         content={"error": {"code": code, "message": message, "request_id": request_id}},
     )
+
+
+def error_response(request: Request, error: PrometheusError) -> JSONResponse:
+    """Build the stable error envelope for middleware and handlers."""
+
+    return _envelope(request, error.code, str(error), _status_for(error))

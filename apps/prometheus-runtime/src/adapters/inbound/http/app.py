@@ -8,7 +8,11 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Request, Response
 
-from adapters.inbound.http.errors import install_exception_handlers, unhandled_exception
+from adapters.inbound.http.errors import (
+    error_response,
+    install_exception_handlers,
+    unhandled_exception,
+)
 from adapters.inbound.http.jobs import BackgroundJobRunner
 from adapters.inbound.http.package_version import package_version
 from adapters.inbound.http.routes.chat import router as chat_router
@@ -19,9 +23,16 @@ from adapters.inbound.http.routes.reindex import router as reindex_router
 from adapters.inbound.http.routes.search import router as search_router
 from adapters.inbound.http.routes.status import router as status_router
 from adapters.inbound.http.routes.sync import router as sync_router
-from adapters.inbound.http.security import reject_cross_origin, require_trusted_host
+from adapters.inbound.http.security import (
+    CrossOriginForbiddenError,
+    cors_headers_for,
+    is_allowed_origin,
+    require_allowed_origin,
+    require_trusted_host,
+)
 from adapters.outbound.filesystem.logging_setup import log_context
 from application.ports.job_store import JobStore
+from domain.errors import PrometheusError
 
 
 def create_app(
@@ -57,7 +68,7 @@ def create_app(
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,
-        dependencies=[Depends(require_trusted_host), Depends(reject_cross_origin)],
+        dependencies=[Depends(require_trusted_host), Depends(require_allowed_origin)],
     )
     app.state.container = container
     app.state.vault_registry = vault_registry
@@ -76,14 +87,29 @@ def create_app(
         app.add_exception_handler(error_type, handler)
 
     @app.middleware("http")
-    async def correlation_id(
+    async def correlation_and_cors(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
         request.state.request_id = request_id
-        with log_context(request_id=request_id):
-            response = await call_next(request)
+        origin = request.headers.get("origin")
+
+        try:
+            require_trusted_host(request)
+            if request.method == "OPTIONS":
+                if origin is None or not is_allowed_origin(origin):
+                    raise CrossOriginForbiddenError()
+                response = Response(status_code=204, headers=cors_headers_for(origin))
+            else:
+                with log_context(request_id=request_id):
+                    response = await call_next(request)
+                if origin is not None and is_allowed_origin(origin):
+                    for key, value in cors_headers_for(origin).items():
+                        response.headers.setdefault(key, value)
+        except PrometheusError as error:
+            response = error_response(request, error)
+
         response.headers["X-Request-ID"] = request_id
         return response
 

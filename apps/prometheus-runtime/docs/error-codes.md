@@ -3,6 +3,8 @@
 | Code | HTTP status | Meaning |
 |---|---:|---|
 | `UNAUTHORIZED` | 401 | A protected endpoint received no valid session token. |
+| `CROSS_ORIGIN_FORBIDDEN` | 403 | The browser Origin is outside the local Obsidian allowlist. |
+| `UNTRUSTED_HOST` | 400 | The Host header does not address the configured loopback port. |
 | `JOB_NOT_FOUND` | 404 | The requested background job does not exist. |
 | `REVISION_CONFLICT` | 409 | A document revision is older than its indexed revision. |
 | `VAULT_NOT_INDEXED` | 409 | The Vault has no usable index. |
