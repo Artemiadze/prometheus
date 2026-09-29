@@ -94,6 +94,46 @@ describe("ObsidianVaultGateway", () => {
     expect(events).toEqual([]);
   });
 
+  it("emits delete events for markdown and ignores non-markdown deletes", () => {
+    const mock = createMockApp([
+      { path: "keep.md", content: "k" },
+      { path: "gone.md", content: "g" },
+      { path: "pic.png", content: "p" },
+    ]);
+    const gateway = new ObsidianVaultGateway(mock.app);
+    const events: string[] = [];
+    gateway.subscribe((event) => {
+      events.push(`${event.type}:${event.path.value}`);
+    });
+
+    mock.emitVault("delete", "gone.md");
+    mock.emitVault("delete", "pic.png");
+    mock.removeFile("gone.md");
+
+    expect(events).toEqual(["delete:gone.md"]);
+  });
+
+  it("produces identical content hashes for the same vault snapshot", async () => {
+    const { computeContentHash } = await import("../../../../src/application/services/contentHash");
+    const files = [
+      { path: "notes/a.md", content: "hello\r\n", mtime: 1_700_000_000_000 },
+      { path: "notes/b.md", content: "world", mtime: 1_700_000_000_001 },
+      { path: "Templates/x.md", content: "ignored" },
+    ];
+    const first = new ObsidianVaultGateway(createMockApp(files).app);
+    const second = new ObsidianVaultGateway(createMockApp(files).app);
+    const snapA = await first.getVaultSnapshot(undefined, ["Templates/"]);
+    const snapB = await second.getVaultSnapshot(undefined, ["Templates/"]);
+
+    const hashesA = snapA.map((s) => `${s.path.value}:${computeContentHash(s.content)}`);
+    const hashesB = snapB.map((s) => `${s.path.value}:${computeContentHash(s.content)}`);
+    expect(hashesA).toEqual(hashesB);
+    expect(hashesA).toEqual([
+      `notes/a.md:${computeContentHash("hello\r\n")}`,
+      `notes/b.md:${computeContentHash("world")}`,
+    ]);
+  });
+
   it("reports active note/folder and subscribeActiveFile updates", () => {
     const mock = createMockApp([{ path: "folder/note.md", content: "n" }]);
     const gateway = new ObsidianVaultGateway(mock.app);
