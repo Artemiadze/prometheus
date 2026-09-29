@@ -11,6 +11,7 @@ from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
 from adapters.outbound.filesystem.index_rebuild import (
     FilesystemIndexRebuildWorkspace,
     build_staging_index_document,
+    recover_interrupted_promotion,
 )
 from adapters.outbound.markdown.chunker import HeadingAwareChunker
 from adapters.outbound.markdown.parser import ObsidianMarkdownParser
@@ -237,7 +238,9 @@ class Container:
             raise AdapterNotConfiguredError(
                 "Metadata store adapter is not configured; provide a vault_id to Container"
             )
-        return MetadataDatabase(vault_dir(self.layout, self._vault_id.value))
+        path = vault_dir(self.layout, self._vault_id.value)
+        recover_interrupted_promotion(path)
+        return MetadataDatabase(path)
 
     def _build_document_repository(self) -> DocumentRepository:
         return self._metadata_database.documents

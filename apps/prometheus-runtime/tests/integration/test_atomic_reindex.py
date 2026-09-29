@@ -7,7 +7,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from adapters.outbound.filesystem.data_dir import ensure_layout, vault_dir
-from adapters.outbound.filesystem.index_rebuild import REBUILD_DIRNAME
+from adapters.outbound.filesystem.index_rebuild import (
+    PREVIOUS_DIRNAME,
+    PROMOTE_MARKER,
+    REBUILD_DIRNAME,
+    recover_interrupted_promotion,
+)
 from bootstrap.config import RuntimeSettings
 from bootstrap.container import Container
 from domain.entities.document import Document
@@ -74,7 +79,8 @@ def test_search_continues_on_active_index_until_promote(tmp_path: Path) -> None:
     assert not result.cancelled
     vault_path = vault_dir(container.layout, VAULT.value)
     assert not (vault_path / REBUILD_DIRNAME).exists()
-    assert not (vault_path / ".previous").exists()
+    assert not (vault_path / PREVIOUS_DIRNAME).exists()
+    assert not (vault_path / PROMOTE_MARKER).exists()
 
     results_after = asyncio.run(container.search_notes.execute("replacement", limit=5))
     assert [result.text for result in results_after] == ["replacement bravo content"]
@@ -102,3 +108,83 @@ def test_cancelled_rebuild_leaves_active_index_intact(tmp_path: Path) -> None:
     results = asyncio.run(container.search_notes.execute("stable", limit=5))
     assert [result.text for result in results] == ["stable vault content"]
     container.close()
+
+
+def test_failed_rebuild_discards_staging_and_keeps_active_searchable(tmp_path: Path) -> None:
+    container = _container(tmp_path)
+    original = _document("document-a", "stable vault content")
+    asyncio.run(container.index_document.execute(original))
+
+    class Boom:
+        async def execute(self, *_: object, **__: object) -> object:
+            raise RuntimeError("staging failed")
+
+    session = container.rebuild_workspace.begin()
+    session.index_document = Boom()  # type: ignore[method-assign]
+    try:
+        asyncio.run(session.index_document.execute(_document("document-b", "unused")))
+    except RuntimeError:
+        session.discard()
+
+    vault_path = vault_dir(container.layout, VAULT.value)
+    assert not (vault_path / REBUILD_DIRNAME).exists()
+    results = asyncio.run(container.search_notes.execute("stable", limit=5))
+    assert [result.text for result in results] == ["stable vault content"]
+    container.close()
+
+
+def test_crash_after_moving_active_to_previous_is_recoverable(tmp_path: Path) -> None:
+    container = _container(tmp_path)
+    original = _document("document-a", "stable vault content")
+    asyncio.run(container.index_document.execute(original))
+    container.close()
+
+    vault_path = vault_dir(ensure_layout(tmp_path), VAULT.value)
+    previous = vault_path / PREVIOUS_DIRNAME
+    previous.mkdir(mode=0o700)
+    for name in ("metadata.sqlite", "qdrant", "qdrant_metadata.json"):
+        source = vault_path / name
+        if source.exists():
+            source.rename(previous / name)
+    (vault_path / PROMOTE_MARKER).write_text("previous", encoding="utf-8")
+    (vault_path / REBUILD_DIRNAME).mkdir(mode=0o700)
+
+    action = recover_interrupted_promotion(vault_path)
+
+    assert action == "restored-previous"
+    assert (vault_path / "metadata.sqlite").exists()
+    assert not previous.exists()
+    assert not (vault_path / PROMOTE_MARKER).exists()
+
+    recovered = _container(tmp_path)
+    results = asyncio.run(recovered.search_notes.execute("stable", limit=5))
+    assert [result.text for result in results] == ["stable vault content"]
+    recovered.close()
+
+
+def test_crash_after_switching_active_finalizes_and_cleans_temp(tmp_path: Path) -> None:
+    container = _container(tmp_path)
+    original = _document("document-a", "original alpha content")
+    asyncio.run(container.index_document.execute(original))
+    replacement = _document("document-b", "replacement bravo content")
+    asyncio.run(container.reindex_vault.execute((replacement,), cancellation=_NeverCancelled()))
+    container.close()
+
+    vault_path = vault_dir(ensure_layout(tmp_path), VAULT.value)
+    previous = vault_path / PREVIOUS_DIRNAME
+    previous.mkdir(mode=0o700)
+    (previous / "metadata.sqlite").write_text("stale", encoding="utf-8")
+    (vault_path / REBUILD_DIRNAME).mkdir(mode=0o700)
+    (vault_path / PROMOTE_MARKER).write_text("active", encoding="utf-8")
+
+    action = recover_interrupted_promotion(vault_path)
+
+    assert action == "finalized-active"
+    assert not previous.exists()
+    assert not (vault_path / REBUILD_DIRNAME).exists()
+    assert not (vault_path / PROMOTE_MARKER).exists()
+
+    recovered = _container(tmp_path)
+    results = asyncio.run(recovered.search_notes.execute("replacement", limit=5))
+    assert [result.text for result in results] == ["replacement bravo content"]
+    recovered.close()

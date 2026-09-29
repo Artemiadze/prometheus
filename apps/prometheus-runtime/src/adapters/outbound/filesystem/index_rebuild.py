@@ -23,8 +23,64 @@ from application.use_cases.rename_document import RenameDocument
 from domain.value_objects.vault_id import VaultId
 
 REBUILD_DIRNAME = "rebuild"
-_PREVIOUS_DIRNAME = ".previous"
+PREVIOUS_DIRNAME = ".previous"
+PROMOTE_MARKER = ".promote.lock"
 _ACTIVE_NAMES = ("metadata.sqlite", "qdrant", "qdrant_metadata.json")
+
+_PHASE_PREVIOUS = "previous"
+_PHASE_ACTIVE = "active"
+_PHASE_CLEANUP = "cleanup"
+
+
+def _remove_path(path: Path) -> None:
+    if not path.exists():
+        return
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def _active_has_metadata(vault_dir: Path) -> bool:
+    return (vault_dir / "metadata.sqlite").exists()
+
+
+def recover_interrupted_promotion(vault_dir: Path) -> str | None:
+    """Restore a consistent active index after a crash mid-promotion.
+
+    Returns the recovery action taken, or ``None`` when nothing was needed.
+    """
+
+    root = vault_dir.expanduser().resolve()
+    marker = root / PROMOTE_MARKER
+    previous = root / PREVIOUS_DIRNAME
+    staging = root / REBUILD_DIRNAME
+    if not marker.exists() and not previous.exists():
+        return None
+
+    phase = marker.read_text(encoding="utf-8").strip() if marker.exists() else ""
+    if phase == _PHASE_PREVIOUS or (previous.exists() and not _active_has_metadata(root)):
+        for name in _ACTIVE_NAMES:
+            _remove_path(root / name)
+        for name in _ACTIVE_NAMES:
+            source = previous / name
+            if source.exists():
+                source.rename(root / name)
+        _remove_path(previous)
+        _remove_path(marker)
+        # Staging may still hold a partial rebuild; leave it for an explicit discard.
+        return "restored-previous"
+
+    if phase in {_PHASE_ACTIVE, _PHASE_CLEANUP} or (
+        previous.exists() and _active_has_metadata(root)
+    ):
+        _remove_path(staging)
+        _remove_path(previous)
+        _remove_path(marker)
+        return "finalized-active"
+
+    _remove_path(marker)
+    return None
 
 
 @dataclass(slots=True)
@@ -47,29 +103,35 @@ class FilesystemIndexRebuildSession:
 
         self._close_resources()
         self._release_active()
-        previous = self._vault_dir / _PREVIOUS_DIRNAME
-        if previous.exists():
-            shutil.rmtree(previous)
+        recover_interrupted_promotion(self._vault_dir)
+
+        previous = self._vault_dir / PREVIOUS_DIRNAME
+        marker = self._vault_dir / PROMOTE_MARKER
+        _remove_path(previous)
         previous.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+        marker.write_text(_PHASE_PREVIOUS, encoding="utf-8")
         for name in _ACTIVE_NAMES:
             source = self._vault_dir / name
             if source.exists():
                 source.rename(previous / name)
+
+        marker.write_text(_PHASE_ACTIVE, encoding="utf-8")
         for name in _ACTIVE_NAMES:
             source = self._staging_dir / name
             if source.exists():
                 source.rename(self._vault_dir / name)
-        if self._staging_dir.exists():
-            shutil.rmtree(self._staging_dir)
-        if previous.exists():
-            shutil.rmtree(previous)
+
+        marker.write_text(_PHASE_CLEANUP, encoding="utf-8")
+        _remove_path(self._staging_dir)
+        _remove_path(previous)
+        _remove_path(marker)
 
     def discard(self) -> None:
         """Drop staging data and leave the active index untouched."""
 
         self._close_resources()
-        if self._staging_dir.exists():
-            shutil.rmtree(self._staging_dir)
+        _remove_path(self._staging_dir)
 
     def _close_resources(self) -> None:
         if self._closed:
@@ -103,9 +165,9 @@ class FilesystemIndexRebuildWorkspace:
         self._release_active = release_active_storage
 
     def begin(self) -> FilesystemIndexRebuildSession:
+        recover_interrupted_promotion(self._vault_dir)
         staging_dir = self._vault_dir / REBUILD_DIRNAME
-        if staging_dir.exists():
-            shutil.rmtree(staging_dir)
+        _remove_path(staging_dir)
         staging_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         database = MetadataDatabase(staging_dir)
         vector_index = QdrantLocalVectorIndex(
