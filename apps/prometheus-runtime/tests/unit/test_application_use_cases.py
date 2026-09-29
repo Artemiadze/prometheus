@@ -207,6 +207,41 @@ def test_search_blocks_when_fingerprint_requires_rebuild() -> None:
         asyncio.run(search.execute("semantic", limit=10))
 
 
+def test_answer_blocks_when_fingerprint_requires_rebuild() -> None:
+    from application.errors import IndexRebuildRequiredError
+
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
+    asyncio.run(index.execute(_document()))
+    mismatched = IndexFingerprint(
+        embedding=embedder.fingerprint,
+        parser_version=1,
+        chunker_version=1,
+        payload_schema_version=1,
+        chunk_size=500,
+        chunk_overlap=50,
+    )
+    llm = FakeLanguageModel()
+    answer = AnswerQuestion(
+        retrieval=RetrievalService(
+            embedder=embedder,
+            vector_index=vectors,
+            document_repository=documents,
+            index_metadata_store=metadata,
+            active_fingerprint=mismatched,
+        ),
+        grounding_policy=GroundingPolicy(),
+        token_counter=FakeTokenCounter(),
+        language_model=llm,
+        context_size=1024,
+        response_token_reserve=128,
+        temperature=0.1,
+    )
+
+    with pytest.raises(IndexRebuildRequiredError, match=r"chunk_size"):
+        asyncio.run(answer.execute("semantic question", limit=10))
+    assert not llm.calls
+
+
 def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> None:
     index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
     asyncio.run(index.execute(_document()))

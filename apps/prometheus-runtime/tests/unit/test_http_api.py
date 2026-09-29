@@ -197,6 +197,44 @@ def test_validation_and_application_errors_use_stable_envelopes() -> None:
     assert conflict.json()["error"]["code"] == "REVISION_CONFLICT"
 
 
+def test_search_and_chat_return_rebuild_required_envelope() -> None:
+    from application.errors import IndexRebuildRequiredError
+
+    client = _client()
+    runtime = client.app.state.vault_registry.runtime
+    runtime.search_notes = _Raises(IndexRebuildRequiredError("Index rebuild required: chunk_size"))
+    runtime.answer_question = _Raises(
+        IndexRebuildRequiredError("Index rebuild required: chunk_size")
+    )
+    runtime.runtime_status = _AsyncValue(
+        RuntimeStatus(
+            "0.1.0",
+            IndexState.REBUILD_REQUIRED,
+            True,
+            "fake-model",
+            1,
+            2,
+            NOW,
+            100,
+            reindex_required=True,
+            reindex_reason="Index rebuild required: chunk_size: 700 -> 500",
+        )
+    )
+
+    search = client.post(f"/v1/vaults/{VAULT}/search", json={"query": "query"}, headers=_headers())
+    chat = client.post(f"/v1/vaults/{VAULT}/chat", json={"query": "question"}, headers=_headers())
+    status = client.get(f"/v1/status?vaultId={VAULT}", headers=_headers())
+
+    assert search.status_code == 409
+    assert search.json()["error"]["code"] == "INDEX_REBUILD_REQUIRED"
+    assert chat.status_code == 409
+    assert chat.json()["error"]["code"] == "INDEX_REBUILD_REQUIRED"
+    assert status.status_code == 200
+    assert status.json()["reindex_required"] is True
+    assert status.json()["index_state"] == IndexState.REBUILD_REQUIRED.value
+    assert "chunk_size" in status.json()["reindex_reason"]
+
+
 def test_models_and_unknown_jobs_are_exposed_without_internal_details() -> None:
     client = _client()
 
