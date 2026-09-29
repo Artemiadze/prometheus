@@ -104,6 +104,11 @@ def test_invalid_embedding_limits_have_safe_startup_error(
         load_settings(overrides)
 
 
+def test_non_fastembed_provider_is_rejected() -> None:
+    with pytest.raises(ConfigurationError, match="embedding_provider"):
+        load_settings({"embedding_provider": "openai"})
+
+
 def test_settings_are_immutable() -> None:
     settings = RuntimeSettings()
 

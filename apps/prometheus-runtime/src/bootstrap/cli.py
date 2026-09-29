@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import socket
 from pathlib import Path
 from typing import Annotated
@@ -21,6 +22,7 @@ from bootstrap.container_registry import VaultContainerRegistry
 from domain.errors import ConfigurationError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, pretty_exceptions_enable=False)
+logger = logging.getLogger("prometheus_runtime")
 
 
 def _version_callback(value: bool) -> None:
@@ -51,6 +53,15 @@ def _assert_port_available(host: str, port: int) -> None:
             probe.bind((host, port))
     except OSError as exc:
         raise RuntimeError(f"Cannot start runtime: {host}:{port} is unavailable ({exc})") from exc
+
+
+def _install_network_policy(*, allow_embedding_download: bool) -> None:
+    """Install the offline guard unless first-run model download is enabled."""
+
+    if allow_embedding_download:
+        logger.warning("ignored", extra={"event": "network.guard.skipped"})
+        return
+    NetworkGuard.install()
 
 
 @app.command()
@@ -86,9 +97,9 @@ def serve(
             raise ConfigurationError(
                 "A session token is required: pass --session-token or set PROMETHEUS_SESSION_TOKEN"
             )
-        NetworkGuard.install()
         layout = ensure_layout(resolve_data_dir(settings.data_dir))
         configure_logging(layout, settings.log_level)
+        _install_network_policy(allow_embedding_download=settings.embedding_allow_download)
         _assert_port_available(settings.host, settings.port)
     except (ConfigurationError, RuntimeError, OSError) as exc:
         typer.echo(str(exc), err=True)

@@ -30,7 +30,7 @@ class RuntimeSettings(BaseSettings):
     port: int = Field(default=8765, ge=1024, le=65535)
     data_dir: Path | None = None
     session_token: SecretStr | None = None
-    embedding_provider: str = "fastembed"
+    embedding_provider: Literal["fastembed"] = "fastembed"
     embedding_model: str = "intfloat/multilingual-e5-large"
     embedding_batch_size: int = Field(default=64, gt=0)
     embedding_threads: int | None = Field(default=None, gt=0)
