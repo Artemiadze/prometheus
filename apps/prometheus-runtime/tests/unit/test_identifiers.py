@@ -10,6 +10,8 @@ from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.vault_id import VaultId
 
+pytestmark = pytest.mark.domain
+
 
 def test_relative_path_is_normalized_to_posix() -> None:
     assert RelativePath(r"./Notes\Database//Indexes.md").value == "Notes/Database/Indexes.md"

@@ -6,6 +6,8 @@ from domain.errors import InvalidPathError, InvalidSearchScopeError
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import ScopeMode, SearchScope
 
+pytestmark = pytest.mark.domain
+
 
 def test_entire_vault_has_no_path_parameters() -> None:
     scope = SearchScope.entire_vault()

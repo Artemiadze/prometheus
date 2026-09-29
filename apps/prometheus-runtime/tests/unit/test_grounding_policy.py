@@ -11,6 +11,8 @@ from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 
+pytestmark = pytest.mark.domain
+
 
 def _hit(index: int, score: float, document_id: DocumentId | None = None) -> SearchHit:
     owner = document_id or DocumentId("document-01")

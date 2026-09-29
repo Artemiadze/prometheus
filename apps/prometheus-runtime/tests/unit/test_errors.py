@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from domain.errors import (
     AdapterNotConfiguredError,
     ConfigurationError,
@@ -11,6 +13,8 @@ from domain.errors import (
     InvariantViolationError,
     PrometheusError,
 )
+
+pytestmark = pytest.mark.domain
 
 
 def _all_error_types(root: type[PrometheusError]) -> set[type[PrometheusError]]:

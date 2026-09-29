@@ -8,6 +8,8 @@ from domain.errors import InvariantViolationError
 from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 
+pytestmark = pytest.mark.domain
+
 
 def _chunk(text: str = "Index details") -> Chunk:
     document_id = DocumentId("document-01")

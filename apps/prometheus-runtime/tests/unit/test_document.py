@@ -9,6 +9,8 @@ from domain.errors import InvalidPathError, InvariantViolationError
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
 
+pytestmark = pytest.mark.domain
+
 
 def _document(
     content: str = "# Note\nContent\n",

@@ -1,4 +1,4 @@
-.PHONY: sync format lint typecheck arch test openapi-check check
+.PHONY: sync format lint typecheck arch test test-domain openapi-check check
 
 sync:
 	uv sync
@@ -20,10 +20,13 @@ arch:
 test:
 	uv run pytest
 
+test-domain:
+	uv run pytest -m domain --cov=domain --cov-report=term-missing --cov-fail-under=90
+
 openapi-check:
 	@tmp=$$(mktemp); \
 	trap 'rm -f $$tmp' EXIT; \
 	uv run prometheus-runtime export-openapi --output $$tmp; \
 	diff -u ../../contracts/openapi.yaml $$tmp
 
-check: lint typecheck arch test openapi-check
+check: lint typecheck arch test openapi-check test-domain

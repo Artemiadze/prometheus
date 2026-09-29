@@ -1,9 +1,14 @@
-"""Acceptance-level unit tests for PRM-E9 use cases."""
+"""Acceptance-level unit tests for use cases on fakes.
+
+Covers indexing idempotency, insufficient_context without LLM generate,
+and search without any LanguageModel calls. No Qdrant, FastEmbed, or Ollama.
+"""
 
 from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -42,6 +47,24 @@ from fakes import (
     FakeUnitOfWork,
     FakeVectorIndex,
 )
+
+pytestmark = pytest.mark.unit
+
+_FORBIDDEN_ADAPTER_ROOTS = frozenset({"qdrant_client", "fastembed", "onnxruntime", "httpx"})
+
+
+def test_prm80_module_does_not_import_retrieval_infrastructure() -> None:
+    import ast
+
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".", 1)[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split(".", 1)[0])
+    assert imported.isdisjoint(_FORBIDDEN_ADAPTER_ROOTS)
+
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 VAULT_ID = VaultId("vault-01")
@@ -160,9 +183,10 @@ def test_synchronize_classifies_snapshot_and_removes_missing_documents() -> None
     assert documents.get_state(document.id) is None
 
 
-def test_search_rejects_short_query_and_never_needs_language_model() -> None:
+def test_search_rejects_short_query_and_never_calls_language_model() -> None:
     index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
     asyncio.run(index.execute(_document()))
+    llm = FakeLanguageModel()
     retrieval = RetrievalService(
         embedder=FakeEmbedder(),
         vector_index=vectors,
@@ -178,6 +202,7 @@ def test_search_rejects_short_query_and_never_needs_language_model() -> None:
 
     assert results[0].relative_path == RelativePath("Notes/One.md")
     assert results[0].text == "semantic retrieval content"
+    assert llm.calls == []
 
 
 def test_search_blocks_when_fingerprint_requires_rebuild() -> None:
@@ -273,12 +298,14 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
     )
 
     missing = asyncio.run(insufficient.execute("semantic question", limit=10))
-    answer = asyncio.run(grounded.execute("semantic question", limit=10))
+    assert missing.insufficient_context
+    assert llm.calls == []
 
-    assert missing.insufficient_context and len(llm.calls) == 1
+    answer = asyncio.run(grounded.execute("semantic question", limit=10))
     assert not answer.insufficient_context
     assert answer.sources[0].relative_path == RelativePath("Notes/One.md")
     assert len(answer.used_chunk_ids) == 1
+    assert len(llm.calls) == 1
 
 
 def test_reindex_cancellation_preserves_active_index() -> None:

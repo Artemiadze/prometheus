@@ -7,6 +7,8 @@ from domain.errors import InvariantViolationError
 from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.source_reference import SourceReference
 
+pytestmark = pytest.mark.domain
+
 
 def test_sufficient_answer_requires_a_source() -> None:
     with pytest.raises(InvariantViolationError):
