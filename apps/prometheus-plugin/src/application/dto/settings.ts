@@ -37,6 +37,8 @@ export type PluginSettings = {
   readonly llmContextSize: number;
   /** When true, console receives debug-level structured events (PLG-76). Off by default. */
   readonly verboseLogging: boolean;
+  /** When true, start the runtime after Obsidian layout is ready (PLG-78). Off by default. */
+  readonly runtimeAutostart: boolean;
 };
 
 export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
@@ -59,6 +61,7 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   llmTemperature: 0.2,
   llmContextSize: 4096,
   verboseLogging: false,
+  runtimeAutostart: false,
 };
 
 /** Always ignored regardless of user settings. */

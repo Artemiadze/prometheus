@@ -9,11 +9,13 @@ export const STATUS_VIEW_TYPE = "prometheus-status";
 export type StatusViewOptions = {
   readonly store: StatusStore;
   readonly openDiagnostics?: () => void;
+  readonly onActivate?: () => void;
 };
 
 export class StatusView extends ItemView {
   private readonly store: StatusStore;
   private readonly openDiagnostics: (() => void) | null;
+  private readonly onActivate: (() => void) | null;
   private unsubscribe: (() => void) | null = null;
   private panelEl: HTMLElement | null = null;
   private actionsEl: HTMLElement | null = null;
@@ -25,6 +27,7 @@ export class StatusView extends ItemView {
     super(leaf);
     this.store = options.store;
     this.openDiagnostics = options.openDiagnostics ?? null;
+    this.onActivate = options.onActivate ?? null;
   }
 
   override getViewType(): string {
@@ -40,6 +43,7 @@ export class StatusView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
+    this.onActivate?.();
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("prometheus-status-view");

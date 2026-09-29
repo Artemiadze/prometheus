@@ -19,6 +19,7 @@ export type WireChatDeps = {
   readonly notifier: Notifier;
   readonly vault?: ObsidianVaultGateway;
   readonly resolveScope?: () => Promise<SearchScope>;
+  readonly onActivated?: () => void;
 };
 
 export type WiredChat = {
@@ -34,7 +35,7 @@ export function wireChat(deps: WireChatDeps): WiredChat {
   const store = new ChatStore({
     askQuestion,
     openSource: (source) => openSourceNote.execute(source),
-    ensureRuntime: createEnsureRuntime(deps.startRuntime),
+    ensureRuntime: createEnsureRuntime(deps.startRuntime, deps.onActivated),
     ...(deps.resolveScope ? { resolveScope: deps.resolveScope } : {}),
   });
 

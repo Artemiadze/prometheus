@@ -10,11 +10,13 @@ export type RuntimeReadiness =
  */
 export function createEnsureRuntime(
   startRuntime: Pick<StartRuntime, "execute">,
+  onActivated?: () => void,
 ): (signal: AbortSignal) => Promise<RuntimeReadiness> {
   return async (signal) => {
     const result = await startRuntime.execute(signal);
     switch (result.kind) {
       case "ready":
+        onActivated?.();
         return { ok: true };
       case "missing":
         return {

@@ -121,6 +121,20 @@ export class SettingsTab extends PluginSettingTab {
           void this.controller.restartRuntime();
         });
     });
+
+    new Setting(section)
+      .setName("Start runtime when Obsidian opens")
+      .setDesc(
+        "Off by default. When enabled, Prometheus starts the local runtime after the vault loads.",
+      )
+      .addToggle((toggle) => {
+        toggle
+          .setValue(state.settings.runtimeAutostart)
+          .setDisabled(state.actionBusy)
+          .onChange((value) => {
+            void this.controller.setRuntimeAutostart(value);
+          });
+      });
   }
 
   private renderIndexing(containerEl: HTMLElement, state: SettingsViewState): void {

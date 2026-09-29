@@ -76,6 +76,7 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
+    store.startPolling();
     await Promise.resolve();
     expect(store.getState().runtimeAction).toBe("download");
 
@@ -85,6 +86,51 @@ describe("StatusStore", () => {
     await Promise.resolve();
     expect(store.getState().runtimeAction).toBe("none");
 
+    store.dispose();
+  });
+
+  it("does not poll until startPolling", async () => {
+    const poll = vi.fn(async () => undefined);
+    const store = new StatusStore({
+      getSystemStatus: {
+        execute: async () => makeStatus(),
+        poll,
+      },
+      installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
+      startRuntime: {
+        execute: async () => ({
+          kind: "ready" as const,
+          runtime: ManagedRuntimeState.running("0.1.0"),
+          connection: { baseUrl: "http://127.0.0.1:1", sessionToken: "t" },
+          ownership: "owned" as const,
+          spawned: true,
+        }),
+      },
+      selectLlmModel: {
+        list: async () => [],
+        select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
+      },
+      startInitialSync: async () => ({
+        job: { jobId: "j", status: "completed", progress: 1, error: null },
+        failures: [],
+      }),
+      startReindex: async () => ({
+        kind: "started" as const,
+        job: { jobId: "j", status: "completed", progress: 1, error: null },
+        reindexRequired: false,
+        reindexReason: null,
+      }),
+      cancelActive: async () => null,
+      pollIntervalMs: 1000,
+    });
+
+    await Promise.resolve();
+    expect(store.isPolling()).toBe(false);
+    expect(poll).not.toHaveBeenCalled();
+
+    store.startPolling();
+    expect(store.isPolling()).toBe(true);
+    expect(poll).toHaveBeenCalledOnce();
     store.dispose();
   });
 
@@ -181,6 +227,7 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
+    store.startPolling();
     await Promise.resolve();
     const before = polls;
     store.dispose();

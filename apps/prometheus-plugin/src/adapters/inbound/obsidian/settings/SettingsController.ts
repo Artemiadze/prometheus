@@ -57,6 +57,7 @@ export type SettingsControllerDeps = {
   readonly bundledReleaseVersion: string;
   readonly setVerboseLogging?: (enabled: boolean) => void;
   readonly openDiagnostics?: () => void;
+  readonly onActivated?: () => void;
 };
 
 type Listener = (state: SettingsViewState) => void;
@@ -150,6 +151,7 @@ export class SettingsController {
     await this.runAction(async (signal) => {
       await this.deps.installRuntime.execute(undefined, signal);
       await this.deps.startRuntime.execute(signal);
+      this.deps.onActivated?.();
     });
   }
 
@@ -157,6 +159,7 @@ export class SettingsController {
     await this.runAction(async (signal) => {
       await this.deps.stopRuntime.execute(signal);
       await this.deps.startRuntime.execute(signal);
+      this.deps.onActivated?.();
     });
   }
 
@@ -287,6 +290,10 @@ export class SettingsController {
   async setVerboseLogging(enabled: boolean): Promise<void> {
     await this.patchSettings({ verboseLogging: enabled });
     this.deps.setVerboseLogging?.(enabled);
+  }
+
+  async setRuntimeAutostart(enabled: boolean): Promise<void> {
+    await this.patchSettings({ runtimeAutostart: enabled });
   }
 
   openDiagnostics(): void {
@@ -444,5 +451,6 @@ function fallbackSettings(): PluginSettings {
     llmTemperature: 0.2,
     llmContextSize: 4096,
     verboseLogging: false,
+    runtimeAutostart: false,
   };
 }

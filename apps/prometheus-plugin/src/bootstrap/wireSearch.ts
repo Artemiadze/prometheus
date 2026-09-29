@@ -19,6 +19,7 @@ export type WireSearchDeps = {
   readonly rag: RagGateway;
   readonly startRuntime: StartRuntime;
   readonly notifier: Notifier;
+  readonly onActivated?: () => void;
 };
 
 export type WiredSearch = {
@@ -34,7 +35,7 @@ export function wireSearch(deps: WireSearchDeps): WiredSearch {
 
   const store = new SearchStore({
     searchNotes,
-    ensureRuntime: createEnsureRuntime(deps.startRuntime),
+    ensureRuntime: createEnsureRuntime(deps.startRuntime, deps.onActivated),
     openSource: (source) => openSourceNote.execute(source),
     settings: deps.settings,
     vault,

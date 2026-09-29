@@ -62,17 +62,41 @@ export class StatusStore {
   private indexingProgress: IndexingProgressEstimate | null = null;
   private installState: ManagedRuntimeState | null = null;
   private readonly listeners = new Set<Listener>();
-  private readonly pollController = new AbortController();
+  private pollController: AbortController | null = null;
   private actionController: AbortController | null = null;
   private disposed = false;
   private indexingStartedAtMs: number | null = null;
   private lastUploadTotal = 0;
   private readonly pollIntervalMs: number;
-  private readonly pollLoop: Promise<void>;
+  private pollLoop: Promise<void> | null = null;
+  private polling = false;
 
   constructor(private readonly deps: StatusStoreDeps) {
     this.pollIntervalMs = deps.pollIntervalMs ?? 1_000;
-    this.pollLoop = this.startPolling();
+  }
+
+  isPolling(): boolean {
+    return this.polling;
+  }
+
+  startPolling(): void {
+    if (this.disposed || this.polling) {
+      return;
+    }
+    this.polling = true;
+    this.pollController = new AbortController();
+    this.pollLoop = this.runPollLoop(this.pollController.signal);
+  }
+
+  stopPolling(): void {
+    if (!this.polling) {
+      return;
+    }
+    this.polling = false;
+    this.pollController?.abort();
+    this.pollController = null;
+    void this.pollLoop?.catch(() => undefined);
+    this.pollLoop = null;
   }
 
   getState(): StatusViewState {
@@ -183,17 +207,16 @@ export class StatusStore {
       return;
     }
     this.disposed = true;
-    this.pollController.abort();
+    this.stopPolling();
     this.actionController?.abort();
     this.listeners.clear();
-    void this.pollLoop.catch(() => undefined);
   }
 
-  private async startPolling(): Promise<void> {
+  private async runPollLoop(signal: AbortSignal): Promise<void> {
     try {
       await this.deps.getSystemStatus.poll(
         (status) => {
-          if (this.disposed) {
+          if (this.disposed || !this.polling) {
             return;
           }
           this.status = status;
@@ -215,7 +238,7 @@ export class StatusStore {
           }
           this.notify();
         },
-        this.pollController.signal,
+        signal,
         this.pollIntervalMs,
       );
     } catch (error) {

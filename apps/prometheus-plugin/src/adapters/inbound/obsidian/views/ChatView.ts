@@ -14,10 +14,12 @@ const INSUFFICIENT_HINT = "Try rephrasing the question or check the indexing sta
 
 export type ChatViewOptions = {
   readonly store: ChatStore;
+  readonly onActivate?: () => void;
 };
 
 export class ChatView extends ItemView {
   private readonly store: ChatStore;
+  private readonly onActivate: (() => void) | null;
   private unsubscribe: (() => void) | null = null;
   private messagesEl: HTMLElement | null = null;
   private textareaEl: HTMLTextAreaElement | null = null;
@@ -32,6 +34,7 @@ export class ChatView extends ItemView {
   constructor(leaf: WorkspaceLeaf, options: ChatViewOptions) {
     super(leaf);
     this.store = options.store;
+    this.onActivate = options.onActivate ?? null;
   }
 
   override getViewType(): string {
@@ -47,6 +50,7 @@ export class ChatView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
+    this.onActivate?.();
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("prometheus-chat-view");

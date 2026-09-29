@@ -21,12 +21,14 @@ export type WireAutoIndexingDeps = {
 export type WiredAutoIndexing = {
   readonly setEnabled: (enabled: boolean) => void;
   readonly isEnabled: () => boolean;
+  readonly applySettingsEnabled: () => Promise<void>;
   readonly updateDebounce: (options: { debounceMs?: number; maxConcurrent?: number }) => void;
   readonly dispose: () => void;
 };
 
 /**
  * Subscribes vault events → SyncDocumentChange when autoIndexing is enabled.
+ * Attachment is deferred until applySettingsEnabled() (PLG-78).
  */
 export function wireAutoIndexing(deps: WireAutoIndexingDeps): WiredAutoIndexing {
   const clock = deps.clock ?? new SystemClock();
@@ -42,6 +44,7 @@ export function wireAutoIndexing(deps: WireAutoIndexingDeps): WiredAutoIndexing 
   const debouncer = new DocumentChangeDebouncer(sync, clock, { debounceMs, maxConcurrent });
   let unsubscribe: Unsubscribe | null = null;
   let enabled = false;
+  let settingsApplied = false;
 
   const attach = (): void => {
     if (unsubscribe) {
@@ -69,16 +72,26 @@ export function wireAutoIndexing(deps: WireAutoIndexingDeps): WiredAutoIndexing 
     }
   };
 
-  void deps.settings.get().then((settings) => {
+  const applySettingsEnabled = async (): Promise<void> => {
+    const settings = await deps.settings.get();
     debounceMs = settings.indexingDebounceMs;
     maxConcurrent = settings.maxConcurrentSyncs;
     debouncer.configure({ debounceMs, maxConcurrent });
+    settingsApplied = true;
     setEnabled(settings.autoIndexing);
-  });
+  };
 
   return {
-    setEnabled,
+    setEnabled: (next) => {
+      // Before activation, remember preference without attaching the vault watcher.
+      if (!settingsApplied && next) {
+        enabled = true;
+        return;
+      }
+      setEnabled(next);
+    },
     isEnabled: () => enabled,
+    applySettingsEnabled,
     updateDebounce: (options) => {
       if (options.debounceMs !== undefined) {
         debounceMs = options.debounceMs;
@@ -91,6 +104,7 @@ export function wireAutoIndexing(deps: WireAutoIndexingDeps): WiredAutoIndexing 
     dispose: () => {
       detach();
       enabled = false;
+      settingsApplied = false;
     },
   };
 }

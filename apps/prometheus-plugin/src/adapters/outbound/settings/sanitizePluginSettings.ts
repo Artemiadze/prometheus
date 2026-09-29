@@ -167,6 +167,12 @@ export function sanitizePluginSettings(raw: unknown): SanitizeResult {
       "verboseLogging",
       corrections,
     ),
+    runtimeAutostart: pickBoolean(
+      source.runtimeAutostart,
+      DEFAULT_PLUGIN_SETTINGS.runtimeAutostart,
+      "runtimeAutostart",
+      corrections,
+    ),
   };
 
   return { settings, corrections };

@@ -18,6 +18,7 @@ export type WireOnboardingDeps = {
   readonly startRuntime: StartRuntime;
   readonly getSystemStatus: GetSystemStatus;
   readonly indexing: WiredIndexing;
+  readonly onActivated?: () => void;
 };
 
 export type WiredOnboarding = {
@@ -42,6 +43,7 @@ export function wireOnboarding(deps: WireOnboardingDeps): WiredOnboarding {
               : "Prometheus runtime version is incompatible",
           );
         }
+        deps.onActivated?.();
       },
       getStatus: (signal) => deps.getSystemStatus.execute({ pollAllowed: true, signal }),
       listModels: (signal) => selectLlmModel.list(signal),

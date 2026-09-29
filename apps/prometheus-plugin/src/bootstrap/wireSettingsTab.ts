@@ -32,6 +32,7 @@ export type WireSettingsTabDeps = {
   readonly syncState: DocumentSyncState;
   readonly setVerboseLogging?: (enabled: boolean) => void;
   readonly openDiagnostics?: () => void;
+  readonly onActivated?: () => void;
 };
 
 export type WiredSettingsTab = {
@@ -69,6 +70,7 @@ export function wireSettingsTab(deps: WireSettingsTabDeps): WiredSettingsTab {
     bundledReleaseVersion: RUNTIME_RELEASE_VERSION,
     ...(deps.setVerboseLogging ? { setVerboseLogging: deps.setVerboseLogging } : {}),
     ...(deps.openDiagnostics ? { openDiagnostics: deps.openDiagnostics } : {}),
+    ...(deps.onActivated ? { onActivated: deps.onActivated } : {}),
   });
 
   const tab = new SettingsTab(deps.app, deps.plugin, controller);

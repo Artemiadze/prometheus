@@ -2,18 +2,11 @@ import { Plugin } from "obsidian";
 
 import { DedupNotifier } from "../adapters/inbound/notifier/DedupNotifier";
 import { ObsidianNotifier } from "../adapters/inbound/notifier/ObsidianNotifier";
-import { registerCommands } from "../adapters/inbound/obsidian/commands/registerCommands";
-import { registerContextMenu } from "../adapters/inbound/obsidian/commands/registerContextMenu";
-import { activateChatView } from "../adapters/inbound/obsidian/views/activateChatView";
-import { activateSearchView } from "../adapters/inbound/obsidian/views/activateSearchView";
-import { activateStatusView } from "../adapters/inbound/obsidian/views/activateStatusView";
-import { CHAT_VIEW_TYPE, ChatView } from "../adapters/inbound/obsidian/views/ChatView";
-import { SEARCH_VIEW_TYPE, SearchView } from "../adapters/inbound/obsidian/views/SearchView";
-import { STATUS_VIEW_TYPE, StatusView } from "../adapters/inbound/obsidian/views/StatusView";
-import { formatStatusBarLabel } from "../adapters/inbound/obsidian/status/formatStatusBarLabel";
 import { CompositeLogger, ConsoleLogger, RecentEventsBuffer } from "../adapters/outbound/logging";
 import { ensureVaultId, ObsidianSettingsRepository } from "../adapters/outbound/settings";
 import { SystemClock } from "../adapters/outbound/system/SystemClock";
+import { createActivationGate, detachPluginLeaves } from "./pluginLifecycle";
+import { registerPluginUi } from "./registerPluginUi";
 import { wireAutoIndexing } from "./wireAutoIndexing";
 import { wireChat } from "./wireChat";
 import { wireDiagnostics } from "./wireDiagnostics";
@@ -26,6 +19,8 @@ import { wireStatus } from "./wireStatus";
 
 /**
  * Composition root for the Prometheus Obsidian plugin.
+ * Constructs the graph once; views receive stores only (PLG-77).
+ * Continuous work (status poll, vault auto-index) waits for ActivationGate (PLG-78).
  */
 export default class PrometheusPlugin extends Plugin {
   private disposeRuntimeLifecycle: (() => void) | null = null;
@@ -58,12 +53,18 @@ export default class PrometheusPlugin extends Plugin {
     });
     this.disposeRuntimeLifecycle = runtime.dispose;
 
+    // Activation gate is created after status + autoIndexing; chat/search get a late-bound hook.
+    let activateFeatures: () => void = () => undefined;
+
     const search = wireSearch({
       app: this.app,
       settings,
       rag: runtime.rag,
       startRuntime: runtime.startRuntime,
       notifier,
+      onActivated: () => {
+        activateFeatures();
+      },
     });
     this.disposeSearch = search.dispose;
 
@@ -94,6 +95,12 @@ export default class PrometheusPlugin extends Plugin {
     });
     this.disposeStatus = status.dispose;
 
+    const activation = createActivationGate({
+      statusStore: status.store,
+      autoIndexing,
+    });
+    activateFeatures = activation.activate;
+
     const diagnostics = wireDiagnostics({
       app: this.app,
       pluginVersion: this.manifest.version,
@@ -112,6 +119,7 @@ export default class PrometheusPlugin extends Plugin {
       startRuntime: runtime.startRuntime,
       getSystemStatus: status.getSystemStatus,
       indexing,
+      onActivated: activation.activate,
     });
 
     const chat = wireChat({
@@ -122,6 +130,7 @@ export default class PrometheusPlugin extends Plugin {
       notifier,
       vault: search.vault,
       resolveScope: createChatScopeResolver({ settings, vault: search.vault }),
+      onActivated: activation.activate,
     });
     this.disposeChat = chat.dispose;
 
@@ -144,80 +153,47 @@ export default class PrometheusPlugin extends Plugin {
       openDiagnostics: () => {
         diagnostics.openDiagnostics(this.app);
       },
+      onActivated: activation.activate,
     });
     this.disposeSettings = settingsTab.dispose;
-    this.addSettingTab(settingsTab.tab);
 
-    this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, { store: chat.store }));
-    this.registerView(SEARCH_VIEW_TYPE, (leaf) => new SearchView(leaf, { store: search.store }));
-    this.registerView(
-      STATUS_VIEW_TYPE,
-      (leaf) =>
-        new StatusView(leaf, {
-          store: status.store,
-          openDiagnostics: () => {
-            diagnostics.openDiagnostics(this.app);
-          },
-        }),
-    );
-
-    this.addRibbonIcon("message-square", "Open Prometheus chat", () => {
-      void activateChatView(this.app);
-    });
-    this.addRibbonIcon("activity", "Open Prometheus status", () => {
-      void activateStatusView(this.app);
-    });
-
-    const statusBarItem = this.addStatusBarItem();
-    statusBarItem.addClass("prometheus-statusbar-item");
-    statusBarItem.setText("Prometheus…");
-    statusBarItem.addEventListener("click", () => {
-      void activateStatusView(this.app);
-    });
-    this.disposeStatusBar = status.store.subscribe((state) => {
-      const label = formatStatusBarLabel(state.status, state.runtimeAction, state.indexAction);
-      statusBarItem.setText(label.text);
-      statusBarItem.toggleClass("prometheus-statusbar-item--ready", label.kind === "ready");
-      statusBarItem.toggleClass("prometheus-statusbar-item--indexing", label.kind === "indexing");
-      statusBarItem.toggleClass("prometheus-statusbar-item--error", label.kind === "error");
-      statusBarItem.toggleClass("prometheus-statusbar-item--busy", label.kind === "busy");
-    });
-
-    registerCommands(this, {
+    const ui = registerPluginUi({
+      plugin: this,
       app: this.app,
       chatStore: chat.store,
+      searchStore: search.store,
       statusStore: status.store,
+      settingsTab: settingsTab.tab,
       openOnboarding: (app) => {
         onboarding.openOnboarding(app);
       },
       openDiagnostics: (app) => {
         diagnostics.openDiagnostics(app);
       },
-      activateChat: activateChatView,
-      activateSearch: activateSearchView,
-      activateStatus: activateStatusView,
-    });
-
-    registerContextMenu(this, {
-      askAboutNote: (path) => {
-        chat.store.focusNote(path);
-        void activateChatView(this.app);
-      },
-      searchInFolder: (path) => {
-        void activateSearchView(this.app);
-        void search.store.focusFolder(path);
-      },
       reindexFile: (path) => {
         void indexing.reindexFile(path);
       },
+      onActivate: activation.activate,
     });
+    this.disposeStatusBar = ui.disposeStatusBar;
 
     this.app.workspace.onLayoutReady(() => {
-      void onboarding.openOnboardingIfNeeded(this.app);
+      void (async () => {
+        await onboarding.openOnboardingIfNeeded(this.app);
+        const current = await settings.get();
+        if (current.runtimeAutostart) {
+          void runtime.startRuntime.execute().then((result) => {
+            if (result.kind === "ready") {
+              activation.activate();
+            }
+          });
+        }
+      })();
     });
   }
 
   override onunload(): void {
+    detachPluginLeaves(this.app);
     this.disposeSettings?.();
     this.disposeSettings = null;
     this.disposeStatusBar?.();

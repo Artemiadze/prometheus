@@ -8,6 +8,7 @@ export const SEARCH_VIEW_TYPE = "prometheus-search";
 
 export type SearchViewOptions = {
   readonly store: SearchStore;
+  readonly onActivate?: () => void;
 };
 
 const STATUS_COPY: Record<Exclude<SearchViewState["status"], "results" | "error">, string> = {
@@ -19,6 +20,7 @@ const STATUS_COPY: Record<Exclude<SearchViewState["status"], "results" | "error"
 
 export class SearchView extends ItemView {
   private readonly store: SearchStore;
+  private readonly onActivate: (() => void) | null;
   private unsubscribe: (() => void) | null = null;
   private scopeEl: HTMLElement | null = null;
   private inputEl: HTMLInputElement | null = null;
@@ -28,6 +30,7 @@ export class SearchView extends ItemView {
   constructor(leaf: WorkspaceLeaf, options: SearchViewOptions) {
     super(leaf);
     this.store = options.store;
+    this.onActivate = options.onActivate ?? null;
   }
 
   override getViewType(): string {
@@ -43,6 +46,7 @@ export class SearchView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
+    this.onActivate?.();
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("prometheus-search-view");
