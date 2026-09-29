@@ -198,10 +198,12 @@ def test_validation_and_application_errors_use_stable_envelopes() -> None:
 
 
 def test_search_and_chat_return_rebuild_required_envelope() -> None:
+    from typing import Any
+
     from application.errors import IndexRebuildRequiredError
 
     client = _client()
-    runtime = client.app.state.vault_registry.runtime
+    runtime = cast(Any, client.app).state.vault_registry.runtime
     runtime.search_notes = _Raises(IndexRebuildRequiredError("Index rebuild required: chunk_size"))
     runtime.answer_question = _Raises(
         IndexRebuildRequiredError("Index rebuild required: chunk_size")

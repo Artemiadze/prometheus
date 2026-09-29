@@ -111,20 +111,24 @@ def test_cancelled_rebuild_leaves_active_index_intact(tmp_path: Path) -> None:
 
 
 def test_failed_rebuild_discards_staging_and_keeps_active_searchable(tmp_path: Path) -> None:
+    import pytest
+
+    from application.errors import VaultMismatchError
+
     container = _container(tmp_path)
     original = _document("document-a", "stable vault content")
     asyncio.run(container.index_document.execute(original))
+    foreign = Document.create(
+        id=DocumentId("document-b"),
+        vault_id=VaultId("other-vault"),
+        relative_path="Notes/document-b.md",
+        content="should not replace active",
+        revision=1,
+        modified_at=NOW,
+    )
 
-    class Boom:
-        async def execute(self, *_: object, **__: object) -> object:
-            raise RuntimeError("staging failed")
-
-    session = container.rebuild_workspace.begin()
-    session.index_document = Boom()  # type: ignore[method-assign]
-    try:
-        asyncio.run(session.index_document.execute(_document("document-b", "unused")))
-    except RuntimeError:
-        session.discard()
+    with pytest.raises(VaultMismatchError):
+        asyncio.run(container.reindex_vault.execute((foreign,), cancellation=_NeverCancelled()))
 
     vault_path = vault_dir(container.layout, VAULT.value)
     assert not (vault_path / REBUILD_DIRNAME).exists()
