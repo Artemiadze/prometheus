@@ -67,6 +67,9 @@ def test_serve_requires_session_token(tmp_path: Path) -> None:
 
 
 def test_network_guard_installs_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import uvicorn
+
+    from adapters.outbound.network.guard import NetworkGuard
     from bootstrap import cli as cli_module
 
     installed: list[bool] = []
@@ -77,13 +80,13 @@ def test_network_guard_installs_by_default(monkeypatch: pytest.MonkeyPatch, tmp_
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             return None
 
-    monkeypatch.setattr(cli_module.NetworkGuard, "install", lambda: installed.append(True))
+    monkeypatch.setattr(NetworkGuard, "install", lambda: installed.append(True))
     monkeypatch.setattr(cli_module, "configure_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cli_module, "_assert_port_available", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cli_module, "Container", _FakeContainer)
     monkeypatch.setattr(cli_module, "VaultContainerRegistry", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(cli_module, "create_app", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(cli_module.uvicorn, "run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(uvicorn, "run", lambda *_args, **_kwargs: None)
 
     result = runner.invoke(
         app,
@@ -107,8 +110,10 @@ def test_network_guard_installs_by_default(monkeypatch: pytest.MonkeyPatch, tmp_
 def test_network_guard_skipped_when_embedding_download_allowed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    import uvicorn
     from pydantic import SecretStr
 
+    from adapters.outbound.network.guard import NetworkGuard
     from bootstrap import cli as cli_module
     from bootstrap.config import RuntimeSettings
 
@@ -130,13 +135,13 @@ def test_network_guard_skipped_when_embedding_download_allowed(
             port=18767,
         ),
     )
-    monkeypatch.setattr(cli_module.NetworkGuard, "install", lambda: installed.append(True))
+    monkeypatch.setattr(NetworkGuard, "install", lambda: installed.append(True))
     monkeypatch.setattr(cli_module, "configure_logging", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cli_module, "_assert_port_available", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cli_module, "Container", _FakeContainer)
     monkeypatch.setattr(cli_module, "VaultContainerRegistry", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(cli_module, "create_app", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(cli_module.uvicorn, "run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(uvicorn, "run", lambda *_args, **_kwargs: None)
 
     result = runner.invoke(
         app,
