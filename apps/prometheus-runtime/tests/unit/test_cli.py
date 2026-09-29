@@ -36,8 +36,30 @@ def test_occupied_port_has_clear_nonzero_exit(tmp_path: Path) -> None:
                 str(port),
                 "--data-dir",
                 str(tmp_path),
+                "--session-token",
+                "test-token",
             ],
         )
 
     assert result.exit_code != 0
     assert "unavailable" in result.stderr
+
+
+def test_serve_requires_session_token(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "serve",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "18765",
+            "--data-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "session token is required" in result.stderr.casefold()
+    assert "test-token" not in result.stdout
+    assert "test-token" not in result.stderr

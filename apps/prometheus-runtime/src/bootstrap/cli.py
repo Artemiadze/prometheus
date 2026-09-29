@@ -82,6 +82,10 @@ def serve(
                 "log_level": log_level,
             }
         )
+        if settings.session_token is None:
+            raise ConfigurationError(
+                "A session token is required: pass --session-token or set PROMETHEUS_SESSION_TOKEN"
+            )
         NetworkGuard.install()
         layout = ensure_layout(resolve_data_dir(settings.data_dir))
         configure_logging(layout, settings.log_level)
