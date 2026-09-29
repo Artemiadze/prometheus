@@ -88,6 +88,7 @@ class FilesystemIndexRebuildWorkspace:
         self,
         vault_dir: Path,
         *,
+        vault_id: VaultId,
         embedding_fingerprint: EmbeddingFingerprint,
         build_index_document: Callable[
             [DocumentRepository, VectorIndex, IndexMetadataStore, UnitOfWork],
@@ -96,6 +97,7 @@ class FilesystemIndexRebuildWorkspace:
         release_active_storage: Callable[[], None],
     ) -> None:
         self._vault_dir = vault_dir.expanduser().resolve()
+        self._vault_id = vault_id
         self._embedding = embedding_fingerprint
         self._build_index_document = build_index_document
         self._release_active = release_active_storage
@@ -108,6 +110,7 @@ class FilesystemIndexRebuildWorkspace:
         database = MetadataDatabase(staging_dir)
         vector_index = QdrantLocalVectorIndex(
             vault_dir=staging_dir,
+            vault_id=self._vault_id,
             embedding_fingerprint=self._embedding,
         )
         unit_of_work = database.unit_of_work()

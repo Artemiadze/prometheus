@@ -18,7 +18,7 @@ from adapters.outbound.qdrant.index_metadata import (
 )
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_status import IndexStatus
-from application.errors import IndexCorruptedError
+from application.errors import IndexCorruptedError, VaultMismatchError
 from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import Document
 from domain.entities.search_hit import SearchHit, sort_by_score
@@ -26,10 +26,11 @@ from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import ScopeMode, SearchScope
+from domain.value_objects.vault_id import VaultId
 
 COLLECTION_NAME = "chunks"
 _POINT_NAMESPACE = UUID("62e3cb19-e15a-4b15-9b46-ad8f84c3b8bc")
-_INDEXED_PAYLOAD_FIELDS = ("folder", "folder_ancestors", "file_path", "document_id")
+_INDEXED_PAYLOAD_FIELDS = ("vault_id", "folder", "folder_ancestors", "file_path", "document_id")
 
 
 class QdrantLocalVectorIndex:
@@ -39,10 +40,12 @@ class QdrantLocalVectorIndex:
         self,
         *,
         vault_dir: Path,
+        vault_id: VaultId,
         embedding_fingerprint: EmbeddingFingerprint,
         client_factory: Callable[[], QdrantClient] | None = None,
     ) -> None:
         self._vault_dir = vault_dir.expanduser().resolve()
+        self._vault_id = vault_id
         self._storage_dir = self._vault_dir / "qdrant"
         self._metadata_path = self._vault_dir / "qdrant_metadata.json"
         self._expected_metadata = IndexMetadata(embedding_fingerprint)
@@ -166,6 +169,8 @@ class QdrantLocalVectorIndex:
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],
     ) -> None:
+        if document.vault_id != self._vault_id:
+            raise VaultMismatchError()
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must have the same length")
         if any(chunk.document_id != document.id for chunk in chunks):
@@ -230,16 +235,34 @@ class QdrantLocalVectorIndex:
             response = self._require_client().query_points(
                 collection_name=COLLECTION_NAME,
                 query=[float(value) for value in query_vector],
-                query_filter=self._scope_filter(scope),
+                query_filter=self._search_filter(scope),
                 limit=limit,
                 with_payload=True,
                 with_vectors=False,
             )
-            hits = tuple(self._to_search_hit(point) for point in response.points)
+            hits = tuple(
+                hit for point in response.points if (hit := self._to_search_hit(point)) is not None
+            )
         except Exception as error:
             self._status = IndexStatus.CORRUPTED
             raise IndexCorruptedError() from error
         return sort_by_score(hits)[:limit]
+
+    def _search_filter(self, scope: SearchScope | None) -> models.Filter:
+        conditions: list[models.Condition] = [
+            models.FieldCondition(
+                key="vault_id",
+                match=models.MatchValue(value=self._vault_id.value),
+            )
+        ]
+        scope_filter = self._scope_filter(scope)
+        if scope_filter is not None:
+            extra = scope_filter.must
+            if isinstance(extra, list):
+                conditions.extend(extra)
+            elif extra is not None:
+                conditions.append(extra)
+        return models.Filter(must=conditions)
 
     @staticmethod
     def _scope_filter(scope: SearchScope | None) -> models.Filter | None:
@@ -254,11 +277,11 @@ class QdrantLocalVectorIndex:
             key = "folder_ancestors"
         return models.Filter(must=[models.FieldCondition(key=key, match=match)])
 
-    @staticmethod
-    def _payload(document: Document, chunk: Chunk) -> dict[str, Any]:
+    def _payload(self, document: Document, chunk: Chunk) -> dict[str, Any]:
         folder = document.relative_path.parent
         ancestors = _folder_ancestors(document.relative_path)
         return {
+            "vault_id": self._vault_id.value,
             "document_id": document.id.value,
             "file_path": document.relative_path.value,
             "folder": folder.value if folder is not None else "",
@@ -275,11 +298,13 @@ class QdrantLocalVectorIndex:
             "token_count": chunk.token_count,
         }
 
-    @staticmethod
-    def _to_search_hit(point: models.ScoredPoint) -> SearchHit:
+    def _to_search_hit(self, point: models.ScoredPoint) -> SearchHit | None:
         payload = point.payload
         if payload is None:
             raise ValueError("Qdrant point has no payload")
+        payload_vault = payload.get("vault_id")
+        if payload_vault != self._vault_id.value:
+            return None
         chunk = _chunk_from_payload(payload)
         score = float(point.score)
         return SearchHit(chunk=chunk, score=score, dense_score=score)

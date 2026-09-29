@@ -11,7 +11,7 @@ from qdrant_client import QdrantClient, models
 from adapters.outbound.qdrant.adapter import COLLECTION_NAME, QdrantLocalVectorIndex
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_status import IndexStatus
-from application.errors import IndexCorruptedError
+from application.errors import IndexCorruptedError, VaultMismatchError
 from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import Document, compute_content_hash
 from domain.value_objects.chunk_id import ChunkId
@@ -57,6 +57,7 @@ def _memory_index(
     client = QdrantClient(":memory:")
     index = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(dimension),
         client_factory=lambda: client,
     )
@@ -79,6 +80,7 @@ def test_persistent_collection_is_reused_after_restart(tmp_path: Path) -> None:
     chunk = _chunk(document, 0, "persistent chunk")
     first = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(),
     )
     first.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
@@ -86,6 +88,7 @@ def test_persistent_collection_is_reused_after_restart(tmp_path: Path) -> None:
 
     second = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(),
     )
 
@@ -233,6 +236,7 @@ def test_incompatible_index_is_recreated_and_requests_reindex(tmp_path: Path) ->
     document = _document("document-01", "Notes/One.md")
     original = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(3),
     )
     original.upsert(document, (_chunk(document, 0, "old"),), ((1.0, 0.0, 0.0),))
@@ -240,6 +244,7 @@ def test_incompatible_index_is_recreated_and_requests_reindex(tmp_path: Path) ->
 
     rebuilt = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(2),
     )
 
@@ -257,6 +262,7 @@ def test_incompatible_index_is_recreated_and_requests_reindex(tmp_path: Path) ->
 def test_corrupted_metadata_does_not_crash_startup(tmp_path: Path) -> None:
     original = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(),
     )
     original.close()
@@ -264,6 +270,7 @@ def test_corrupted_metadata_does_not_crash_startup(tmp_path: Path) -> None:
 
     recovered = QdrantLocalVectorIndex(
         vault_dir=tmp_path,
+        vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(),
     )
 
@@ -271,6 +278,60 @@ def test_corrupted_metadata_does_not_crash_startup(tmp_path: Path) -> None:
     with pytest.raises(IndexCorruptedError):
         recovered.search((1.0, 0.0, 0.0), 10)
     recovered.close()
+
+
+def test_upsert_rejects_document_from_another_vault(tmp_path: Path) -> None:
+    index, _ = _memory_index(tmp_path)
+    foreign = Document.create(
+        id=DocumentId("document-01"),
+        vault_id=VaultId("vault-02"),
+        relative_path="Notes/One.md",
+        content="foreign",
+        revision=1,
+        modified_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    chunk = _chunk(foreign, 0, "foreign chunk")
+
+    with pytest.raises(VaultMismatchError):
+        index.upsert(foreign, (chunk,), ((1.0, 0.0, 0.0),))
+
+
+def test_search_drops_points_tagged_with_a_foreign_vault_id(tmp_path: Path) -> None:
+    index, client = _memory_index(tmp_path)
+    document = _document("document-01", "Notes/One.md")
+    chunk = _chunk(document, 0, "local chunk")
+    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+    client.upsert(
+        collection_name=COLLECTION_NAME,
+        points=[
+            models.PointStruct(
+                id="00000000-0000-4000-8000-00000000beef",
+                vector=[1.0, 0.0, 0.0],
+                payload={
+                    "vault_id": "vault-02",
+                    "document_id": "document-99",
+                    "file_path": "Notes/Leak.md",
+                    "folder": "Notes",
+                    "folder_ancestors": ["Notes"],
+                    "heading": "Section",
+                    "heading_path": ["Section"],
+                    "chunk_id": "chunk-leak",
+                    "chunk_index": 0,
+                    "content": "leaked foreign text",
+                    "content_hash": compute_content_hash("leaked foreign text"),
+                    "modified_at": datetime(2026, 1, 1, tzinfo=UTC).isoformat(),
+                    "char_range_start": 0,
+                    "char_range_end": 18,
+                    "token_count": 3,
+                },
+            )
+        ],
+        wait=True,
+    )
+
+    hits = index.search((1.0, 0.0, 0.0), 10)
+
+    assert [hit.chunk.text for hit in hits] == ["local chunk"]
 
 
 def test_input_validation_happens_before_existing_points_are_deleted(tmp_path: Path) -> None:

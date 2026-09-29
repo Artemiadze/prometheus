@@ -129,6 +129,7 @@ class Container:
             )
         return QdrantLocalVectorIndex(
             vault_dir=vault_dir(self.layout, self._vault_id.value),
+            vault_id=self._vault_id,
             embedding_fingerprint=self.embedder.fingerprint,
         )
 
@@ -191,6 +192,7 @@ class Container:
 
         return FilesystemIndexRebuildWorkspace(
             vault_path,
+            vault_id=vault_id,
             embedding_fingerprint=self.embedder.fingerprint,
             build_index_document=build,
             release_active_storage=self.release_vault_storage,

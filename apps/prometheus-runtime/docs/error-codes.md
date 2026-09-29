@@ -8,6 +8,7 @@
 | `JOB_NOT_FOUND` | 404 | The requested background job does not exist. |
 | `REVISION_CONFLICT` | 409 | A document revision is older than its indexed revision. |
 | `VAULT_NOT_INDEXED` | 409 | The Vault has no usable index. |
+| `VAULT_MISMATCH` | 409 | A document or vector write targeted a different Vault than the scoped runtime. |
 | `INDEX_CORRUPTED` | 409 | The vector index must be rebuilt. |
 | `INDEX_REBUILD_REQUIRED` | 409 | The active index fingerprint is incompatible. |
 | `RUNTIME_VERSION_INCOMPATIBLE` | 409 | The Obsidian plugin version is outside the supported range. |
