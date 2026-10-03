@@ -1,5 +1,6 @@
 import type {
   ChatAnswerDto,
+  ChatStreamHandlers,
   HealthInfo,
   JobInfo,
   LlmModelInfo,
@@ -202,6 +203,61 @@ export class HttpRagGateway implements RagGateway {
     });
   }
 
+  async chatStream(
+    vaultId: VaultId,
+    question: string,
+    scope: SearchScope,
+    handlers: ChatStreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.ensureCompatible(signal);
+    let fullText = "";
+    await this.http.streamNdjson(`/vaults/${encodeURIComponent(vaultId.value)}/chat/stream`, {
+      method: "POST",
+      signal,
+      timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
+      body: { query: question, scope: scope.serialize() },
+      onLine: (line) => {
+        let payload: unknown;
+        try {
+          payload = JSON.parse(line) as unknown;
+        } catch {
+          throw new RuntimeContractError(null);
+        }
+        if (!isRecord(payload) || typeof payload.type !== "string") {
+          throw new RuntimeContractError(null);
+        }
+        switch (payload.type) {
+          case "token": {
+            const delta = typeof payload.text === "string" ? payload.text : "";
+            if (delta.length === 0) {
+              return;
+            }
+            fullText += delta;
+            handlers.onToken(delta, fullText);
+            break;
+          }
+          case "sources": {
+            const sources = parseStreamSources(payload);
+            const insufficientContext = payload.insufficient_context === true;
+            handlers.onSources(sources, insufficientContext);
+            break;
+          }
+          case "done":
+            handlers.onDone();
+            break;
+          case "error": {
+            const message =
+              typeof payload.message === "string" ? payload.message : "Chat stream failed";
+            throw new Error(message);
+          }
+          default:
+            return;
+        }
+      },
+    });
+  }
+
   async reindex(
     vaultId: VaultId,
     documents: readonly ReindexDocumentInput[],
@@ -283,6 +339,28 @@ function decodeStartedJob(payload: unknown, requestId: string | null): JobInfo {
     progress: 0,
     error: null,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseStreamSources(payload: Record<string, unknown>): readonly SourceReference[] {
+  const raw = payload.sources;
+  if (!Array.isArray(raw)) {
+    throw new RuntimeContractError(null);
+  }
+  return raw.map((entry) => {
+    if (!isRecord(entry)) {
+      throw new RuntimeContractError(null);
+    }
+    const path = entry.path;
+    const heading = entry.heading;
+    if (typeof path !== "string") {
+      throw new RuntimeContractError(null);
+    }
+    return SourceReference.create(path, typeof heading === "string" ? heading : null);
+  });
 }
 
 function parseDate(value: string | null, requestId: string | null): Date | null {

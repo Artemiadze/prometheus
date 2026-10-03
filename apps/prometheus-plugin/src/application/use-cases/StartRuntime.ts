@@ -42,11 +42,6 @@ export type StartRuntimeOptions = {
   readonly healthTimeoutMs?: number;
 };
 
-const EXTERNAL_CONNECTION: RuntimeConnection = {
-  baseUrl: "http://127.0.0.1:0",
-  sessionToken: "external-session",
-};
-
 export class StartRuntime {
   constructor(
     private readonly runtime: RuntimeGateway,
@@ -74,15 +69,17 @@ export class StartRuntime {
       };
     }
     if (probe.kind === "ready") {
-      const existing = this.sessions.get()?.connection ?? EXTERNAL_CONNECTION;
-      this.sessions.set({ connection: existing, ownership: "external" });
-      return {
-        kind: "ready",
-        runtime: ManagedRuntimeState.running(probe.health.version),
-        connection: existing,
-        ownership: "external",
-        spawned: false,
-      };
+      const existing = this.sessions.get();
+      if (existing) {
+        return {
+          kind: "ready",
+          runtime: ManagedRuntimeState.running(probe.health.version),
+          connection: existing.connection,
+          ownership: existing.ownership,
+          spawned: false,
+        };
+      }
+      // Loopback health without credentials (e.g. after plugin reload) is not usable for chat.
     }
 
     const located = await this.runtime.locate();

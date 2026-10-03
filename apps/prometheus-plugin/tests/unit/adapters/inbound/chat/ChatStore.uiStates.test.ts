@@ -46,6 +46,8 @@ describe("ChatStore UI states (PLG-85)", () => {
     await Promise.resolve();
     expect(store.getState().status).toBe("sending");
     expect(store.getState().errorMessage).toBeNull();
+    expect(store.getState().session.messages).toHaveLength(2);
+    expect(store.getState().session.messages[0]?.kind).toBe("user");
 
     const session = ChatSession.empty("session-ui")
       .appendMessage(ChatMessage.user("hello world"))

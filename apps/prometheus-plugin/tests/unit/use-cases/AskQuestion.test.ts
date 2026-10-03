@@ -49,7 +49,7 @@ describe("AskQuestion", () => {
 
   it("marks assistant message as error when chat fails", async () => {
     const rag = new FakeRagGateway();
-    rag.chat = async () => {
+    rag.chatStream = async () => {
       throw new Error("network");
     };
     const useCase = new AskQuestion(
@@ -68,6 +68,28 @@ describe("AskQuestion", () => {
       if (assistant?.kind === "assistant") {
         expect(assistant.state).toBe("error");
       }
+    }
+  });
+
+  it("reuses an optimistic pending turn prepared by the chat store", async () => {
+    const rag = new FakeRagGateway();
+    rag.stubChat("answer", [], false);
+    const useCase = new AskQuestion(
+      rag,
+      new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS, vaultId: "vault-a1" }),
+    );
+    const { ChatMessage } = await import("../../../src/domain/entities/ChatMessage");
+    const prepared = ChatSession.empty("s1")
+      .appendMessage(ChatMessage.user("What is Prometheus?"))
+      .appendMessage(ChatMessage.assistant("", { state: "pending" }));
+    const result = await useCase.execute(
+      prepared,
+      "What is Prometheus?",
+      SearchScope.entireVault(),
+    );
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.session.messages).toHaveLength(2);
     }
   });
 

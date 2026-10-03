@@ -47,7 +47,7 @@ export class SearchView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.onActivate?.();
-    const container = this.containerEl.children[1] as HTMLElement;
+    const container = this.contentEl;
     container.empty();
     container.addClass("prometheus-search-view");
 
@@ -75,7 +75,7 @@ export class SearchView extends ItemView {
   override async onClose(): Promise<void> {
     this.unsubscribe?.();
     this.unsubscribe = null;
-    this.containerEl.empty();
+    this.contentEl.empty();
   }
 
   private render(state: SearchViewState): void {

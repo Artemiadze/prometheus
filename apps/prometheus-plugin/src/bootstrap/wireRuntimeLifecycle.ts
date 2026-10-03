@@ -70,6 +70,7 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
     deps.logger,
   );
 
+  let healthReportedRunning = false;
   const monitor = new RuntimeHealthMonitor(rag, sessions, clock);
   monitor.start(
     {
@@ -77,9 +78,13 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
         deps.onRuntimeStateChange?.(state);
         if (state.kind === "running") {
           runtimeGateway.markRunning(state.version);
-          supervisorHolder.supervisor?.notifyStarted();
-          deps.logger?.event("runtime.started", { version: state.version });
+          if (!healthReportedRunning) {
+            healthReportedRunning = true;
+            supervisorHolder.supervisor?.notifyStarted();
+            deps.logger?.event("runtime.health_ok", { version: state.version });
+          }
         } else if (state.kind === "stopped") {
+          healthReportedRunning = false;
           deps.logger?.event("runtime.stopped", { reason: state.reason });
         }
       },

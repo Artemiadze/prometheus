@@ -1,6 +1,9 @@
 import type { AskQuestion } from "../../../../application/use-cases/AskQuestion";
+import { MIN_QUERY_LENGTH } from "../../../../application/use-cases/SearchNotes";
 import { ChatSession } from "../../../../domain/entities/ChatSession";
 import type { ChatMessage } from "../../../../domain/entities/ChatMessage";
+import { ChatMessage as ChatMessageEntity } from "../../../../domain/entities/ChatMessage";
+import { isAbortError } from "../../../../domain/errors";
 import type { SourceReference } from "../../../../domain/entities/SourceReference";
 import type { NotePath } from "../../../../domain/value-objects/NotePath";
 import { SearchScope } from "../../../../domain/value-objects/SearchScope";
@@ -86,7 +89,7 @@ export class ChatStore {
   }
 
   async send(text: string): Promise<void> {
-    if (this.disposed || this.status === "sending") {
+    if (this.disposed || this.status === "sending" || this.status === "streaming") {
       return;
     }
     const trimmed = text.trim();
@@ -97,81 +100,131 @@ export class ChatStore {
     this.activeRequest?.abort();
     const controller = new AbortController();
     this.activeRequest = controller;
-    this.setState({ status: "sending", errorMessage: null });
 
-    const readiness = await this.deps.ensureRuntime(controller.signal);
-    if (this.activeRequest !== controller) {
-      return;
-    }
-    if (!readiness.ok) {
-      if (controller.signal.aborted) {
+    const showOptimisticTurn = trimmed.length >= MIN_QUERY_LENGTH;
+    this.setState({
+      status: "sending",
+      errorMessage: null,
+      ...(showOptimisticTurn
+        ? { session: appendPendingQuestion(this.session, trimmed) }
+        : {}),
+    });
+
+    try {
+      const readiness = await this.deps.ensureRuntime(controller.signal);
+      if (this.activeRequest !== controller) {
         return;
       }
-      this.setState({ status: "error", errorMessage: readiness.message });
-      this.activeRequest = null;
-      return;
-    }
-
-    let scope: SearchScope;
-    if (this.scopeOverride) {
-      scope = this.scopeOverride.scope;
-      this.scopeOverride = null;
-      this.notify();
-    } else if (this.deps.resolveScope) {
-      scope = await this.deps.resolveScope();
-    } else {
-      scope = SearchScope.entireVault();
-    }
-    if (this.activeRequest !== controller) {
-      return;
-    }
-
-    const result = await this.deps.askQuestion.execute(
-      this.session,
-      trimmed,
-      scope,
-      controller.signal,
-    );
-
-    if (this.activeRequest !== controller) {
-      return;
-    }
-
-    if (controller.signal.aborted && result.kind === "aborted") {
-      this.setState({ status: "idle", errorMessage: null, session: result.session });
-      this.activeRequest = null;
-      return;
-    }
-
-    switch (result.kind) {
-      case "ok":
-        this.setState({ status: "idle", errorMessage: null, session: result.session });
-        break;
-      case "aborted":
-        this.setState({ status: "idle", errorMessage: null, session: result.session });
-        break;
-      case "validation":
-        this.setState({ status: "error", errorMessage: "Question is too short" });
-        break;
-      case "error":
+      if (!readiness.ok) {
+        if (controller.signal.aborted) {
+          this.revertOptimisticTurn(showOptimisticTurn);
+          return;
+        }
         this.setState({
           status: "error",
-          errorMessage: presentError(result.cause).message,
-          session: result.session,
+          errorMessage: readiness.message,
+          session: showOptimisticTurn ? this.session.dropTrailingPending() : this.session,
         });
-        break;
-      default: {
-        const _exhaustive: never = result;
-        return _exhaustive;
+        this.activeRequest = null;
+        return;
       }
+
+      let scope: SearchScope;
+      if (this.scopeOverride) {
+        scope = this.scopeOverride.scope;
+        this.scopeOverride = null;
+        this.notify();
+      } else if (this.deps.resolveScope) {
+        scope = await this.deps.resolveScope();
+      } else {
+        scope = SearchScope.entireVault();
+      }
+      if (this.activeRequest !== controller) {
+        return;
+      }
+
+      const result = await this.deps.askQuestion.execute(
+        this.session,
+        trimmed,
+        scope,
+        controller.signal,
+        {
+          onSessionUpdate: (session) => {
+            if (this.activeRequest !== controller) {
+              return;
+            }
+            this.setState({
+              status: session.messages.some(
+                (message) => message.kind === "assistant" && message.state === "streaming",
+              )
+                ? "streaming"
+                : "sending",
+              errorMessage: null,
+              session,
+            });
+          },
+        },
+      );
+
+      if (this.activeRequest !== controller) {
+        return;
+      }
+
+      if (controller.signal.aborted && result.kind === "aborted") {
+        this.setState({ status: "idle", errorMessage: null, session: result.session });
+        this.activeRequest = null;
+        return;
+      }
+
+      switch (result.kind) {
+        case "ok":
+          this.setState({ status: "idle", errorMessage: null, session: result.session });
+          break;
+        case "aborted":
+          this.setState({ status: "idle", errorMessage: null, session: result.session });
+          break;
+        case "validation":
+          this.setState({
+            status: "error",
+            errorMessage: "Question is too short",
+            session: showOptimisticTurn ? this.session.dropTrailingPending() : this.session,
+          });
+          break;
+        case "error":
+          this.setState({
+            status: "error",
+            errorMessage: presentError(result.cause).message,
+            session: result.session,
+          });
+          break;
+        default: {
+          const _exhaustive: never = result;
+          return _exhaustive;
+        }
+      }
+      this.activeRequest = null;
+    } catch (error) {
+      if (this.activeRequest !== controller) {
+        return;
+      }
+      if (controller.signal.aborted || isAbortError(error)) {
+        this.revertOptimisticTurn(showOptimisticTurn);
+        this.activeRequest = null;
+        return;
+      }
+      this.setState({
+        status: "error",
+        errorMessage: presentError(error).message,
+        session: showOptimisticTurn ? this.session.dropTrailingPending() : this.session,
+      });
+      this.activeRequest = null;
     }
-    this.activeRequest = null;
   }
 
   cancel(): void {
     this.activeRequest?.abort();
     this.activeRequest = null;
-    if (this.status === "sending") {
+    if (this.status === "sending" || this.status === "streaming") {
       this.setState({ status: "idle", errorMessage: null });
     }
   }
@@ -212,6 +265,18 @@ export class ChatStore {
     return this.deps.newSessionId?.() ?? crypto.randomUUID();
   }
 
+  private revertOptimisticTurn(showOptimisticTurn: boolean): void {
+    if (!showOptimisticTurn) {
+      this.setState({ status: "idle", errorMessage: null });
+      return;
+    }
+    this.setState({
+      status: "idle",
+      errorMessage: null,
+      session: this.session.dropTrailingPending(),
+    });
+  }
+
   private setState(
     partial: Partial<Pick<ChatViewState, "status" | "session" | "errorMessage">>,
   ): void {
@@ -237,6 +302,12 @@ export class ChatStore {
       listener(snapshot);
     }
   }
+}
+
+function appendPendingQuestion(session: ChatSession, text: string): ChatSession {
+  return session
+    .appendMessage(ChatMessageEntity.user(text))
+    .appendMessage(ChatMessageEntity.assistant("", { state: "pending" }));
 }
 
 function sessionsEqual(left: ChatSession, right: ChatSession): boolean {

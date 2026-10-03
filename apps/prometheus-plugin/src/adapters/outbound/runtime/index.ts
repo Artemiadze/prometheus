@@ -9,7 +9,7 @@ export {
   type PlatformPathsInput,
 } from "./paths";
 export { RuntimeDownloader, parseChecksumFile, isDevSkipRuntimeVerify, type FetchFn } from "./RuntimeDownloader";
-export { nodeHttpFetch } from "./nodeHttpFetch";
+export { nodeHttpFetch, nodeHttpNdjson } from "./nodeHttpFetch";
 export { RuntimeLocator, type RuntimeLocatorDeps } from "./RuntimeLocator";
 export { RuntimeProcess, type RuntimeExitHandler } from "./RuntimeProcess";
 export {

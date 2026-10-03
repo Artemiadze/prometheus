@@ -152,3 +152,109 @@ function requestBuffer(
     }
   });
 }
+
+export type NdjsonLineHandler = (line: string) => void;
+
+/** POST (or other) and invoke `onLine` for each non-empty NDJSON line in the response body. */
+export async function nodeHttpNdjson(
+  input: RequestInfo | URL,
+  init: RequestInit & { readonly onLine: NdjsonLineHandler },
+): Promise<{ readonly status: number; readonly statusText: string }> {
+  const url = toUrl(input);
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers = normalizeHeaders(init.headers);
+  const signal = init.signal ?? undefined;
+  const requestBody = toRequestBody(init.body);
+  if (requestBody) {
+    headers["content-length"] = String(requestBody.byteLength);
+  }
+  return requestNdjson(url, method, headers, signal, requestBody, init.onLine);
+}
+
+function requestNdjson(
+  url: URL,
+  method: string,
+  headers: Record<string, string>,
+  signal: AbortSignal | undefined,
+  body: Buffer | undefined,
+  onLine: NdjsonLineHandler,
+  redirectLeft = 5,
+): Promise<{ readonly status: number; readonly statusText: string }> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("The operation was aborted", "AbortError"));
+      return;
+    }
+
+    const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
+    const options: RequestOptions = {
+      protocol: url.protocol,
+      hostname: url.hostname,
+      port: url.port || undefined,
+      path: `${url.pathname}${url.search}`,
+      method,
+      headers,
+    };
+
+    const req = transport(options, (res) => {
+      void consumeNdjsonResponse(res).then(resolve, reject);
+    });
+
+    const onAbort = (): void => {
+      req.destroy();
+      reject(new DOMException("The operation was aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    req.on("error", (error) => {
+      signal?.removeEventListener("abort", onAbort);
+      reject(error);
+    });
+    req.end(body);
+
+    async function consumeNdjsonResponse(
+      res: IncomingMessage,
+    ): Promise<{ readonly status: number; readonly statusText: string }> {
+      signal?.removeEventListener("abort", onAbort);
+      const status = res.statusCode ?? 0;
+      const statusText = res.statusMessage ?? "";
+      const location = res.headers.location;
+      if (status >= 300 && status < 400 && location && redirectLeft > 0) {
+        res.resume();
+        const next = new URL(location, url);
+        return requestNdjson(next, method, headers, signal, body, onLine, redirectLeft - 1);
+      }
+
+      if (status < 200 || status >= 300) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of res as AsyncIterable<Buffer | string>) {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+        }
+        reject(Object.assign(new Error("HTTP error"), { status, body: Buffer.concat(chunks) }));
+        return { status, statusText };
+      }
+
+      let pending = "";
+      for await (const chunk of res as AsyncIterable<Buffer | string>) {
+        if (signal?.aborted) {
+          throw new DOMException("The operation was aborted", "AbortError");
+        }
+        pending += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+        let newlineIndex = pending.indexOf("\n");
+        while (newlineIndex >= 0) {
+          const line = pending.slice(0, newlineIndex).trim();
+          pending = pending.slice(newlineIndex + 1);
+          if (line.length > 0) {
+            onLine(line);
+          }
+          newlineIndex = pending.indexOf("\n");
+        }
+      }
+      const tail = pending.trim();
+      if (tail.length > 0) {
+        onLine(tail);
+      }
+      return { status, statusText };
+    }
+  });
+}

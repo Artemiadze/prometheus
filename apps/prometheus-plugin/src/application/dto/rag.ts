@@ -64,6 +64,12 @@ export type ChatAnswerDto = {
   readonly insufficientContext: boolean;
 };
 
+export type ChatStreamHandlers = {
+  readonly onToken: (delta: string, fullText: string) => void;
+  readonly onSources: (sources: readonly SourceReference[], insufficientContext: boolean) => void;
+  readonly onDone: () => void;
+};
+
 export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
 export type JobInfo = {
