@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 
 import httpx
 import pytest
+from httpx._content import AsyncIteratorByteStream
 
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.ollama.errors import LlmModelNotFoundError, OllamaUnavailableError
@@ -65,6 +66,31 @@ def test_stub_generate_returns_typed_generation() -> None:
     )
     assert generation.text == "stubbed answer"
     assert generation.model == "qwen3:4b"
+
+
+def test_stub_stream_returns_incremental_tokens() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["stream"] is True
+
+        async def body() -> AsyncIterator[bytes]:
+            yield b'{"response":"stub","done":false}\n'
+            yield b'{"done":true}\n'
+
+        return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
+
+    async def collect(adapter: OllamaLanguageModel) -> str:
+        parts: list[str] = []
+        async for piece in adapter.stream(
+            "prompt",
+            temperature=0.1,
+            context_size=2048,
+            max_output_tokens=128,
+        ):
+            parts.append(piece)
+        return "".join(parts)
+
+    assert _run(handler, collect) == "stub"
 
 
 def test_stub_model_not_found_and_unavailable() -> None:

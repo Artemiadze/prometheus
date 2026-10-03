@@ -1,5 +1,11 @@
 """Answer a question using only retrieved Vault context."""
 
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+
+from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
+from application.dto.grounded_prompt import GroundedPrompt
 from application.ports.language_model import LanguageModel
 from application.ports.token_counter import TokenCounter
 from application.services.grounded_prompt import build_grounded_prompt
@@ -38,20 +44,8 @@ class AnswerQuestion:
         scope: SearchScope | None = None,
         limit: int,
     ) -> GroundedAnswer:
-        retrieved = await self._retrieval.retrieve(question, scope=scope, limit=limit)
-        selection = self._policy.select_context(item.hit for item in retrieved)
-        if selection.insufficient_context:
-            return _insufficient_answer()
-        paths = {item.hit.chunk.document_id: item.relative_path for item in retrieved}
-        prompt = build_grounded_prompt(
-            question=question,
-            chunks=tuple(hit.chunk for hit in selection.hits),
-            document_paths=paths,
-            token_counter=self._tokens,
-            context_size=self._context_size,
-            response_token_reserve=self._reserve,
-        )
-        if not prompt.included_chunks:
+        prompt = await self._prepare(question, scope=scope, limit=limit)
+        if prompt is None:
             return _insufficient_answer()
         generation = await self._llm.generate(
             prompt.text,
@@ -65,6 +59,50 @@ class AnswerQuestion:
             used_chunk_ids=(chunk.id for chunk in prompt.included_chunks),
             insufficient_context=False,
         )
+
+    async def stream(
+        self,
+        question: str,
+        *,
+        scope: SearchScope | None = None,
+        limit: int,
+    ) -> AsyncIterator[AnswerTokenEvent | AnswerCompletedEvent]:
+        prompt = await self._prepare(question, scope=scope, limit=limit)
+        if prompt is None:
+            yield AnswerCompletedEvent(sources=(), insufficient_context=True)
+            return
+        async for token in self._llm.stream(
+            prompt.text,
+            temperature=self._temperature,
+            context_size=self._context_size,
+            max_output_tokens=self._reserve,
+        ):
+            yield AnswerTokenEvent(text=token)
+        yield AnswerCompletedEvent(sources=prompt.sources, insufficient_context=False)
+
+    async def _prepare(
+        self,
+        question: str,
+        *,
+        scope: SearchScope | None,
+        limit: int,
+    ) -> GroundedPrompt | None:
+        retrieved = await self._retrieval.retrieve(question, scope=scope, limit=limit)
+        selection = self._policy.select_context(item.hit for item in retrieved)
+        if selection.insufficient_context:
+            return None
+        paths = {item.hit.chunk.document_id: item.relative_path for item in retrieved}
+        prompt = build_grounded_prompt(
+            question=question,
+            chunks=tuple(hit.chunk for hit in selection.hits),
+            document_paths=paths,
+            token_counter=self._tokens,
+            context_size=self._context_size,
+            response_token_reserve=self._reserve,
+        )
+        if not prompt.included_chunks:
+            return None
+        return prompt
 
 
 def _insufficient_answer() -> GroundedAnswer:

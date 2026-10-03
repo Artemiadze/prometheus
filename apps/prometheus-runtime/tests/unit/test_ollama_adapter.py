@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 
 import httpx
 import pytest
+from httpx._content import AsyncIteratorByteStream
 
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.ollama.errors import (
@@ -200,6 +201,51 @@ def test_malformed_ollama_json_is_not_exposed(path: str) -> None:
         assert "private" not in str(caught.value)
 
     _run_with_client(handler, call)
+
+
+def test_stream_yields_response_fragments_in_order() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["stream"] is True
+        assert payload["model"] == "qwen3:4b"
+
+        async def body() -> AsyncIterator[bytes]:
+            yield b'{"response":"Hello","done":false}\n'
+            yield b'{"response":" world","done":false}\n'
+            yield b'{"done":true}\n'
+
+        return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
+
+    async def collect(adapter: OllamaLanguageModel) -> str:
+        parts: list[str] = []
+        async for piece in adapter.stream(
+            "Grounded prompt",
+            temperature=0.1,
+            context_size=8192,
+            max_output_tokens=1024,
+        ):
+            parts.append(piece)
+        return "".join(parts)
+
+    text = _run_with_client(handler, collect)
+    assert text == "Hello world"
+
+
+def test_stream_maps_http_failures_like_generate() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"error": "model 'qwen3:4b' not found"})
+
+    async def consume(adapter: OllamaLanguageModel) -> None:
+        with pytest.raises(LlmModelNotFoundError):
+            async for _ in adapter.stream(
+                "private prompt",
+                temperature=0.1,
+                context_size=8192,
+                max_output_tokens=1024,
+            ):
+                pass
+
+    _run_with_client(handler, consume)
 
 
 def test_cancelling_generation_propagates_asyncio_cancellation() -> None:

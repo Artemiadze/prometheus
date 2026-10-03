@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 
 from application.dto.llm import LlmGeneration, LocalLlmModel
 
@@ -42,6 +42,22 @@ class ExtractiveEvalLanguageModel:
         if not sentence:
             sentence = best[:200].strip()
         return LlmGeneration(sentence, self._model_name)
+
+    async def stream(
+        self,
+        prompt: str,
+        *,
+        temperature: float,
+        context_size: int,
+        max_output_tokens: int,
+    ) -> AsyncIterator[str]:
+        generation = await self.generate(
+            prompt,
+            temperature=temperature,
+            context_size=context_size,
+            max_output_tokens=max_output_tokens,
+        )
+        yield generation.text
 
     async def list_models(self) -> Sequence[LocalLlmModel]:
         return (LocalLlmModel(self._model_name, 0),)

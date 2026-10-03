@@ -318,6 +318,90 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
     assert len(llm.calls) == 1
 
 
+def test_answer_stream_emits_tokens_before_llm_finishes_and_sources_last() -> None:
+    import asyncio
+
+    from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
+
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
+    asyncio.run(index.execute(_document()))
+    retrieval = RetrievalService(
+        embedder=FakeEmbedder(),
+        vector_index=vectors,
+        document_repository=documents,
+        index_metadata_store=metadata,
+        active_fingerprint=_fingerprint(embedder),
+    )
+    pause = asyncio.Event()
+    llm = FakeLanguageModel(stream_parts=("first", "second"), stream_pause_after_first=pause)
+    answer = AnswerQuestion(
+        retrieval=retrieval,
+        grounding_policy=GroundingPolicy(min_score=-1.0),
+        token_counter=FakeTokenCounter(),
+        language_model=llm,
+        context_size=1024,
+        response_token_reserve=128,
+        temperature=0.1,
+    )
+
+    async def collect() -> list[object]:
+        events: list[object] = []
+        async for event in answer.stream("semantic question", limit=10):
+            events.append(event)
+            if isinstance(event, AnswerTokenEvent) and event.text == "first":
+                pause.set()
+        return events
+
+    events = asyncio.run(collect())
+    assert [event.text for event in events if isinstance(event, AnswerTokenEvent)] == [
+        "first",
+        "second",
+    ]
+    assert isinstance(events[-1], AnswerCompletedEvent)
+    assert not events[-1].insufficient_context
+    assert events[-1].sources[0].relative_path == RelativePath("Notes/One.md")
+    assert not llm.calls
+    assert len(llm.stream_calls) == 1
+
+
+def test_answer_stream_skips_llm_when_context_is_insufficient() -> None:
+    import asyncio
+
+    from application.dto.answer_stream import AnswerCompletedEvent
+
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
+    asyncio.run(index.execute(_document()))
+    retrieval = RetrievalService(
+        embedder=FakeEmbedder(),
+        vector_index=vectors,
+        document_repository=documents,
+        index_metadata_store=metadata,
+        active_fingerprint=_fingerprint(embedder),
+    )
+    llm = FakeLanguageModel()
+    answer = AnswerQuestion(
+        retrieval=retrieval,
+        grounding_policy=GroundingPolicy(min_score=2.0),
+        token_counter=FakeTokenCounter(),
+        language_model=llm,
+        context_size=1024,
+        response_token_reserve=128,
+        temperature=0.1,
+    )
+
+    async def collect() -> list[AnswerCompletedEvent]:
+        return [
+            event
+            async for event in answer.stream("semantic question", limit=10)
+            if isinstance(event, AnswerCompletedEvent)
+        ]
+
+    completed = asyncio.run(collect())
+    assert len(completed) == 1
+    assert completed[0].insufficient_context
+    assert not llm.stream_calls
+
+
 def test_reindex_cancellation_preserves_active_index() -> None:
     index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
     asyncio.run(index.execute(_document()))

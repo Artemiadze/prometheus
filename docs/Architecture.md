@@ -477,6 +477,7 @@ POST   /v1/vaults/{vaultId}/sync/complete
 
 POST   /v1/vaults/{vaultId}/search
 POST   /v1/vaults/{vaultId}/chat
+POST   /v1/vaults/{vaultId}/chat/stream
 POST   /v1/vaults/{vaultId}/reindex
 
 GET    /v1/jobs/{jobId}
@@ -491,7 +492,9 @@ DELETE /v1/jobs/{jobId}
 - единый versioned error envelope;
 - идемпотентность document upsert;
 - совместимость версий plugin и runtime;
-- streaming ответа чата через SSE или NDJSON;
+- streaming ответа чата через NDJSON (`POST .../chat/stream`: события
+  `token`, `sources`, `done`, `error`; разрыв HTTP-соединения отменяет генерацию
+  в Ollama между токенами);
 - длительная индексация через фоновые jobs с progress и cancellation.
 
 Runtime не должен самостоятельно обходить файловую систему Vault. Документы

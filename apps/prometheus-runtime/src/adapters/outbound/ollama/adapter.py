@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import ipaddress
-from collections.abc import Mapping, Sequence
+import json
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -67,16 +68,14 @@ class OllamaLanguageModel:
         try:
             response = await self._client.post(
                 f"{self._base_url}/api/generate",
-                json={
-                    "model": self._model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": temperature,
-                        "num_ctx": context_size,
-                        "num_predict": max_output_tokens,
-                    },
-                },
+                json=_generation_payload(
+                    model=self._model,
+                    prompt=prompt,
+                    stream=False,
+                    temperature=temperature,
+                    context_size=context_size,
+                    max_output_tokens=max_output_tokens,
+                ),
             )
         except httpx.TimeoutException as error:
             raise LlmTimeoutError() from error
@@ -94,6 +93,53 @@ class OllamaLanguageModel:
                 done_reason=_optional_string(payload, "done_reason"),
             )
         except (KeyError, TypeError, ValueError) as error:
+            raise OllamaUnavailableError() from error
+
+    async def stream(
+        self,
+        prompt: str,
+        *,
+        temperature: float,
+        context_size: int,
+        max_output_tokens: int,
+    ) -> AsyncIterator[str]:
+        """Yield response fragments; closing the iterator cancels Ollama generation."""
+
+        if not prompt.strip():
+            raise ValueError("prompt cannot be blank")
+        if context_size <= 0 or max_output_tokens <= 0:
+            raise ValueError("LLM token limits must be positive")
+        try:
+            async with self._client.stream(
+                "POST",
+                f"{self._base_url}/api/generate",
+                json=_generation_payload(
+                    model=self._model,
+                    prompt=prompt,
+                    stream=True,
+                    temperature=temperature,
+                    context_size=context_size,
+                    max_output_tokens=max_output_tokens,
+                ),
+            ) as response:
+                _raise_generation_error(response)
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        payload = json.loads(line)
+                    except ValueError as error:
+                        raise OllamaUnavailableError() from error
+                    if not isinstance(payload, Mapping):
+                        raise OllamaUnavailableError()
+                    if payload.get("done"):
+                        break
+                    piece = payload.get("response")
+                    if isinstance(piece, str) and piece:
+                        yield piece
+        except httpx.TimeoutException as error:
+            raise LlmTimeoutError() from error
+        except httpx.NetworkError as error:
             raise OllamaUnavailableError() from error
 
     async def list_models(self) -> Sequence[LocalLlmModel]:
@@ -136,6 +182,27 @@ class OllamaLanguageModel:
 
         if self._owns_client:
             await self._client.aclose()
+
+
+def _generation_payload(
+    *,
+    model: str,
+    prompt: str,
+    stream: bool,
+    temperature: float,
+    context_size: int,
+    max_output_tokens: int,
+) -> dict[str, object]:
+    return {
+        "model": model,
+        "prompt": prompt,
+        "stream": stream,
+        "options": {
+            "temperature": temperature,
+            "num_ctx": context_size,
+            "num_predict": max_output_tokens,
+        },
+    }
 
 
 def _normalize_loopback_url(value: str) -> str:

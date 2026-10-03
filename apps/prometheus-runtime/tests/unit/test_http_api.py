@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from adapters.inbound.http.app import create_app
+from adapters.outbound.ollama.errors import OllamaUnavailableError
+from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
 from application.dto.indexing import IndexDocumentResult, RemoveDocumentResult
 from application.dto.job import JobStatus
 from application.dto.runtime_status import IndexState, RuntimeStatus
@@ -159,6 +163,60 @@ def test_document_endpoints_map_request_and_chunk_statistics() -> None:
     assert put.json()["created_chunks"] == 2
     assert put.json()["skipped"] is False
     assert delete.json() == {"document_id": DOCUMENT, "removed": True, "removed_chunks": 2}
+
+
+def test_chat_stream_returns_ndjson_token_sources_done_sequence() -> None:
+    class _StreamAnswer:
+        async def stream(
+            self, *_: object, **__: object
+        ) -> AsyncIterator[AnswerTokenEvent | AnswerCompletedEvent]:
+            yield AnswerTokenEvent("part")
+            yield AnswerCompletedEvent(sources=(), insufficient_context=False)
+
+        async def execute(self, *_: object, **__: object) -> GroundedAnswer:
+            raise AssertionError("execute should not run")
+
+    client = _client()
+    cast(Any, client.app).state.vault_registry.runtime.answer_question = _StreamAnswer()
+    with client.stream(
+        "POST",
+        f"/v1/vaults/{VAULT}/chat/stream",
+        json={"query": "question"},
+        headers=_headers(),
+    ) as response:
+        lines = [line for line in response.iter_lines() if line]
+
+    events = [json.loads(line) for line in lines]
+    assert events[0] == {"type": "token", "text": "part"}
+    assert events[1] == {"type": "sources", "sources": [], "insufficient_context": False}
+    assert events[2] == {"type": "done"}
+
+
+def test_chat_stream_emits_error_event_when_llm_fails_mid_stream() -> None:
+    class _FailingStream:
+        async def stream(
+            self, *_: object, **__: object
+        ) -> AsyncIterator[AnswerTokenEvent]:
+            yield AnswerTokenEvent("partial")
+            raise OllamaUnavailableError()
+
+        async def execute(self, *_: object, **__: object) -> GroundedAnswer:
+            raise AssertionError("execute should not run")
+
+    client = _client()
+    cast(Any, client.app).state.vault_registry.runtime.answer_question = _FailingStream()
+    with client.stream(
+        "POST",
+        f"/v1/vaults/{VAULT}/chat/stream",
+        json={"query": "question"},
+        headers=_headers(),
+    ) as response:
+        lines = [line for line in response.iter_lines() if line]
+
+    events = [json.loads(line) for line in lines]
+    assert events[0]["type"] == "token"
+    assert events[1]["type"] == "error"
+    assert events[1]["code"] == "OLLAMA_UNAVAILABLE"
 
 
 def test_search_and_chat_follow_public_response_contracts() -> None:
