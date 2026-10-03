@@ -29,6 +29,11 @@ def test_defaults_match_product_settings() -> None:
     assert settings.chunk_size == 700
     assert settings.chunk_overlap == 80
     assert settings.top_k == 10
+    assert settings.retrieval_mode == "dense"
+    assert settings.hybrid_rrf_k == 60
+    assert settings.hybrid_dense_weight == 1.0
+    assert settings.hybrid_lexical_weight == 1.0
+    assert settings.hybrid_candidate_multiplier == 2
     assert settings.llm_host == "http://127.0.0.1:11434"
     assert settings.llm_model == "qwen3:4b"
     assert settings.llm_temperature == 0.1
@@ -45,6 +50,12 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
 
     assert settings.port == 9000
     assert settings.log_level == "DEBUG"
+
+
+def test_environment_overrides_retrieval_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROMETHEUS_RETRIEVAL_MODE", "hybrid")
+
+    assert load_settings().retrieval_mode == "hybrid"
 
 
 def test_cli_overrides_environment(monkeypatch: pytest.MonkeyPatch) -> None:

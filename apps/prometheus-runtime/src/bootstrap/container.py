@@ -404,6 +404,13 @@ class Container:
             index_metadata_store=self.index_metadata_store,
             active_fingerprint=self.active_index_fingerprint,
             reranker=self.reranker,
+            lexical_index=self.lexical_index,
+            retrieval_mode=self.settings.retrieval_mode,
+            hybrid_rrf_k=self.settings.hybrid_rrf_k,
+            hybrid_dense_weight=self.settings.hybrid_dense_weight,
+            hybrid_lexical_weight=self.settings.hybrid_lexical_weight,
+            hybrid_candidate_multiplier=self.settings.hybrid_candidate_multiplier,
+            top_k=self.settings.top_k,
         )
 
     @cached_property

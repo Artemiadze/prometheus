@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from domain.errors import ConfigurationError
 
 LogLevel = Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+RetrievalMode = Literal["dense", "hybrid"]
 
 
 class RuntimeSettings(BaseSettings):
@@ -42,6 +43,11 @@ class RuntimeSettings(BaseSettings):
     max_document_chars: int = Field(default=2_000_000, gt=0)
     max_chunks_per_document: int = Field(default=10_000, gt=0)
     top_k: int = Field(default=10, gt=0)
+    retrieval_mode: RetrievalMode = "dense"
+    hybrid_rrf_k: int = Field(default=60, gt=0)
+    hybrid_dense_weight: float = Field(default=1.0, gt=0.0)
+    hybrid_lexical_weight: float = Field(default=1.0, gt=0.0)
+    hybrid_candidate_multiplier: int = Field(default=2, ge=1)
     llm_host: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen3:4b"
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)

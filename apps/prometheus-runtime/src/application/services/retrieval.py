@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from application.dto.index_fingerprint import IndexFingerprint
 from application.errors import QueryTooShortError, VaultNotIndexedError
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
 from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.lexical_index import LexicalIndex
 from application.ports.reranker import Reranker
 from application.ports.vector_index import VectorIndex
+from application.services.hybrid_fusion import fuse_weighted_rrf
 from application.services.index_fingerprint import ensure_index_compatible
 from domain.entities.search_hit import SearchHit
+from domain.errors import AdapterNotConfiguredError
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import SearchScope
+
+RetrievalMode = Literal["dense", "hybrid"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +39,14 @@ class RetrievalService:
         index_metadata_store: IndexMetadataStore,
         active_fingerprint: IndexFingerprint,
         reranker: Reranker | None = None,
+        lexical_index: LexicalIndex | None = None,
+        retrieval_mode: RetrievalMode = "dense",
+        hybrid_rrf_k: int = 60,
+        hybrid_dense_weight: float = 1.0,
+        hybrid_lexical_weight: float = 1.0,
+        hybrid_candidate_multiplier: int = 2,
         minimum_query_length: int = 3,
+        top_k: int = 10,
     ) -> None:
         self._embedder = embedder
         self._vectors = vector_index
@@ -41,7 +54,18 @@ class RetrievalService:
         self._metadata = index_metadata_store
         self._fingerprint = active_fingerprint
         self._reranker = reranker
+        self._lexical = lexical_index
+        self._retrieval_mode = retrieval_mode
+        self._hybrid_rrf_k = hybrid_rrf_k
+        self._hybrid_dense_weight = hybrid_dense_weight
+        self._hybrid_lexical_weight = hybrid_lexical_weight
+        self._hybrid_candidate_multiplier = hybrid_candidate_multiplier
         self._minimum_query_length = minimum_query_length
+        self._top_k = top_k
+        if retrieval_mode == "hybrid" and lexical_index is None:
+            raise AdapterNotConfiguredError(
+                "lexical_index adapter is not configured; hybrid retrieval requires FTS"
+            )
 
     async def retrieve(
         self,
@@ -58,9 +82,23 @@ class RetrievalService:
             raise VaultNotIndexedError()
         ensure_index_compatible(stored, self._fingerprint)
         vector = self._embedder.embed_query(normalized)
-        hits = tuple(self._vectors.search(vector, limit, scope))
+        if self._retrieval_mode == "dense":
+            hits = tuple(self._vectors.search(vector, limit, scope))
+        else:
+            pool = max(limit, self._top_k) * self._hybrid_candidate_multiplier
+            dense_hits = tuple(self._vectors.search(vector, pool, scope))
+            lexical_hits = tuple(self._lexical.search(normalized, pool, scope))  # type: ignore[union-attr]
+            hits = fuse_weighted_rrf(
+                dense_hits,
+                lexical_hits,
+                k=self._hybrid_rrf_k,
+                dense_weight=self._hybrid_dense_weight,
+                lexical_weight=self._hybrid_lexical_weight,
+            )[:pool]
         if self._reranker is not None:
             hits = tuple(self._reranker.rerank(normalized, hits))[:limit]
+        else:
+            hits = hits[:limit]
         results = []
         for hit in hits:
             state = self._documents.get_state(hit.chunk.document_id)

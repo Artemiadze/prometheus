@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from bootstrap.config import RetrievalMode
 from bootstrap.container import Container
 
 from prometheus_evals.dataset.loader import load_dataset
@@ -42,6 +43,7 @@ class RetrievalReport:
     k_values: tuple[int, ...]
     chunk_size: int
     chunk_overlap: int
+    retrieval_mode: RetrievalMode
     index_fingerprint: dict[str, Any]
     aggregate: dict[str, float]
     questions: tuple[RetrievalQuestionResult, ...]
@@ -56,6 +58,7 @@ class RetrievalReport:
                 "k_values": list(self.k_values),
                 "chunk_size": self.chunk_size,
                 "chunk_overlap": self.chunk_overlap,
+                "retrieval_mode": self.retrieval_mode,
             },
             "index_fingerprint": self.index_fingerprint,
             "aggregate": self.aggregate,
@@ -84,12 +87,14 @@ def run_retrieval_eval(
     embedder_profile: str = "offline-bow",
     chunk_size: int = 700,
     chunk_overlap: int = 80,
+    retrieval_mode: RetrievalMode = "dense",
 ) -> RetrievalReport:
     dataset = load_dataset(dataset_path)
     container, vault_id = build_eval_container(
         data_dir,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        retrieval_mode=retrieval_mode,
     )
     try:
         index_dataset(container, vault_id, dataset)
@@ -101,6 +106,7 @@ def run_retrieval_eval(
             embedder_profile=embedder_profile,
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
+            retrieval_mode=retrieval_mode,
         )
     finally:
         container.close()
@@ -115,6 +121,7 @@ def _evaluate_indexed(
     embedder_profile: str,
     chunk_size: int,
     chunk_overlap: int,
+    retrieval_mode: RetrievalMode,
 ) -> RetrievalReport:
     answerable = [q for q in dataset.questions if q.kind == "answerable"]
     results = [
@@ -130,6 +137,7 @@ def _evaluate_indexed(
         k_values=k_values,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        retrieval_mode=retrieval_mode,
         index_fingerprint=fingerprint_to_dict(container.active_index_fingerprint),
         aggregate=aggregate,
         questions=tuple(results),

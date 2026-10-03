@@ -232,8 +232,9 @@ Runtime отвечает за:
 - Markdown-aware chunking;
 - генерацию document и query embeddings;
 - хранение и обновление vector index;
-- dense retrieval;
-- последующие hybrid search и reranking;
+- dense retrieval (режим по умолчанию);
+- hybrid dense + BM25 (FTS5) через weighted RRF (`retrieval_mode=hybrid`);
+- последующий reranking;
 - ограничение и построение контекста;
 - grounded prompt;
 - вызов локальной LLM;
@@ -424,19 +425,27 @@ Local LLM
 Answer + sources
 ```
 
-### Последующее развитие
+### Retrieval pipeline
+
+`RetrievalService` обслуживает и Chat, и Semantic Search. Режим задаётся
+`PROMETHEUS_RETRIEVAL_MODE` (`dense` | `hybrid`, по умолчанию `dense`).
 
 ```text
-                 ┌─ Dense search
+                 ┌─ Dense search (Qdrant)
 Query ───────────┤
-                 └─ BM25 lexical search
+                 └─ BM25 lexical search (SQLite FTS5)   [только hybrid]
                           ↓
-                        Fusion
+              Weighted RRF fusion (hybrid_rrf_k, weights)
                           ↓
-                       Reranker
+                       Reranker (optional)
                           ↓
                     Context selection
 ```
+
+В hybrid кандидаты берутся из пула `max(limit, top_k) * hybrid_candidate_multiplier`
+из каждого канала, затем объединяются по `chunk.id`. Stage-scores сохраняются в
+`SearchHit.dense_score` / `lexical_score`; наружу (HTTP) пока отдаётся только
+итоговый `score`.
 
 Один и тот же retrieval use case должен использоваться как Chat, так и обычным
 Semantic Search. Это предотвращает появление двух расходящихся поисковых
@@ -670,7 +679,7 @@ runtime, выбрать установленную модель, повтори�
 
 ### Этап 2
 
-- hybrid dense + BM25 search;
+- hybrid dense + BM25 search (реализовано: weighted RRF, настройки `PROMETHEUS_HYBRID_*`);
 - локальный reranker;
 - current note, folder и selected folders scopes;
 - более точные ссылки на headings;

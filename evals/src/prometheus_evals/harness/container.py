@@ -11,7 +11,7 @@ from adapters.outbound.filesystem.data_dir import ensure_layout
 from adapters.outbound.markdown.chunker import HeadingAwareChunker
 from adapters.outbound.markdown.parser import ObsidianMarkdownParser
 from adapters.outbound.markdown.token_counter import HeuristicTokenCounter
-from bootstrap.config import RuntimeSettings
+from bootstrap.config import RetrievalMode, RuntimeSettings
 from bootstrap.container import Container
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
@@ -30,6 +30,7 @@ def build_eval_container(
     *,
     chunk_size: int = 700,
     chunk_overlap: int = 80,
+    retrieval_mode: RetrievalMode = "dense",
     embedder: HashedBagOfWordsEmbedder | None = None,
     language_model: ExtractiveEvalLanguageModel | None = None,
 ) -> EvalVault:
@@ -40,6 +41,7 @@ def build_eval_container(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         embedding_allow_download=False,
+        retrieval_mode=retrieval_mode,
     )
     embedder_instance = embedder or HashedBagOfWordsEmbedder()
     llm = language_model or ExtractiveEvalLanguageModel()
