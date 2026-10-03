@@ -167,11 +167,12 @@ class SqliteLexicalIndex:
 
 
 def _scope_clause(scope: SearchScope | None) -> tuple[str, list[str]]:
+    excluded_sql, excluded_params = _excluded_folders_clause(scope)
     if scope is None or scope.mode is ScopeMode.ENTIRE_VAULT:
-        return "", []
+        return excluded_sql, excluded_params
     if scope.mode is ScopeMode.CURRENT_NOTE:
         assert scope.note is not None
-        return "AND chunks_fts.file_path = ?", [scope.note.value]
+        return f"AND chunks_fts.file_path = ? {excluded_sql}", [scope.note.value, *excluded_params]
     folders = scope.folders
     if scope.mode is ScopeMode.CURRENT_FOLDER:
         assert len(folders) == 1
@@ -184,7 +185,23 @@ def _scope_clause(scope: SearchScope | None) -> tuple[str, list[str]]:
             "(chunks_fts.folder = ? OR chunks_fts.file_path = ? OR chunks_fts.file_path LIKE ?)"
         )
         params.extend([prefix, prefix, f"{prefix}/%"])
-    return f"AND ({' OR '.join(clauses)})", params
+    return f"AND ({' OR '.join(clauses)}) {excluded_sql}", [*params, *excluded_params]
+
+
+def _excluded_folders_clause(scope: SearchScope | None) -> tuple[str, list[str]]:
+    if scope is None or not scope.excluded_folders:
+        return "", []
+    clauses: list[str] = []
+    params: list[str] = []
+    for folder in scope.excluded_folders:
+        prefix = folder.value
+        clauses.append(
+            "NOT (chunks_fts.folder = ? OR chunks_fts.file_path = ? OR chunks_fts.file_path LIKE ?)"
+        )
+        params.extend([prefix, prefix, f"{prefix}/%"])
+    if not clauses:
+        return "", []
+    return f"AND {' AND '.join(clauses)}", params
 
 
 def ensure_fts5_available(connection: sqlite3.Connection) -> None:

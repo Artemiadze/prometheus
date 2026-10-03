@@ -262,7 +262,22 @@ class QdrantLocalVectorIndex:
                 conditions.extend(extra)
             elif extra is not None:
                 conditions.append(extra)
+        must_not = self._excluded_folders_filter(scope)
+        if must_not is not None:
+            return models.Filter(must=conditions, must_not=must_not)
         return models.Filter(must=conditions)
+
+    @staticmethod
+    def _excluded_folders_filter(scope: SearchScope | None) -> list[models.Condition] | None:
+        if scope is None or not scope.excluded_folders:
+            return None
+        values = [folder.value for folder in scope.excluded_folders]
+        return [
+            models.FieldCondition(
+                key="folder_ancestors",
+                match=models.MatchAny(any=values),
+            )
+        ]
 
     @staticmethod
     def _scope_filter(scope: SearchScope | None) -> models.Filter | None:

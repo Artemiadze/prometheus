@@ -215,6 +215,25 @@ def test_search_scope_filters_note_and_nested_folders(tmp_path: Path) -> None:
     }
 
 
+def test_search_excludes_ignored_folder_ancestors(tmp_path: Path) -> None:
+    index, _ = _memory_index(tmp_path)
+    documents = (
+        _document("document-01", "Archive/hidden.md"),
+        _document("document-02", "Notes/visible.md"),
+    )
+    for document in documents:
+        index.upsert(
+            document,
+            (_chunk(document, 0, document.relative_path.value),),
+            ((1.0, 0.0, 0.0),),
+        )
+
+    scope = SearchScope.entire_vault().with_exclusions(["Archive"])
+    hits = index.search((1.0, 0.0, 0.0), 10, scope)
+
+    assert {hit.chunk.document_id for hit in hits} == {documents[1].id}
+
+
 def test_update_document_path_moves_scope_without_replacing_vectors(tmp_path: Path) -> None:
     index, _ = _memory_index(tmp_path)
     document = _document("document-01", "Work/Current.md")

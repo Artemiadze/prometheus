@@ -8,6 +8,7 @@ from fastapi import Request
 
 from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
+from application.ports.vault_settings_store import VaultSettingsStore
 from application.services.document_indexing_queue import SerializedDocumentIndexing
 from application.use_cases.answer_question import AnswerQuestion
 from application.use_cases.get_runtime_status import GetRuntimeStatus
@@ -15,6 +16,7 @@ from application.use_cases.reindex_vault import ReindexVault
 from application.use_cases.remove_document import RemoveDocument
 from application.use_cases.search_notes import SearchNotes
 from application.use_cases.synchronize_vault import SynchronizeVault
+from application.use_cases.update_ignored_folders import UpdateIgnoredFolders
 from domain.value_objects.vault_id import VaultId
 
 
@@ -40,6 +42,8 @@ class VaultRuntime(Protocol):
     answer_question: AnswerQuestion
     reindex_vault: ReindexVault
     runtime_status: GetRuntimeStatus
+    vault_settings_store: VaultSettingsStore
+    update_ignored_folders: UpdateIgnoredFolders
 
 
 class VaultRegistry(Protocol):

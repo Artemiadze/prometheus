@@ -11,6 +11,7 @@ from adapters.outbound.sqlite.lexical_index import SqliteLexicalIndex
 from adapters.outbound.sqlite.migrations import apply_migrations
 from adapters.outbound.sqlite.statistics import SqliteIndexStatisticsReader
 from adapters.outbound.sqlite.unit_of_work import SqliteUnitOfWork
+from adapters.outbound.sqlite.vault_settings_store import SqliteVaultSettingsStore
 
 DATABASE_FILENAME = "metadata.sqlite"
 
@@ -27,6 +28,7 @@ class MetadataDatabase:
         self.index_metadata = SqliteIndexMetadataStore(self._connection)
         self.statistics = SqliteIndexStatisticsReader(self._connection, self._vault_dir)
         self.lexical = SqliteLexicalIndex(self._connection)
+        self.vault_settings = SqliteVaultSettingsStore(self._connection)
 
     def unit_of_work(self) -> SqliteUnitOfWork:
         """Return a fresh transaction boundary bound to the shared connection."""

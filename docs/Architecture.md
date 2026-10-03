@@ -452,6 +452,12 @@ Reranker включается `PROMETHEUS_RERANKER_ENABLED=true` (модель
 Перед rerank retrieval поднимает до `reranker_candidate_limit` (default 20)
 кандидатов, затем cross-encoder пересортировывает их в финальный `limit`.
 
+Игнорируемые папки Vault хранятся в SQLite (`vault_ignored_folders`), задаются
+плагином через `GET/PUT /v1/vaults/{vaultId}/settings/ignored-folders`.
+`.obsidian/` исключается всегда. Такие пути не индексируются; при поиске
+исключение применяется фильтрами Qdrant (`must_not` по `folder_ancestors`) и FTS5,
+а не постобработкой результатов.
+
 Один и тот же retrieval use case должен использоваться как Chat, так и обычным
 Semantic Search. Это предотвращает появление двух расходящихся поисковых
 реализаций.

@@ -21,6 +21,7 @@ from adapters.inbound.http.routes.health import router as health_router
 from adapters.inbound.http.routes.jobs import router as jobs_router
 from adapters.inbound.http.routes.reindex import router as reindex_router
 from adapters.inbound.http.routes.search import router as search_router
+from adapters.inbound.http.routes.settings import router as settings_router
 from adapters.inbound.http.routes.status import router as status_router
 from adapters.inbound.http.routes.sync import router as sync_router
 from adapters.inbound.http.security import (
@@ -79,6 +80,7 @@ def create_app(
     app.include_router(documents_router)
     app.include_router(sync_router)
     app.include_router(search_router)
+    app.include_router(settings_router)
     app.include_router(chat_router)
     app.include_router(reindex_router)
     app.include_router(jobs_router)

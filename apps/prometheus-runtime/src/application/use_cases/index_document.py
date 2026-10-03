@@ -7,7 +7,12 @@ from datetime import UTC, datetime
 
 from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.indexing import IndexDocumentResult
-from application.errors import DocumentTooLargeError, RevisionConflictError, VaultMismatchError
+from application.errors import (
+    DocumentTooLargeError,
+    PathIgnoredError,
+    RevisionConflictError,
+    VaultMismatchError,
+)
 from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
@@ -15,6 +20,7 @@ from application.ports.index_metadata_store import IndexMetadataStore
 from application.ports.lexical_index import LexicalIndex
 from application.ports.markdown_parser import MarkdownParser
 from application.ports.unit_of_work import UnitOfWork
+from application.ports.vault_settings_store import VaultSettingsStore
 from application.ports.vector_index import VectorIndex
 from application.services.index_fingerprint import ensure_index_compatible
 from application.services.indexing_transaction import replace_document_index
@@ -40,6 +46,7 @@ class IndexDocument:
         rename_document: RenameDocument,
         max_document_chars: int,
         max_chunks_per_document: int,
+        vault_settings_store: VaultSettingsStore | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._vault_id = vault_id
@@ -55,6 +62,7 @@ class IndexDocument:
         self._rename = rename_document
         self._max_document_chars = max_document_chars
         self._max_chunks_per_document = max_chunks_per_document
+        self._vault_settings = vault_settings_store
         self._clock = clock
 
     async def execute(
@@ -65,6 +73,10 @@ class IndexDocument:
     ) -> IndexDocumentResult:
         if document.vault_id != self._vault_id:
             raise VaultMismatchError()
+        if self._vault_settings is not None and self._vault_settings.load_ignored_folders().covers(
+            document.relative_path
+        ):
+            raise PathIgnoredError()
         if len(normalize_content(document.content)) > self._max_document_chars:
             raise DocumentTooLargeError()
         state = self._documents.get_state(document.id)

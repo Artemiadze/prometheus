@@ -59,3 +59,8 @@ class JobNotFoundError(PrometheusError):
 class DocumentTooLargeError(PrometheusError):
     code = "DOCUMENT_TOO_LARGE"
     default_message = "Document exceeds configured indexing limits"
+
+
+class PathIgnoredError(PrometheusError):
+    code = "PATH_IGNORED"
+    default_message = "Document path is excluded from indexing"

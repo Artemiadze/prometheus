@@ -41,6 +41,7 @@ from application.ports.progress_reporter import ProgressReporter
 from application.ports.reranker import Reranker
 from application.ports.token_counter import TokenCounter
 from application.ports.unit_of_work import UnitOfWork
+from application.ports.vault_settings_store import VaultSettingsStore
 from application.ports.vector_index import VectorIndex
 from application.services.document_indexing_queue import SerializedDocumentIndexing
 from application.services.retrieval import RetrievalService
@@ -52,6 +53,7 @@ from application.use_cases.remove_document import RemoveDocument
 from application.use_cases.rename_document import RenameDocument
 from application.use_cases.search_notes import SearchNotes
 from application.use_cases.synchronize_vault import SynchronizeVault
+from application.use_cases.update_ignored_folders import UpdateIgnoredFolders
 from bootstrap.config import RuntimeSettings
 from domain.errors import AdapterNotConfiguredError
 from domain.services.grounding_policy import GroundingPolicy
@@ -238,6 +240,8 @@ class Container:
             "index_metadata_store",
             "index_statistics",
             "lexical_index",
+            "vault_settings_store",
+            "update_ignored_folders",
             "rename_document",
             "index_document",
             "serialized_index_document",
@@ -350,12 +354,27 @@ class Container:
         )
 
     @cached_property
+    def vault_settings_store(self) -> VaultSettingsStore:
+        return self._metadata_database.vault_settings
+
+    @cached_property
+    def remove_document(self) -> RemoveDocument:
+        return RemoveDocument(
+            document_repository=self.document_repository,
+            vector_index=self.vector_index,
+            lexical_index=self.lexical_index,
+            unit_of_work=self.unit_of_work,
+        )
+
+    @cached_property
     def rename_document(self) -> RenameDocument:
         return RenameDocument(
             document_repository=self.document_repository,
             vector_index=self.vector_index,
             lexical_index=self.lexical_index,
             unit_of_work=self.unit_of_work,
+            vault_settings_store=self.vault_settings_store,
+            remove_document=self.remove_document,
         )
 
     def close(self) -> None:
@@ -389,6 +408,7 @@ class Container:
             rename_document=self.rename_document,
             max_document_chars=self.settings.max_document_chars,
             max_chunks_per_document=self.settings.max_chunks_per_document,
+            vault_settings_store=self.vault_settings_store,
         )
 
     @cached_property
@@ -396,20 +416,20 @@ class Container:
         return SerializedDocumentIndexing(self.index_document)
 
     @cached_property
-    def remove_document(self) -> RemoveDocument:
-        return RemoveDocument(
-            document_repository=self.document_repository,
-            vector_index=self.vector_index,
-            lexical_index=self.lexical_index,
-            unit_of_work=self.unit_of_work,
-        )
-
-    @cached_property
     def synchronize_vault(self) -> SynchronizeVault:
         return SynchronizeVault(
             document_repository=self.document_repository,
             remove_document=self.remove_document,
             rename_document=self.rename_document,
+            vault_settings_store=self.vault_settings_store,
+        )
+
+    @cached_property
+    def update_ignored_folders(self) -> UpdateIgnoredFolders:
+        return UpdateIgnoredFolders(
+            vault_settings_store=self.vault_settings_store,
+            document_repository=self.document_repository,
+            remove_document=self.remove_document,
         )
 
     @cached_property
@@ -429,6 +449,7 @@ class Container:
             hybrid_candidate_multiplier=self.settings.hybrid_candidate_multiplier,
             top_k=self.settings.top_k,
             rerank_candidate_limit=self.settings.reranker_candidate_limit,
+            vault_settings_store=self.vault_settings_store,
         )
 
     @cached_property

@@ -30,12 +30,15 @@ class SearchScope:
     mode: ScopeMode
     note: RelativePath | None = None
     folders: tuple[RelativePath, ...] = ()
+    excluded_folders: tuple[RelativePath, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.mode, ScopeMode):
             raise InvalidSearchScopeError()
         unique_folders = tuple(dict.fromkeys(self.folders))
         object.__setattr__(self, "folders", unique_folders)
+        unique_excluded = tuple(dict.fromkeys(self.excluded_folders))
+        object.__setattr__(self, "excluded_folders", unique_excluded)
 
         valid = {
             ScopeMode.ENTIRE_VAULT: self.note is None and not unique_folders,
@@ -64,3 +67,19 @@ class SearchScope:
         folders: Iterable[RelativePath | str],
     ) -> SearchScope:
         return cls(ScopeMode.SELECTED_FOLDERS, folders=tuple(_path(path) for path in folders))
+
+    def with_exclusions(self, folders: Iterable[RelativePath | str]) -> SearchScope:
+        merged = tuple(
+            dict.fromkeys(
+                (
+                    *self.excluded_folders,
+                    *(_path(path) for path in folders),
+                )
+            )
+        )
+        return SearchScope(
+            self.mode,
+            note=self.note,
+            folders=self.folders,
+            excluded_folders=merged,
+        )

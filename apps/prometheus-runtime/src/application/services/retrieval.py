@@ -12,6 +12,7 @@ from application.ports.embedder import Embedder
 from application.ports.index_metadata_store import IndexMetadataStore
 from application.ports.lexical_index import LexicalIndex
 from application.ports.reranker import Reranker
+from application.ports.vault_settings_store import VaultSettingsStore
 from application.ports.vector_index import VectorIndex
 from application.services.hybrid_fusion import fuse_weighted_rrf
 from application.services.index_fingerprint import ensure_index_compatible
@@ -48,6 +49,7 @@ class RetrievalService:
         minimum_query_length: int = 3,
         top_k: int = 10,
         rerank_candidate_limit: int = 20,
+        vault_settings_store: VaultSettingsStore | None = None,
     ) -> None:
         self._embedder = embedder
         self._vectors = vector_index
@@ -64,6 +66,7 @@ class RetrievalService:
         self._minimum_query_length = minimum_query_length
         self._top_k = top_k
         self._rerank_candidate_limit = rerank_candidate_limit
+        self._vault_settings = vault_settings_store
         if retrieval_mode == "hybrid" and lexical_index is None:
             raise AdapterNotConfiguredError(
                 "lexical_index adapter is not configured; hybrid retrieval requires FTS"
@@ -83,14 +86,15 @@ class RetrievalService:
         if stored is None:
             raise VaultNotIndexedError()
         ensure_index_compatible(stored, self._fingerprint)
+        effective_scope = self._effective_scope(scope)
         vector = self._embedder.embed_query(normalized)
         candidate_limit = self._candidate_limit(limit)
         if self._retrieval_mode == "dense":
-            hits = tuple(self._vectors.search(vector, candidate_limit, scope))
+            hits = tuple(self._vectors.search(vector, candidate_limit, effective_scope))
         else:
             pool = max(candidate_limit, max(limit, self._top_k) * self._hybrid_candidate_multiplier)
-            dense_hits = tuple(self._vectors.search(vector, pool, scope))
-            lexical_hits = tuple(self._lexical.search(normalized, pool, scope))  # type: ignore[union-attr]
+            dense_hits = tuple(self._vectors.search(vector, pool, effective_scope))
+            lexical_hits = tuple(self._lexical.search(normalized, pool, effective_scope))  # type: ignore[union-attr]
             hits = fuse_weighted_rrf(
                 dense_hits,
                 lexical_hits,
@@ -113,3 +117,14 @@ class RetrievalService:
         if self._reranker is None:
             return limit
         return max(limit, self._rerank_candidate_limit)
+
+    def _effective_scope(self, scope: SearchScope | None) -> SearchScope | None:
+        if self._vault_settings is None:
+            return scope
+        ignored = self._vault_settings.load_ignored_folders()
+        if not ignored.folders:
+            return scope
+        exclusions = ignored.as_relative_paths()
+        if scope is None:
+            return SearchScope.entire_vault().with_exclusions(exclusions)
+        return scope.with_exclusions(exclusions)

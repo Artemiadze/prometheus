@@ -75,10 +75,19 @@ _MIGRATION_3 = (
     """,
 )
 
+_MIGRATION_4 = (
+    """
+    CREATE TABLE vault_ignored_folders (
+        folder TEXT PRIMARY KEY
+    )
+    """,
+)
+
 MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (1, _MIGRATION_1),
     (2, _MIGRATION_2),
     (3, _MIGRATION_3),
+    (4, _MIGRATION_4),
 )
 
 LATEST_VERSION = MIGRATIONS[-1][0]

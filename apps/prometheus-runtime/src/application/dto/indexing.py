@@ -16,9 +16,12 @@ class IndexDocumentResult:
     deleted_chunks: int
     skipped: bool = False
     relocated: bool = False
+    deleted: bool = False
 
     def __post_init__(self) -> None:
         if self.created_chunks < 0 or self.deleted_chunks < 0:
+            raise InvariantViolationError()
+        if sum(int(flag) for flag in (self.skipped, self.relocated, self.deleted)) > 1:
             raise InvariantViolationError()
 
 

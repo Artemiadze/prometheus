@@ -68,10 +68,23 @@ class FakeVectorIndex:
         for document_id, (chunks, vectors) in self._documents.items():
             if not self._matches_scope(document_id, scope):
                 continue
+            if self._is_excluded(document_id, scope):
+                continue
             for chunk, vector in zip(chunks, vectors, strict=True):
                 score = self._cosine(query_vector, vector)
                 hits.append(SearchHit(chunk=chunk, score=score, dense_score=score))
         return sort_by_score(hits)[:limit]
+
+    def _is_excluded(self, document_id: DocumentId, scope: SearchScope | None) -> bool:
+        if scope is None or not scope.excluded_folders:
+            return False
+        path = self._document_paths.get(document_id)
+        if path is None:
+            return False
+        for folder in scope.excluded_folders:
+            if path == folder or path.value.startswith(f"{folder.value}/"):
+                return True
+        return False
 
     def _matches_scope(
         self,
