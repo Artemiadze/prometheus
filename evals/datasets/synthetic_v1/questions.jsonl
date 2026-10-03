@@ -1,0 +1,61 @@
+{"id": "q-000", "question": "SYNTHMARKER000", "kind": "answerable", "expected_sources": [{"path": "notes/python/async.md"}], "reference_keywords": ["SYNTHMARKER000"]}
+{"id": "q-001", "question": "SYNTHMARKER001", "kind": "answerable", "expected_sources": [{"path": "notes/python/types.md"}], "reference_keywords": ["SYNTHMARKER001"]}
+{"id": "q-002", "question": "SYNTHMARKER002", "kind": "answerable", "expected_sources": [{"path": "notes/python/testing.md"}], "reference_keywords": ["SYNTHMARKER002"]}
+{"id": "q-003", "question": "SYNTHMARKER003", "kind": "answerable", "expected_sources": [{"path": "notes/python/packaging.md"}], "reference_keywords": ["SYNTHMARKER003"]}
+{"id": "q-004", "question": "SYNTHMARKER004", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/pasta.md"}], "reference_keywords": ["SYNTHMARKER004"]}
+{"id": "q-005", "question": "SYNTHMARKER005", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/soup.md"}], "reference_keywords": ["SYNTHMARKER005"]}
+{"id": "q-006", "question": "SYNTHMARKER006", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/salad.md"}], "reference_keywords": ["SYNTHMARKER006"]}
+{"id": "q-007", "question": "SYNTHMARKER007", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/bread.md"}], "reference_keywords": ["SYNTHMARKER007"]}
+{"id": "q-008", "question": "SYNTHMARKER008", "kind": "answerable", "expected_sources": [{"path": "notes/projects/alpha.md"}], "reference_keywords": ["SYNTHMARKER008"]}
+{"id": "q-009", "question": "SYNTHMARKER009", "kind": "answerable", "expected_sources": [{"path": "notes/projects/beta.md"}], "reference_keywords": ["SYNTHMARKER009"]}
+{"id": "q-010", "question": "SYNTHMARKER010", "kind": "answerable", "expected_sources": [{"path": "notes/projects/gamma.md"}], "reference_keywords": ["SYNTHMARKER010"]}
+{"id": "q-011", "question": "SYNTHMARKER011", "kind": "answerable", "expected_sources": [{"path": "notes/projects/delta.md"}], "reference_keywords": ["SYNTHMARKER011"]}
+{"id": "q-012", "question": "SYNTHMARKER012", "kind": "answerable", "expected_sources": [{"path": "notes/research/rag.md"}], "reference_keywords": ["SYNTHMARKER012"]}
+{"id": "q-013", "question": "SYNTHMARKER013", "kind": "answerable", "expected_sources": [{"path": "notes/research/embeddings.md"}], "reference_keywords": ["SYNTHMARKER013"]}
+{"id": "q-014", "question": "SYNTHMARKER014", "kind": "answerable", "expected_sources": [{"path": "notes/research/evals.md"}], "reference_keywords": ["SYNTHMARKER014"]}
+{"id": "q-015", "question": "SYNTHMARKER015", "kind": "answerable", "expected_sources": [{"path": "notes/research/security.md"}], "reference_keywords": ["SYNTHMARKER015"]}
+{"id": "q-016", "question": "SYNTHMARKER016", "kind": "answerable", "expected_sources": [{"path": "notes/journal/travel.md"}], "reference_keywords": ["SYNTHMARKER016"]}
+{"id": "q-017", "question": "SYNTHMARKER017", "kind": "answerable", "expected_sources": [{"path": "notes/journal/books.md"}], "reference_keywords": ["SYNTHMARKER017"]}
+{"id": "q-018", "question": "SYNTHMARKER018", "kind": "answerable", "expected_sources": [{"path": "notes/journal/music.md"}], "reference_keywords": ["SYNTHMARKER018"]}
+{"id": "q-019", "question": "SYNTHMARKER019", "kind": "answerable", "expected_sources": [{"path": "notes/journal/fitness.md"}], "reference_keywords": ["SYNTHMARKER019"]}
+{"id": "q-020", "question": "SYNTHMARKER020", "kind": "answerable", "expected_sources": [{"path": "notes/python/cli.md"}], "reference_keywords": ["SYNTHMARKER020"]}
+{"id": "q-021", "question": "SYNTHMARKER021", "kind": "answerable", "expected_sources": [{"path": "notes/python/logging.md"}], "reference_keywords": ["SYNTHMARKER021"]}
+{"id": "q-022", "question": "SYNTHMARKER022", "kind": "answerable", "expected_sources": [{"path": "notes/python/config.md"}], "reference_keywords": ["SYNTHMARKER022"]}
+{"id": "q-023", "question": "SYNTHMARKER023", "kind": "answerable", "expected_sources": [{"path": "notes/python/errors.md"}], "reference_keywords": ["SYNTHMARKER023"]}
+{"id": "q-024", "question": "SYNTHMARKER024", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/tea.md"}], "reference_keywords": ["SYNTHMARKER024"]}
+{"id": "q-025", "question": "SYNTHMARKER025", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/cookies.md"}], "reference_keywords": ["SYNTHMARKER025"]}
+{"id": "q-026", "question": "SYNTHMARKER026", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/rice.md"}], "reference_keywords": ["SYNTHMARKER026"]}
+{"id": "q-027", "question": "SYNTHMARKER027", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/stew.md"}], "reference_keywords": ["SYNTHMARKER027"]}
+{"id": "q-028", "question": "SYNTHMARKER028", "kind": "answerable", "expected_sources": [{"path": "notes/projects/epsilon.md"}], "reference_keywords": ["SYNTHMARKER028"]}
+{"id": "q-029", "question": "SYNTHMARKER029", "kind": "answerable", "expected_sources": [{"path": "notes/projects/zeta.md"}], "reference_keywords": ["SYNTHMARKER029"]}
+{"id": "q-030", "question": "SYNTHMARKER030", "kind": "answerable", "expected_sources": [{"path": "notes/projects/eta.md"}], "reference_keywords": ["SYNTHMARKER030"]}
+{"id": "q-031", "question": "SYNTHMARKER031", "kind": "answerable", "expected_sources": [{"path": "notes/projects/theta.md"}], "reference_keywords": ["SYNTHMARKER031"]}
+{"id": "q-032", "question": "SYNTHMARKER032", "kind": "answerable", "expected_sources": [{"path": "notes/research/obsidian.md"}], "reference_keywords": ["SYNTHMARKER032"]}
+{"id": "q-033", "question": "SYNTHMARKER033", "kind": "answerable", "expected_sources": [{"path": "notes/research/local_llm.md"}], "reference_keywords": ["SYNTHMARKER033"]}
+{"id": "q-034", "question": "SYNTHMARKER034", "kind": "answerable", "expected_sources": [{"path": "notes/research/chunking.md"}], "reference_keywords": ["SYNTHMARKER034"]}
+{"id": "q-035", "question": "SYNTHMARKER035", "kind": "answerable", "expected_sources": [{"path": "notes/research/storage.md"}], "reference_keywords": ["SYNTHMARKER035"]}
+{"id": "q-036", "question": "SYNTHMARKER036", "kind": "answerable", "expected_sources": [{"path": "notes/journal/garden.md"}], "reference_keywords": ["SYNTHMARKER036"]}
+{"id": "q-037", "question": "SYNTHMARKER037", "kind": "answerable", "expected_sources": [{"path": "notes/journal/language.md"}], "reference_keywords": ["SYNTHMARKER037"]}
+{"id": "q-038", "question": "SYNTHMARKER038", "kind": "answerable", "expected_sources": [{"path": "notes/journal/cooking_lab.md"}], "reference_keywords": ["SYNTHMARKER038"]}
+{"id": "q-039", "question": "SYNTHMARKER039", "kind": "answerable", "expected_sources": [{"path": "notes/journal/walks.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-000", "question": "SYNTHMARKER039 asyncio Async Python", "kind": "answerable", "expected_sources": [{"path": "notes/python/async.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-001", "question": "SYNTHMARKER039 mypy Typing Basics", "kind": "answerable", "expected_sources": [{"path": "notes/python/types.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-002", "question": "SYNTHMARKER039 pytest Testing Notes", "kind": "answerable", "expected_sources": [{"path": "notes/python/testing.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-003", "question": "SYNTHMARKER039 hatchling Packaging", "kind": "answerable", "expected_sources": [{"path": "notes/python/packaging.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-004", "question": "SYNTHMARKER039 tomato Pasta Night", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/pasta.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-005", "question": "SYNTHMARKER039 carrot Winter Soup", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/soup.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-006", "question": "SYNTHMARKER039 cucumber Garden Salad", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/salad.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-007", "question": "SYNTHMARKER039 starter Sourdough", "kind": "answerable", "expected_sources": [{"path": "notes/recipes/bread.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-008", "question": "SYNTHMARKER039 kanban Project Alpha", "kind": "answerable", "expected_sources": [{"path": "notes/projects/alpha.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "q-extra-009", "question": "SYNTHMARKER039 prototype Project Beta", "kind": "answerable", "expected_sources": [{"path": "notes/projects/beta.md"}], "reference_keywords": ["SYNTHMARKER039"]}
+{"id": "unanswerable-000", "question": "Who is the CEO of Contoso Corporation?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-001", "question": "What is the password for the production database?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-002", "question": "When did the Mars colony launch in 2099?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-003", "question": "What is my personal phone number?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-004", "question": "Where does Alice live on Maple Street?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-005", "question": "What is the stock price of FictionalCorp tomorrow?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-006", "question": "How many users registered in the secret beta?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-007", "question": "What medical diagnosis applies to patient 404?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-008", "question": "What is the vault master key?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-009", "question": "Which private email received the invoice?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}
+{"id": "unanswerable-010", "question": "What is the latitude of the hidden bunker?", "kind": "unanswerable", "expected_sources": [], "reference_keywords": []}

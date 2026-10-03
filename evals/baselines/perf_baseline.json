@@ -1,0 +1,45 @@
+{
+  "chunk_count": 200,
+  "document_count": 200,
+  "environment": {
+    "cpu_count": 12,
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+    "python": "3.12.13"
+  },
+  "index_fingerprint": {
+    "chunk_overlap": 80,
+    "chunk_size": 700,
+    "chunker_version": 2,
+    "embedding": {
+      "dimension": 256,
+      "model_id": "eval-bow-v1",
+      "provider": "eval"
+    },
+    "parser_version": 2,
+    "payload_schema_version": 1
+  },
+  "index_size_bytes": 5349509,
+  "peak_rss_mb": 7.2578125,
+  "peak_rss_mb_total": 139.015625,
+  "run_parameters": {
+    "generation_repeats": 10,
+    "retrieval_repeats": 20
+  },
+  "scale": "small",
+  "schema_version": 1,
+  "seed": 42,
+  "stages": {
+    "generation": {
+      "p50_seconds": 0.0039004520000389675,
+      "p95_seconds": 0.004572787000074641
+    },
+    "indexing": {
+      "p50_seconds": 1.3870806049999373,
+      "p95_seconds": 1.3870806049999373
+    },
+    "retrieval": {
+      "p50_seconds": 0.0032554760000493843,
+      "p95_seconds": 0.003866433599989705
+    }
+  }
+}

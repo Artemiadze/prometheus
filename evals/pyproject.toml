@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prometheus-evals"
+version = "0.1.0"
+description = "Offline RAG quality evaluation for Prometheus runtime"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "prometheus-runtime",
+    "pydantic>=2.10,<3",
+    "typer>=0.15,<1",
+    "psutil>=6,<7",
+]
+
+[project.scripts]
+prometheus-evals = "prometheus_evals.cli:app"
+
+[dependency-groups]
+dev = [
+    "black>=25.1,<26",
+    "mypy>=1.14,<2",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<1",
+    "ruff>=0.9,<1",
+    "types-psutil>=6,<7",
+]
+
+[tool.uv.sources]
+prometheus-runtime = { path = "../apps/prometheus-runtime", editable = true }
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prometheus_evals"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.black]
+target-version = ["py312"]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"
+asyncio_mode = "auto"
+markers = [
+    "unit: fast unit tests",
+    "integration: eval harness integration tests",
+]

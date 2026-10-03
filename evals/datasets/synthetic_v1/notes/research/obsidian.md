@@ -1,0 +1,3 @@
+# Obsidian Notes
+
+SYNTHMARKER032

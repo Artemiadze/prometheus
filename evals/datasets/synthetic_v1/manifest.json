@@ -1,0 +1,6 @@
+{
+  "dataset_id": "synthetic_v1",
+  "version": "1.0.0",
+  "language_mix": "en+ru",
+  "description": "Depersonalized synthetic vault for offline Prometheus RAG evals."
+}

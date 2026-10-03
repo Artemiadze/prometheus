@@ -6,6 +6,7 @@ on:
       - "apps/prometheus-runtime/**"
       - "apps/prometheus-plugin/**"
       - "packaging/**"
+      - "evals/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
       - ".github/workflows/release-runtime.yml"
@@ -13,6 +14,7 @@ on:
     paths:
       - "apps/prometheus-runtime/**"
       - "apps/prometheus-plugin/**"
+      - "evals/**"
       - "packaging/**"
       - "Makefile"
       - ".github/workflows/ci.yml"
@@ -44,6 +46,21 @@ jobs:
         run: make runtime-test
       - name: Verify OpenAPI contract
         run: make runtime-openapi-check
+
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.18"
+          enable-cache: true
+          cache-dependency-glob: "evals/uv.lock"
+      - name: Install Python and dependencies
+        run: uv sync --frozen --project evals
+      - name: Evals check
+        run: make evals-check
 
   plugin:
     runs-on: ubuntu-latest

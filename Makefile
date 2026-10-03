@@ -2,9 +2,11 @@
 	sync format lint typecheck arch test openapi-check build check \
 	runtime-sync runtime-format runtime-lint runtime-typecheck runtime-arch runtime-test runtime-test-domain runtime-openapi-check runtime-check \
 	runtime-frozen \
+	evals-sync evals-format evals-lint evals-typecheck evals-test evals-retrieval evals-rag evals-perf evals-check \
 	plugin-sync plugin-lint plugin-typecheck plugin-test plugin-build plugin-check
 
 RUNTIME_DIR := apps/prometheus-runtime
+EVALS_DIR := evals
 PLUGIN_DIR := apps/prometheus-plugin
 
 runtime-sync:
@@ -32,6 +34,32 @@ runtime-openapi-check:
 	$(MAKE) -C $(RUNTIME_DIR) openapi-check
 
 runtime-check: runtime-lint runtime-typecheck runtime-arch runtime-test runtime-openapi-check runtime-test-domain
+
+evals-sync:
+	$(MAKE) -C $(EVALS_DIR) sync
+
+evals-format:
+	$(MAKE) -C $(EVALS_DIR) format
+
+evals-lint:
+	$(MAKE) -C $(EVALS_DIR) lint
+
+evals-typecheck:
+	$(MAKE) -C $(EVALS_DIR) typecheck
+
+evals-test:
+	$(MAKE) -C $(EVALS_DIR) test
+
+evals-retrieval:
+	$(MAKE) -C $(EVALS_DIR) retrieval
+
+evals-rag:
+	$(MAKE) -C $(EVALS_DIR) rag
+
+evals-perf:
+	$(MAKE) -C $(EVALS_DIR) perf
+
+evals-check: evals-lint evals-typecheck evals-test evals-retrieval evals-rag evals-perf
 
 runtime-frozen:
 	uv sync --project $(RUNTIME_DIR) --group packaging --group dev
@@ -64,4 +92,4 @@ arch: runtime-arch
 test: runtime-test plugin-test
 openapi-check: runtime-openapi-check
 build: plugin-build
-check: runtime-check plugin-check
+check: runtime-check evals-check plugin-check
