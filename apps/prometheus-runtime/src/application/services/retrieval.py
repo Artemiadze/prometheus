@@ -47,6 +47,7 @@ class RetrievalService:
         hybrid_candidate_multiplier: int = 2,
         minimum_query_length: int = 3,
         top_k: int = 10,
+        rerank_candidate_limit: int = 20,
     ) -> None:
         self._embedder = embedder
         self._vectors = vector_index
@@ -62,6 +63,7 @@ class RetrievalService:
         self._hybrid_candidate_multiplier = hybrid_candidate_multiplier
         self._minimum_query_length = minimum_query_length
         self._top_k = top_k
+        self._rerank_candidate_limit = rerank_candidate_limit
         if retrieval_mode == "hybrid" and lexical_index is None:
             raise AdapterNotConfiguredError(
                 "lexical_index adapter is not configured; hybrid retrieval requires FTS"
@@ -82,10 +84,11 @@ class RetrievalService:
             raise VaultNotIndexedError()
         ensure_index_compatible(stored, self._fingerprint)
         vector = self._embedder.embed_query(normalized)
+        candidate_limit = self._candidate_limit(limit)
         if self._retrieval_mode == "dense":
-            hits = tuple(self._vectors.search(vector, limit, scope))
+            hits = tuple(self._vectors.search(vector, candidate_limit, scope))
         else:
-            pool = max(limit, self._top_k) * self._hybrid_candidate_multiplier
+            pool = max(candidate_limit, max(limit, self._top_k) * self._hybrid_candidate_multiplier)
             dense_hits = tuple(self._vectors.search(vector, pool, scope))
             lexical_hits = tuple(self._lexical.search(normalized, pool, scope))  # type: ignore[union-attr]
             hits = fuse_weighted_rrf(
@@ -105,3 +108,8 @@ class RetrievalService:
             if state is not None:
                 results.append(RetrievedHit(hit, state.relative_path))
         return tuple(results)
+
+    def _candidate_limit(self, limit: int) -> int:
+        if self._reranker is None:
+            return limit
+        return max(limit, self._rerank_candidate_limit)

@@ -18,7 +18,13 @@ from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import SearchScope
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeDocumentRepository, FakeEmbedder, FakeIndexMetadataStore, FakeVectorIndex
+from fakes import (
+    FakeDocumentRepository,
+    FakeEmbedder,
+    FakeIndexMetadataStore,
+    FakeReranker,
+    FakeVectorIndex,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -50,14 +56,14 @@ class RecordingLexicalIndex:
         return self._hits[:limit]
 
 
-def _chunk(*, text: str) -> Chunk:
+def _chunk(*, text: str, index: int = 0) -> Chunk:
     document_id = DocumentId("document-01")
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("Heading",), 0),
+        id=ChunkId.from_parts(document_id, ("Heading",), index),
         document_id=document_id,
         text=text,
         heading_path=("Heading",),
-        chunk_index=0,
+        chunk_index=index,
         char_range=CharRange(0, len(text)),
         token_count=3,
         content_hash=compute_content_hash(text),
@@ -142,6 +148,38 @@ def test_hybrid_mode_surfaces_lexical_only_hit() -> None:
     assert len(results) == 1
     assert results[0].relative_path == RelativePath("Notes/cve.md")
     assert "CVE-2026-9999" in results[0].hit.chunk.text
+
+
+def test_reranker_expands_candidate_pool_before_final_limit() -> None:
+    embedder = FakeEmbedder()
+    documents = FakeDocumentRepository()
+    vectors = FakeVectorIndex()
+    metadata = FakeIndexMetadataStore()
+    _indexed_metadata(metadata, embedder)
+    chunks = tuple(_chunk(text=f"chunk-{index}", index=index) for index in range(3))
+    document = Document.create(
+        id=DocumentId("document-01"),
+        vault_id=VAULT_ID,
+        relative_path="Notes/Many.md",
+        content=" ".join(chunk.text for chunk in chunks),
+        revision=1,
+        modified_at=NOW,
+    )
+    documents.save_indexed(document, chunks, NOW)
+    vectors.upsert(document, chunks, embedder.embed_documents(chunks))
+    reranker = FakeReranker()
+    retrieval = RetrievalService(
+        embedder=embedder,
+        vector_index=vectors,
+        document_repository=documents,
+        index_metadata_store=metadata,
+        active_fingerprint=_fingerprint(embedder),
+        reranker=reranker,
+        rerank_candidate_limit=3,
+    )
+    results = asyncio.run(retrieval.retrieve("chunk", limit=1))
+    assert len(results) == 1
+    assert reranker.last_query == "chunk"
 
 
 def test_hybrid_mode_requires_lexical_index() -> None:

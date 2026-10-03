@@ -437,7 +437,7 @@ Query ───────────┤
                           ↓
               Weighted RRF fusion (hybrid_rrf_k, weights)
                           ↓
-                       Reranker (optional)
+                       Reranker (optional, FastEmbed cross-encoder)
                           ↓
                     Context selection
 ```
@@ -446,6 +446,11 @@ Query ───────────┤
 из каждого канала, затем объединяются по `chunk.id`. Stage-scores сохраняются в
 `SearchHit.dense_score` / `lexical_score`; наружу (HTTP) пока отдаётся только
 итоговый `score`.
+
+Reranker включается `PROMETHEUS_RERANKER_ENABLED=true` (модель
+`PROMETHEUS_RERANKER_MODEL`, по умолчанию `Xenova/ms-marco-MiniLM-L-6-v2`).
+Перед rerank retrieval поднимает до `reranker_candidate_limit` (default 20)
+кандидатов, затем cross-encoder пересортировывает их в финальный `limit`.
 
 Один и тот же retrieval use case должен использоваться как Chat, так и обычным
 Semantic Search. Это предотвращает появление двух расходящихся поисковых
@@ -680,7 +685,7 @@ runtime, выбрать установленную модель, повтори�
 ### Этап 2
 
 - hybrid dense + BM25 search (реализовано: weighted RRF, настройки `PROMETHEUS_HYBRID_*`);
-- локальный reranker;
+- локальный reranker (`PROMETHEUS_RERANKER_ENABLED`, top-20 → limit);
 - current note, folder и selected folders scopes;
 - более точные ссылки на headings;
 - streaming ответа и отмена длительных операций.

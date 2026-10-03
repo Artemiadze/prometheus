@@ -48,6 +48,11 @@ class RuntimeSettings(BaseSettings):
     hybrid_dense_weight: float = Field(default=1.0, gt=0.0)
     hybrid_lexical_weight: float = Field(default=1.0, gt=0.0)
     hybrid_candidate_multiplier: int = Field(default=2, ge=1)
+    reranker_enabled: bool = False
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    reranker_batch_size: int = Field(default=32, gt=0)
+    reranker_candidate_limit: int = Field(default=20, gt=0)
+    reranker_allow_download: bool = False
     llm_host: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen3:4b"
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)

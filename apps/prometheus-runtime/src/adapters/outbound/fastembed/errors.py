@@ -22,6 +22,20 @@ class EmbeddingBatchError(PrometheusError):
         super().__init__()
 
 
+class RerankerModelUnavailableError(PrometheusError):
+    """Raised when the selected reranker model cannot be opened from allowed sources."""
+
+    code = "RERANKER_MODEL_UNAVAILABLE"
+    default_message = "The selected reranker model is unavailable"
+
+
+class RerankerBatchError(PrometheusError):
+    """Raised when reranking fails without exposing document text."""
+
+    code = "RERANKER_BATCH_FAILED"
+    default_message = "Reranker batch failed"
+
+
 class EmbeddingDimensionMismatchError(PrometheusError):
     """Raised when FastEmbed returns a vector with an unexpected dimension."""
 

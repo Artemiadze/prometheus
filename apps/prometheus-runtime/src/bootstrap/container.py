@@ -7,6 +7,7 @@ from functools import cached_property
 from importlib.metadata import version
 
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
+from adapters.outbound.fastembed.reranker import FastEmbedReranker
 from adapters.outbound.filesystem.data_dir import DataDirLayout, vault_dir
 from adapters.outbound.filesystem.index_rebuild import (
     FilesystemIndexRebuildWorkspace,
@@ -108,10 +109,26 @@ class Container:
         self._markdown_parser_factory = markdown_parser_factory or self._build_markdown_parser
         self._chunker_factory = chunker_factory or self._build_chunker
         self._token_counter_factory = token_counter_factory or self._build_token_counter
-        self._reranker_factory = reranker_factory
+        selected_reranker_factory: Callable[[], Reranker] | None
+        if reranker_factory is not None:
+            selected_reranker_factory = reranker_factory
+        elif settings.reranker_enabled:
+            selected_reranker_factory = self._build_reranker
+        else:
+            selected_reranker_factory = None
+        self._reranker_factory = selected_reranker_factory
         self._job_store_factory = job_store_factory or self._build_job_store
         self._progress_reporter_factory = progress_reporter_factory or self._build_progress_reporter
         self._rebuild_workspace_factory = rebuild_workspace_factory or self._build_rebuild_workspace
+
+    def _build_reranker(self) -> Reranker:
+        return FastEmbedReranker(
+            model_id=self.settings.reranker_model,
+            cache_dir=self.layout.embeddings,
+            batch_size=self.settings.reranker_batch_size,
+            threads=self.settings.embedding_threads,
+            allow_download=self.settings.reranker_allow_download,
+        )
 
     def _build_embedder(self) -> Embedder:
         if self.settings.embedding_provider.casefold() != "fastembed":
@@ -411,6 +428,7 @@ class Container:
             hybrid_lexical_weight=self.settings.hybrid_lexical_weight,
             hybrid_candidate_multiplier=self.settings.hybrid_candidate_multiplier,
             top_k=self.settings.top_k,
+            rerank_candidate_limit=self.settings.reranker_candidate_limit,
         )
 
     @cached_property

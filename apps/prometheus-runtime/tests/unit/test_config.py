@@ -34,6 +34,11 @@ def test_defaults_match_product_settings() -> None:
     assert settings.hybrid_dense_weight == 1.0
     assert settings.hybrid_lexical_weight == 1.0
     assert settings.hybrid_candidate_multiplier == 2
+    assert not settings.reranker_enabled
+    assert settings.reranker_model == "Xenova/ms-marco-MiniLM-L-6-v2"
+    assert settings.reranker_batch_size == 32
+    assert settings.reranker_candidate_limit == 20
+    assert not settings.reranker_allow_download
     assert settings.llm_host == "http://127.0.0.1:11434"
     assert settings.llm_model == "qwen3:4b"
     assert settings.llm_temperature == 0.1

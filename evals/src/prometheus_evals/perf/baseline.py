@@ -32,7 +32,7 @@ def compare_to_baseline(
     problems: list[str] = []
     report_stages = report.get("stages", {})
     baseline_stages = baseline.get("stages", {})
-    for stage in ("indexing", "retrieval", "generation"):
+    for stage in ("indexing", "retrieval", "reranking", "generation"):
         _compare_stage(
             problems, stage, report_stages.get(stage, {}), baseline_stages.get(stage, {}), tol
         )

@@ -6,6 +6,7 @@ import asyncio
 import platform
 import resource
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,11 +14,13 @@ from typing import Any
 import psutil
 from bootstrap.container import Container
 from domain.entities.document import Document
+from domain.entities.search_hit import SearchHit
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
 
 from prometheus_evals.dataset.models import DatasetManifest, EvalDataset
 from prometheus_evals.harness.container import build_eval_container
+from prometheus_evals.harness.reranker import EvalDeterministicReranker
 from prometheus_evals.perf.corpus_generator import generate_perf_corpus
 from prometheus_evals.perf.stats import percentile
 from prometheus_evals.report import REPORT_SCHEMA_VERSION, fingerprint_to_dict, write_json_report
@@ -70,6 +73,13 @@ def run_perf_eval(
             repeats=retrieval_repeats,
         )
         peak_rss = max(peak_rss, process.memory_info().rss)
+        reranking_samples = _time_reranking(
+            container,
+            query=query,
+            candidate_limit=20,
+            repeats=retrieval_repeats,
+        )
+        peak_rss = max(peak_rss, process.memory_info().rss)
         generation_samples = _time_generation(
             container,
             query=query,
@@ -97,6 +107,7 @@ def run_perf_eval(
         "stages": {
             "indexing": StageTimings(index_seconds, index_seconds).to_dict(),
             "retrieval": _stage_from_samples(retrieval_samples).to_dict(),
+            "reranking": _stage_from_samples(reranking_samples).to_dict(),
             "generation": _stage_from_samples(generation_samples).to_dict(),
         },
         "peak_rss_mb": (peak_rss - rss_before) / (1024 * 1024),
@@ -105,6 +116,8 @@ def run_perf_eval(
         "run_parameters": {
             "retrieval_repeats": retrieval_repeats,
             "generation_repeats": generation_repeats,
+            "reranker_profile": "eval-deterministic",
+            "rerank_candidate_limit": 20,
         },
     }
     return report
@@ -137,6 +150,30 @@ def _time_index(container: Container, vault_id: VaultId, dataset: EvalDataset) -
     start = time.perf_counter()
     asyncio.run(_index_all())
     return time.perf_counter() - start
+
+
+def _time_reranking(
+    container: Container,
+    *,
+    query: str,
+    candidate_limit: int,
+    repeats: int,
+) -> list[float]:
+    reranker = EvalDeterministicReranker()
+
+    async def _collect_hits() -> Sequence[SearchHit]:
+        retrieved = await container.retrieval.retrieve(query, limit=candidate_limit)
+        return tuple(item.hit for item in retrieved)
+
+    hits = asyncio.run(_collect_hits())
+    if not hits:
+        return [0.0]
+    samples: list[float] = []
+    for _ in range(repeats):
+        start = time.perf_counter()
+        reranker.rerank(query, hits)
+        samples.append(time.perf_counter() - start)
+    return samples[1:] if len(samples) > 1 else samples
 
 
 def _time_retrieval(container: Container, *, query: str, repeats: int) -> list[float]:

@@ -22,8 +22,10 @@
   "peak_rss_mb": 7.2578125,
   "peak_rss_mb_total": 139.015625,
   "run_parameters": {
+    "retrieval_repeats": 20,
     "generation_repeats": 10,
-    "retrieval_repeats": 20
+    "reranker_profile": "eval-deterministic",
+    "rerank_candidate_limit": 20
   },
   "scale": "small",
   "schema_version": 1,
@@ -40,6 +42,10 @@
     "retrieval": {
       "p50_seconds": 0.0032554760000493843,
       "p95_seconds": 0.003866433599989705
+    },
+    "reranking": {
+      "p50_seconds": 0.000549912999758817,
+      "p95_seconds": 0.0005563488002735539
     }
   }
 }

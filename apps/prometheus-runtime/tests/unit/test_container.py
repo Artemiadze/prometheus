@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from adapters.inbound.http.app import create_app
 from adapters.outbound.fastembed.adapter import FastEmbedAdapter
+from adapters.outbound.fastembed.reranker import FastEmbedReranker
 from adapters.outbound.filesystem.data_dir import ensure_layout
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
 from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
@@ -70,6 +71,21 @@ def test_unconfigured_provider_has_explicit_error(tmp_path: Path) -> None:
 
     with pytest.raises(AdapterNotConfiguredError, match="VectorIndex adapter is not configured"):
         _ = container.vector_index
+
+
+def test_reranker_is_disabled_by_default(tmp_path: Path) -> None:
+    container = Container(RuntimeSettings(data_dir=tmp_path), ensure_layout(tmp_path))
+
+    assert container.reranker is None
+
+
+def test_reranker_can_be_enabled_via_settings(tmp_path: Path) -> None:
+    container = Container(
+        RuntimeSettings(data_dir=tmp_path, reranker_enabled=True),
+        ensure_layout(tmp_path),
+    )
+
+    assert isinstance(container.reranker, FastEmbedReranker)
 
 
 def test_default_embedder_is_wired_without_loading_model(tmp_path: Path) -> None:
