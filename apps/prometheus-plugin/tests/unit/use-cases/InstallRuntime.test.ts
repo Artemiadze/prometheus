@@ -41,4 +41,16 @@ describe("InstallRuntime", () => {
     await expect(useCase.execute()).rejects.toBeInstanceOf(NetworkAccessDisabledError);
     expect(runtime.downloadProgress).toHaveLength(0);
   });
+
+  it("skips download when a managed binary is already installed", async () => {
+    const runtime = new FakeRuntimeGateway();
+    runtime.setLocateResult("managed", "0.1.0");
+    const useCase = new InstallRuntime(runtime, new FakeSettingsRepository());
+    const states: string[] = [];
+    await useCase.execute((state) => {
+      states.push(state.kind);
+    });
+    expect(runtime.downloadProgress).toHaveLength(0);
+    expect(states).toEqual(["verifying"]);
+  });
 });

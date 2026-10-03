@@ -23,16 +23,19 @@ export class InstallRuntime {
     signal?: AbortSignal,
   ): Promise<ManagedRuntimeStateType> {
     const settings = await this.settings.get();
-    if (settings.networkAccess === "disabled") {
-      throw new NetworkAccessDisabledError();
-    }
-
-    const progress: ProgressCallback = (download) => {
-      onState?.(ManagedRuntimeState.downloading(download.percent));
-    };
+    const located = await this.runtime.locate();
 
     try {
-      await this.runtime.download(progress, signal);
+      if (located.kind === "missing") {
+        if (settings.networkAccess === "disabled") {
+          throw new NetworkAccessDisabledError();
+        }
+        const progress: ProgressCallback = (download) => {
+          onState?.(ManagedRuntimeState.downloading(download.percent));
+        };
+        await this.runtime.download(progress, signal);
+      }
+
       onState?.(ManagedRuntimeState.verifying());
       await this.runtime.verify(signal);
       return ManagedRuntimeState.verifying();
@@ -40,7 +43,10 @@ export class InstallRuntime {
       if (isAbortError(error)) {
         throw error;
       }
-      if (error instanceof RuntimeChecksumMismatchError) {
+      if (
+        error instanceof RuntimeChecksumMismatchError ||
+        error instanceof NetworkAccessDisabledError
+      ) {
         throw error;
       }
       throw error;

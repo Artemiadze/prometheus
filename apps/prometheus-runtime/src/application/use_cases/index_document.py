@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -93,7 +94,9 @@ class IndexDocument:
         chunks = tuple(self._chunker.chunk(self._parser.parse(document)))
         if len(chunks) > self._max_chunks_per_document:
             raise DocumentTooLargeError()
-        vectors = self._embedder.embed_documents(chunks)
+        # Embedding is CPU-bound (ONNX); run it off the event loop so HTTP
+        # (health, job status, the 202 for /reindex) keeps being served.
+        vectors = await asyncio.to_thread(self._embedder.embed_documents, chunks)
         replace_document_index(
             document=document,
             chunks=chunks,

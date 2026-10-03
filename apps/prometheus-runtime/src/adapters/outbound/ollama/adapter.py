@@ -193,10 +193,13 @@ def _generation_payload(
     context_size: int,
     max_output_tokens: int,
 ) -> dict[str, object]:
+    # Top-level think=false is required for Qwen3-family models: otherwise Ollama
+    # spends num_predict on a thinking trace and returns an empty `response`.
     return {
         "model": model,
         "prompt": prompt,
         "stream": stream,
+        "think": False,
         "options": {
             "temperature": temperature,
             "num_ctx": context_size,

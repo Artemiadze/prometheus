@@ -47,6 +47,7 @@ def test_generate_sends_expected_options_and_returns_typed_result() -> None:
             "model": "qwen3:4b",
             "prompt": "Grounded prompt",
             "stream": False,
+            "think": False,
             "options": {
                 "temperature": 0.1,
                 "num_ctx": 8192,

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { isRuntimeVersionCompatible } from "../../../../src/application/services/RuntimeVersion";
 import {
+  RUNTIME_RELEASE_BASE_URL,
   RUNTIME_RELEASE_VERSION,
   detectReleaseTarget,
+  resolveReleaseBaseUrl,
   resolveReleaseDescriptor,
 } from "../../../../src/adapters/outbound/runtime/runtimeRelease";
 
@@ -22,5 +24,12 @@ describe("runtimeRelease", () => {
     const descriptor = resolveReleaseDescriptor("linux", "x64", "https://example.test/runtime");
     expect(descriptor.binaryUrl).toContain("prometheus-runtime-linux-x64");
     expect(descriptor.checksumUrl).toContain(".sha256");
+  });
+
+  it("allows PROMETHEUS_RUNTIME_RELEASE_BASE_URL override", () => {
+    expect(resolveReleaseBaseUrl({})).toBe(RUNTIME_RELEASE_BASE_URL.replace(/\/$/, ""));
+    expect(
+      resolveReleaseBaseUrl({ PROMETHEUS_RUNTIME_RELEASE_BASE_URL: "http://127.0.0.1:8766/runtime/" }),
+    ).toBe("http://127.0.0.1:8766/runtime");
   });
 });

@@ -64,6 +64,27 @@ describe("GetSystemStatus", () => {
     expect(second.fetchedAt.getTime()).toBe(first.fetchedAt.getTime());
   });
 
+  it("shows Stopped when a binary exists but process state is still missing", async () => {
+    const rag = new FakeRagGateway();
+    rag.status = async () => {
+      throw new Error("down");
+    };
+    const runtime = new FakeRuntimeGateway();
+    runtime.setLocateResult("managed", "0.1.0");
+    runtime.setProcessState(ManagedRuntimeState.missing());
+    const useCase = new GetSystemStatus(
+      rag,
+      runtime,
+      new FakeSettingsRepository({
+        ...DEFAULT_PLUGIN_SETTINGS,
+        vaultId: "vault-a1",
+      }),
+      new FakeClock(),
+    );
+    const status = await useCase.execute();
+    expect(status.runtime.runtime.kind).toBe("stopped");
+  });
+
   it("surfaces an incompatible sidecar as runtime state", async () => {
     const rag = new FakeRagGateway();
     rag.status = async () => {

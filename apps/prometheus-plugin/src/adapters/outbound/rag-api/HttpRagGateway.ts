@@ -30,7 +30,7 @@ import {
   decodeStatus,
   decodeVoid,
 } from "./contracts";
-import type { RuntimeHttpClient } from "./RuntimeHttpClient";
+import { CHAT_REQUEST_TIMEOUT_MS, type RuntimeHttpClient } from "./RuntimeHttpClient";
 
 export class HttpRagGateway implements RagGateway {
   private compatibleConnectionKey: string | null = null;
@@ -183,6 +183,7 @@ export class HttpRagGateway implements RagGateway {
     return this.http.request(`/vaults/${encodeURIComponent(vaultId.value)}/chat`, {
       method: "POST",
       signal,
+      timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
       body: { query: question, scope: scope.serialize() },
       decode: (payload, requestId) => {
         const response = decodeChat(payload, requestId);

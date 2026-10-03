@@ -16,12 +16,15 @@ import {
   type ManagedRuntimeState as ManagedRuntimeStateType,
   type RuntimeStopReason,
 } from "../../../domain/entities/RuntimeStatus";
-import { isAbortError } from "../../../domain/errors";
+import { isAbortError, RuntimeNotInstalledError, RuntimeStartFailedError } from "../../../domain/errors";
 import { DiagnosticBuffer } from "./DiagnosticBuffer";
+import { nodeHttpFetch } from "./nodeHttpFetch";
+import { killOrphanRuntimeServes } from "./orphanCleanup";
 import { allocateLoopbackPort } from "./portAllocator";
 import { RuntimeDownloader, type FetchFn } from "./RuntimeDownloader";
 import { RuntimeLocator } from "./RuntimeLocator";
 import { RuntimeProcess, type RuntimeExitHandler } from "./RuntimeProcess";
+import { buildRuntimeSpawnEnv } from "./runtimeSpawnEnv";
 import { generateSessionToken } from "./sessionToken";
 
 export type ManagedRuntimeGatewayOptions = {
@@ -52,7 +55,8 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
     this.downloader = new RuntimeDownloader({
       locator: this.locator,
       getSettings,
-      fetchFn: options.fetchFn ?? fetch,
+      // Node HTTP avoids Obsidian Chromium CORS / private-network blocks on loopback mirrors.
+      fetchFn: options.fetchFn ?? nodeHttpFetch,
       platform: platform(),
       arch: arch(),
     });
@@ -64,10 +68,28 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
         options.onProcessExit?.(reason);
       },
     });
+    void this.refreshInstalledState();
   }
 
   locate(): Promise<RuntimeLocateResult> {
     return this.locator.locate();
+  }
+
+  /** Align in-memory state with an already-installed managed/custom binary. */
+  async refreshInstalledState(): Promise<void> {
+    if (
+      this.state.kind === "running" ||
+      this.state.kind === "starting" ||
+      this.state.kind === "downloading" ||
+      this.state.kind === "verifying"
+    ) {
+      return;
+    }
+    const located = await this.locator.locate();
+    this.state =
+      located.kind === "missing"
+        ? ManagedRuntimeState.missing()
+        : ManagedRuntimeState.stopped("requested");
   }
 
   async download(onProgress: ProgressCallback, signal?: AbortSignal): Promise<void> {
@@ -76,23 +98,63 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
       this.state = ManagedRuntimeState.downloading(value.percent);
       onProgress(value);
     };
-    await this.downloader.download(progress, signal);
-    this.state = ManagedRuntimeState.verifying();
+    try {
+      await this.downloader.download(progress, signal);
+      this.state = ManagedRuntimeState.verifying();
+    } catch (error) {
+      await this.refreshInstalledState();
+      this.diagnostics.append(
+        "stderr",
+        `[download] ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   async verify(signal?: AbortSignal): Promise<void> {
     this.state = ManagedRuntimeState.verifying();
-    await this.downloader.verifyInstalledBinary(signal);
-    this.state = ManagedRuntimeState.stopped("requested");
+    try {
+      await this.downloader.verifyInstalledBinary(signal);
+      this.state = ManagedRuntimeState.stopped("requested");
+    } catch (error) {
+      await this.refreshInstalledState();
+      this.diagnostics.append(
+        "stderr",
+        `[verify] ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   async start(signal?: AbortSignal): Promise<RuntimeConnection> {
     const binary = await this.locator.resolveBinaryPath();
     if (!binary) {
-      throw new Error("Runtime binary is missing");
+      this.state = ManagedRuntimeState.missing();
+      throw new RuntimeNotInstalledError();
     }
 
     const dataDir = this.locator.dataRootPath();
+    this.diagnostics.append("stdout", `[start] binary=${binary} dataDir=${dataDir}`);
+
+    // Only force-stop a live tracked child (avoids no-op noise; restart path still clears it).
+    if (this.process.isRunning()) {
+      await this.process.stop("force", signal).catch(() => undefined);
+    }
+    const orphans = await killOrphanRuntimeServes(binary, dataDir, (stream, chunk) => {
+      this.diagnostics.append(stream, chunk);
+    });
+    if (orphans > 0) {
+      this.diagnostics.append("stdout", `[cleanup] cleared ${orphans} orphan runtime process(es)`);
+    }
+
+    const spawnEnv = await buildRuntimeSpawnEnv(dataDir);
+    if (spawnEnv.PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD === "true") {
+      this.diagnostics.append(
+        "stdout",
+        "[start] embedding cache incomplete — enabling PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD",
+      );
+    }
+
     let lastError: Error | undefined;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       throwIfAborted(signal);
@@ -105,6 +167,7 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
           port,
           dataDir,
           sessionToken,
+          env: spawnEnv,
           signal,
         });
         this.state = ManagedRuntimeState.starting();
@@ -119,6 +182,7 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
         return connection;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        this.diagnostics.append("stderr", `[start] attempt ${attempt + 1}: ${lastError.message}`);
         if (isAbortError(error)) {
           throw error;
         }
@@ -132,7 +196,9 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
       }
     }
     this.state = ManagedRuntimeState.stopped("startFailed");
-    throw lastError ?? new Error("Failed to start runtime");
+    throw new RuntimeStartFailedError(
+      lastError?.message ? `Prometheus runtime failed to start: ${lastError.message}` : undefined,
+    );
   }
 
   async stop(mode: RuntimeStopMode = "graceful", signal?: AbortSignal): Promise<void> {

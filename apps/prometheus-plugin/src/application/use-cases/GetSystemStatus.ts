@@ -60,6 +60,7 @@ export class GetSystemStatus {
 
     const settings = await this.settings.get();
     const processState = this.runtime.getProcessState();
+    const located = await this.runtime.locate();
     let service: RuntimeServiceStatus | null = null;
     let incompatibility: RuntimeVersionIncompatibleError | null = null;
     try {
@@ -87,7 +88,7 @@ export class GetSystemStatus {
             incompatibility.installedVersion,
             incompatibility.requiredRange,
           )
-        : processState,
+        : resolveDisplayedRuntimeState(processState, located),
       ollama,
       selectedModel,
     });
@@ -135,6 +136,29 @@ export class GetSystemStatus {
       fetchedAt,
     };
   }
+}
+
+function resolveDisplayedRuntimeState(
+  processState: ReturnType<RuntimeGateway["getProcessState"]>,
+  located: Awaited<ReturnType<RuntimeGateway["locate"]>>,
+): ReturnType<RuntimeGateway["getProcessState"]> {
+  if (
+    processState.kind === "running" ||
+    processState.kind === "starting" ||
+    processState.kind === "downloading" ||
+    processState.kind === "verifying" ||
+    processState.kind === "incompatible"
+  ) {
+    return processState;
+  }
+  if (located.kind === "missing") {
+    return ManagedRuntimeState.missing();
+  }
+  if (processState.kind === "stopped") {
+    return processState;
+  }
+  // Binary is on disk but in-memory state still says missing after reload.
+  return ManagedRuntimeState.stopped("requested");
 }
 
 function mapIndexStatus(

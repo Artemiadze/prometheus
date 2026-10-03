@@ -30,10 +30,14 @@ export type RuntimeHttpRequest<T> = {
   readonly body?: unknown;
   readonly signal?: AbortSignal | undefined;
   readonly protected?: boolean;
+  /** Override the client default request timeout for this call. */
+  readonly timeoutMs?: number;
   readonly decode: RuntimeResponseDecoder<T>;
 };
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+/** Local LLM chat on CPU/iGPU routinely exceeds the short default timeout. */
+export const CHAT_REQUEST_TIMEOUT_MS = 120_000;
 
 /**
  * Fetch transport for the loopback runtime API.
@@ -86,10 +90,11 @@ export class RuntimeHttpClient {
       throw abortError();
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
+    const timeoutMs = request.timeoutMs ?? this.timeoutMs;
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, this.timeoutMs);
+    }, timeoutMs);
 
     try {
       const init: RequestInit = {
@@ -117,7 +122,7 @@ export class RuntimeHttpClient {
         throw abortError();
       }
       if (timedOut) {
-        throw new RuntimeRequestTimeoutError(this.timeoutMs);
+        throw new RuntimeRequestTimeoutError(timeoutMs);
       }
       if (isPrometheusPluginError(error)) {
         throw error;

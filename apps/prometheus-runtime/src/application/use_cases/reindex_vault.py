@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from application.dto.index_fingerprint import IndexFingerprint
 from application.dto.indexing import IndexingProgress, ReindexResult
 from application.dto.job import Job, JobKind, JobStatus
+from application.errors import DocumentTooLargeError, PathIgnoredError
 from application.ports.cancellation import CancellationToken
 from application.ports.index_rebuild import IndexRebuildWorkspace
 from application.ports.job_store import JobStore
@@ -15,6 +17,9 @@ from application.ports.progress_reporter import ProgressReporter
 from domain.entities.document import Document
 from domain.errors import PrometheusError
 from domain.value_objects.vault_id import VaultId
+
+_LOGGER = logging.getLogger(__name__)
+_SKIPPABLE_DOCUMENT_ERRORS = (DocumentTooLargeError, PathIgnoredError)
 
 
 class ReindexVault:
@@ -71,7 +76,15 @@ class ReindexVault:
                     )
                     self._jobs.update(job)
                     return ReindexResult(job, processed_documents, processed_chunks, cancelled=True)
-                result = await session.index_document.execute(document, force=True)
+                try:
+                    result = await session.index_document.execute(document, force=True)
+                except _SKIPPABLE_DOCUMENT_ERRORS as rejected:
+                    # One unindexable note must not fail the whole vault rebuild.
+                    _LOGGER.warning(
+                        "reindex skipped document %s: %s", document.id.value, rejected.code
+                    )
+                    processed_documents += 1
+                    continue
                 processed_documents += 1
                 processed_chunks += result.created_chunks
                 progress = IndexingProgress(

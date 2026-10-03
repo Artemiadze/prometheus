@@ -159,6 +159,21 @@ describe("RuntimeHttpClient", () => {
       .catch((caught: unknown) => caught);
     await vi.advanceTimersByTimeAsync(50);
     expect(await timedOut).toBeInstanceOf(RuntimeRequestTimeoutError);
+    expect(await timedOut).toMatchObject({ timeoutMs: 50 });
+
+    const longTimedOut = client
+      .request("/models", { timeoutMs: 200, decode: () => true })
+      .catch((caught: unknown) => caught);
+    await vi.advanceTimersByTimeAsync(199);
+    // Still pending before per-request timeout.
+    let settled = false;
+    void longTimedOut.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await longTimedOut).toMatchObject({ timeoutMs: 200 });
 
     const controller = new AbortController();
     const cancelled = client

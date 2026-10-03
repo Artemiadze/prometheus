@@ -9,6 +9,8 @@ import type { SettingsRepository } from "../ports/SettingsRepository";
 import type { RuntimeSessionRegistry } from "../services/RuntimeSessionRegistry";
 import {
   isAbortError,
+  RuntimeNotInstalledError,
+  RuntimeStartFailedError,
   RuntimeStartTimeoutError,
   RuntimeVersionIncompatibleError,
 } from "../../domain/errors";
@@ -92,14 +94,39 @@ export class StartRuntime {
       };
     }
 
-    await this.runtime.verify(signal);
+    try {
+      await this.runtime.verify(signal);
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
+      throw error;
+    }
 
-    const connection = await this.runtime.start(signal);
+    let connection: RuntimeConnection;
+    try {
+      connection = await this.runtime.start(signal);
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
+      if (error instanceof RuntimeStartFailedError || error instanceof RuntimeNotInstalledError) {
+        throw error;
+      }
+      throw new RuntimeStartFailedError(
+        error instanceof Error
+          ? `Prometheus runtime failed to start: ${error.message}`
+          : "Prometheus runtime failed to start",
+      );
+    }
     this.sessions.set({ connection, ownership: "owned" });
 
     let health: HealthInfo;
     try {
-      health = await this.waitForHealth(signal, options);
+      health = await this.waitForHealth(signal, {
+        ...options,
+        healthTimeoutMs: options.healthTimeoutMs ?? 30_000,
+      });
     } catch (error) {
       if (error instanceof RuntimeVersionIncompatibleError) {
         return {

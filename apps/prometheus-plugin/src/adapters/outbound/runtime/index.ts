@@ -5,9 +5,11 @@ export {
   managedBinaryPath,
   managedBinDirectory,
   resolveDataRoot,
+  resolveEffectiveHomedir,
   type PlatformPathsInput,
 } from "./paths";
-export { RuntimeDownloader, parseChecksumFile, type FetchFn } from "./RuntimeDownloader";
+export { RuntimeDownloader, parseChecksumFile, isDevSkipRuntimeVerify, type FetchFn } from "./RuntimeDownloader";
+export { nodeHttpFetch } from "./nodeHttpFetch";
 export { RuntimeLocator, type RuntimeLocatorDeps } from "./RuntimeLocator";
 export { RuntimeProcess, type RuntimeExitHandler } from "./RuntimeProcess";
 export {
@@ -15,6 +17,7 @@ export {
   RUNTIME_RELEASE_VERSION,
   detectReleaseTarget,
   releaseFileName,
+  resolveReleaseBaseUrl,
   resolveReleaseDescriptor,
   type ReleaseTarget,
   type RuntimeReleaseDescriptor,
