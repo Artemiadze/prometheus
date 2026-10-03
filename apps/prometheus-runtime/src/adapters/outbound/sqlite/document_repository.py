@@ -94,8 +94,9 @@ class SqliteDocumentRepository:
             """
             INSERT INTO chunks (
                 chunk_id, document_id, chunk_index, heading_path,
-                char_start, char_end, token_count, content_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                char_start, char_end, token_count, content_hash,
+                heading_line, heading_occurrence
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -107,6 +108,8 @@ class SqliteDocumentRepository:
                     chunk.char_range.end,
                     chunk.token_count,
                     chunk.content_hash,
+                    chunk.heading_line,
+                    chunk.heading_occurrence,
                 )
                 for chunk in chunks
             ],

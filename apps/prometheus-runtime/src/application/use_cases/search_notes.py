@@ -25,6 +25,8 @@ class SearchNotes:
                 heading=item.hit.chunk.heading,
                 text=item.hit.chunk.text,
                 score=item.hit.score,
+                heading_line=item.hit.chunk.heading_line,
+                heading_occurrence=item.hit.chunk.heading_occurrence,
             )
             for item in retrieved
         )

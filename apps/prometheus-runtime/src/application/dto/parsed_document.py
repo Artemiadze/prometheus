@@ -40,6 +40,9 @@ class ParsedSection:
     heading_path: tuple[str, ...]
     level: int
     blocks: tuple[ParsedBlock, ...]
+    section_ordinal: int = 0
+    heading_line: int | None = None
+    heading_occurrence: int | None = None
 
     def __post_init__(self) -> None:
         headings = tuple(self.heading_path)
@@ -48,9 +51,18 @@ class ParsedSection:
         object.__setattr__(self, "blocks", blocks)
         if not 0 <= self.level <= 6 or any(not heading.strip() for heading in headings):
             raise InvariantViolationError()
+        if self.section_ordinal < 0:
+            raise InvariantViolationError()
         if self.level == 0 and headings:
             raise InvariantViolationError()
         if self.level > 0 and not headings:
+            raise InvariantViolationError()
+        if headings:
+            if self.heading_line is None or self.heading_occurrence is None:
+                raise InvariantViolationError()
+            if self.heading_line < 0 or self.heading_occurrence < 1:
+                raise InvariantViolationError()
+        elif self.heading_line is not None or self.heading_occurrence is not None:
             raise InvariantViolationError()
 
 

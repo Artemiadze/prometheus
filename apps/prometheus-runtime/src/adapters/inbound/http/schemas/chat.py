@@ -17,6 +17,9 @@ class ChatRequest(ApiSchema):
 class SourceResponse(ApiSchema):
     path: str
     heading: str | None
+    link: str
+    heading_line: int | None = None
+    heading_occurrence: int | None = None
 
 
 class ChatResponse(ApiSchema):
@@ -29,7 +32,13 @@ class ChatResponse(ApiSchema):
         return cls(
             answer=answer.text,
             sources=tuple(
-                SourceResponse(path=source.relative_path.value, heading=source.heading)
+                SourceResponse(
+                    path=source.relative_path.value,
+                    heading=source.heading,
+                    link=source.link,
+                    heading_line=source.heading_line,
+                    heading_occurrence=source.heading_occurrence,
+                )
                 for source in answer.sources
             ),
             insufficient_context=answer.insufficient_context,
@@ -59,6 +68,12 @@ class ChatStreamErrorEvent(ApiSchema):
 
 def source_responses(sources: tuple[SourceReference, ...]) -> tuple[SourceResponse, ...]:
     return tuple(
-        SourceResponse(path=source.relative_path.value, heading=source.heading)
+        SourceResponse(
+            path=source.relative_path.value,
+            heading=source.heading,
+            link=source.link,
+            heading_line=source.heading_line,
+            heading_occurrence=source.heading_occurrence,
+        )
         for source in sources
     )

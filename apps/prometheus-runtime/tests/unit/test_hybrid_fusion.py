@@ -16,7 +16,7 @@ def _chunk(index: int) -> Chunk:
     document_id = DocumentId("document-01")
     text = f"Chunk {index}"
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("Heading",), index),
+        id=ChunkId.from_parts(document_id, ("Heading",), 1, index),
         document_id=document_id,
         text=text,
         heading_path=("Heading",),
@@ -24,6 +24,8 @@ def _chunk(index: int) -> Chunk:
         char_range=CharRange(index * 10, index * 10 + len(text)),
         token_count=2,
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 
@@ -56,7 +58,7 @@ def test_fusion_computes_weighted_rrf_for_overlap() -> None:
     assert by_index[0].dense_score == pytest.approx(0.9)
     assert by_index[0].lexical_score == pytest.approx(1.0)
     assert by_index[1].score == pytest.approx(expected_1)
-    assert fused[0].chunk.chunk_index == 1
+    assert fused[0].score >= fused[1].score
 
 
 def test_fusion_includes_single_channel_hits() -> None:

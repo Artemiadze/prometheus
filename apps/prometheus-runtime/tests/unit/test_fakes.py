@@ -59,7 +59,7 @@ def _document() -> Document:
 def _chunk(index: int, text: str) -> Chunk:
     document_id = DocumentId("document-01")
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("Testing",), index),
+        id=ChunkId.from_parts(document_id, ("Testing",), 1, index),
         document_id=document_id,
         text=text,
         heading_path=("Testing",),
@@ -67,6 +67,8 @@ def _chunk(index: int, text: str) -> Chunk:
         char_range=CharRange(index * 100, index * 100 + len(text)),
         token_count=max(1, len(text.split())),
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

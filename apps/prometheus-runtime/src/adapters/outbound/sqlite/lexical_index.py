@@ -130,6 +130,8 @@ class SqliteLexicalIndex:
                 c.char_end,
                 c.token_count,
                 c.content_hash,
+                c.heading_line,
+                c.heading_occurrence,
                 bm25(chunks_fts, 1.0, 0.5) AS rank
             FROM chunks_fts
             INNER JOIN chunks AS c ON c.chunk_id = chunks_fts.chunk_id
@@ -154,6 +156,8 @@ class SqliteLexicalIndex:
                 char_range=CharRange(row["char_start"], row["char_end"]),
                 token_count=row["token_count"],
                 content_hash=row["content_hash"],
+                heading_line=row["heading_line"],
+                heading_occurrence=row["heading_occurrence"],
             )
             lexical_score = float(-row["rank"])
             hits.append(

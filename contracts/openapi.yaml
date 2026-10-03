@@ -462,6 +462,32 @@
             ],
             "title": "Heading"
           },
+          "heading_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Line"
+          },
+          "heading_occurrence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Occurrence"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
           "path": {
             "title": "Path",
             "type": "string"
@@ -479,7 +505,8 @@
           "path",
           "heading",
           "text",
-          "score"
+          "score",
+          "link"
         ],
         "title": "SearchResultResponse",
         "type": "object"
@@ -537,6 +564,32 @@
             ],
             "title": "Heading"
           },
+          "heading_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Line"
+          },
+          "heading_occurrence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Occurrence"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
           "path": {
             "title": "Path",
             "type": "string"
@@ -544,7 +597,8 @@
         },
         "required": [
           "path",
-          "heading"
+          "heading",
+          "link"
         ],
         "title": "SourceResponse",
         "type": "object"

@@ -36,7 +36,9 @@ class ObsidianMarkdownParser:
         lines: list[tuple[int, int, str]],
     ) -> list[ParsedSection]:
         heading_stack: list[tuple[int, str]] = []
-        current = _SectionBuilder((), 0)
+        heading_counts: dict[str, int] = {}
+        section_ordinal = 0
+        current = _SectionBuilder((), 0, section_ordinal=section_ordinal)
         sections: list[ParsedSection] = []
 
         fence: tuple[str, int] | None = None
@@ -81,7 +83,15 @@ class ObsidianMarkdownParser:
                 while heading_stack and heading_stack[-1][0] >= level:
                     heading_stack.pop()
                 heading_stack.append((level, title))
-                current = _SectionBuilder(tuple(title for _, title in heading_stack), level)
+                heading_counts[title] = heading_counts.get(title, 0) + 1
+                section_ordinal += 1
+                current = _SectionBuilder(
+                    tuple(title for _, title in heading_stack),
+                    level,
+                    section_ordinal=section_ordinal,
+                    heading_line=_line_number(source, start),
+                    heading_occurrence=heading_counts[title],
+                )
                 index += 1
                 continue
 
@@ -104,17 +114,46 @@ class ObsidianMarkdownParser:
 
 
 class _SectionBuilder:
-    __slots__ = ("blocks", "heading_path", "level")
+    __slots__ = (
+        "blocks",
+        "heading_line",
+        "heading_occurrence",
+        "heading_path",
+        "level",
+        "section_ordinal",
+    )
 
-    def __init__(self, heading_path: tuple[str, ...], level: int) -> None:
+    def __init__(
+        self,
+        heading_path: tuple[str, ...],
+        level: int,
+        *,
+        section_ordinal: int,
+        heading_line: int | None = None,
+        heading_occurrence: int | None = None,
+    ) -> None:
         self.heading_path = heading_path
         self.level = level
+        self.section_ordinal = section_ordinal
+        self.heading_line = heading_line
+        self.heading_occurrence = heading_occurrence
         self.blocks: list[ParsedBlock] = []
 
     def to_section(self) -> ParsedSection | None:
         if not self.blocks:
             return None
-        return ParsedSection(self.heading_path, self.level, tuple(self.blocks))
+        return ParsedSection(
+            self.heading_path,
+            self.level,
+            tuple(self.blocks),
+            section_ordinal=self.section_ordinal,
+            heading_line=self.heading_line,
+            heading_occurrence=self.heading_occurrence,
+        )
+
+
+def _line_number(source: str, char_offset: int) -> int:
+    return source[:char_offset].count("\n")
 
 
 def _line_spans(source: str, start: int, end: int) -> list[tuple[int, int, str]]:

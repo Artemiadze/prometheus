@@ -38,11 +38,11 @@ def test_document_id_can_be_supplied_as_stable_opaque_id() -> None:
 def test_chunk_id_is_deterministic() -> None:
     document_id = DocumentId.from_relative_path("Notes/Database.md")
 
-    first = ChunkId.from_parts(document_id, ("Database", "Indexes"), 2)
-    second = ChunkId.from_parts(document_id, ("Database", "Indexes"), 2)
+    first = ChunkId.from_parts(document_id, ("Database", "Indexes"), 1, 2)
+    second = ChunkId.from_parts(document_id, ("Database", "Indexes"), 1, 2)
 
     assert first == second
-    assert first != ChunkId.from_parts(document_id, ("Database", "Indexes"), 3)
+    assert first != ChunkId.from_parts(document_id, ("Database", "Indexes"), 1, 3)
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_chunk_id_is_deterministic() -> None:
         lambda: VaultId("SHORT"),
         lambda: DocumentId("../document"),
         lambda: ChunkId("bad/id"),
-        lambda: ChunkId.from_parts(DocumentId("document-01"), (), -1),
+        lambda: ChunkId.from_parts(DocumentId("document-01"), (), 0, -1),
     ],
 )
 def test_invalid_identifiers_raise_domain_error(factory: Callable[[], object]) -> None:

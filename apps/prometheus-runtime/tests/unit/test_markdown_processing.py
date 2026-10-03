@@ -142,6 +142,25 @@ def test_chunk_ids_are_stable_per_section_index() -> None:
     assert b_chunk.id == next(chunk for chunk in first if chunk.heading_path == ("B",)).id
 
 
+def test_duplicate_heading_sections_get_distinct_chunk_ids_and_occurrences() -> None:
+    content = "## Notes\n\nfirst body\n\n## Notes\n\nsecond body\n"
+    parsed = ObsidianMarkdownParser().parse(_document(content))
+    notes_sections = [section for section in parsed.sections if section.heading_path == ("Notes",)]
+    assert len(notes_sections) == 2
+    assert notes_sections[0].heading_occurrence == 1
+    assert notes_sections[1].heading_occurrence == 2
+    assert notes_sections[0].heading_line != notes_sections[1].heading_line
+    chunker = HeadingAwareChunker(
+        max_tokens=100,
+        overlap_tokens=0,
+        token_counter=HeuristicTokenCounter(),
+    )
+    chunks = chunker.chunk(parsed)
+    assert len(chunks) == 2
+    assert chunks[0].id != chunks[1].id
+    assert [chunk.chunk_index for chunk in chunks] == [0, 1]
+
+
 def test_chunks_do_not_reuse_chunk_index_within_section() -> None:
     long_body = "word " * 400
     content = f"# Section\n\n{long_body}"
@@ -160,6 +179,6 @@ def test_chunks_do_not_reuse_chunk_index_within_section() -> None:
 
 def test_stable_chunk_id_from_parts() -> None:
     document_id = DocumentId("document-01")
-    expected = ChunkId.from_parts(document_id, ("Heading",), 0)
-    again = ChunkId.from_parts(document_id, ("Heading",), 0)
+    expected = ChunkId.from_parts(document_id, ("Heading",), 1, 0)
+    again = ChunkId.from_parts(document_id, ("Heading",), 1, 0)
     assert expected == again

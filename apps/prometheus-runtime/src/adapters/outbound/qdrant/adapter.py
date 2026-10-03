@@ -303,6 +303,8 @@ class QdrantLocalVectorIndex:
             "folder_ancestors": ancestors,
             "heading": chunk.heading,
             "heading_path": list(chunk.heading_path),
+            "heading_line": chunk.heading_line,
+            "heading_occurrence": chunk.heading_occurrence,
             "chunk_id": chunk.id.value,
             "chunk_index": chunk.chunk_index,
             "content": chunk.text,
@@ -356,6 +358,12 @@ def _chunk_from_payload(payload: Mapping[str, Any]) -> Chunk:
     heading_path_value = _required(payload, "heading_path", list)
     if not all(isinstance(heading, str) for heading in heading_path_value):
         raise ValueError("invalid payload field: heading_path")
+    heading_line = payload.get("heading_line")
+    heading_occurrence = payload.get("heading_occurrence")
+    if heading_line is not None and not isinstance(heading_line, int):
+        raise ValueError("invalid payload field: heading_line")
+    if heading_occurrence is not None and not isinstance(heading_occurrence, int):
+        raise ValueError("invalid payload field: heading_occurrence")
     return Chunk(
         id=ChunkId(_required(payload, "chunk_id", str)),
         document_id=document_id,
@@ -368,4 +376,6 @@ def _chunk_from_payload(payload: Mapping[str, Any]) -> Chunk:
         ),
         token_count=_required(payload, "token_count", int),
         content_hash=_required(payload, "content_hash", str),
+        heading_line=heading_line,
+        heading_occurrence=heading_occurrence,
     )

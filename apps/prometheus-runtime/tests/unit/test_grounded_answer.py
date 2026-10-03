@@ -30,9 +30,24 @@ def test_answer_text_is_always_required() -> None:
 
 
 def test_sources_are_deduplicated_by_path_and_heading_in_order() -> None:
-    first = SourceReference.create("Docker/Optimization.md", "Multi-stage builds")
-    duplicate = SourceReference.create("Docker/Optimization.md", "Multi-stage builds")
-    second = SourceReference.create("Backend/Containers.md", "Images")
+    first = SourceReference.create(
+        "Docker/Optimization.md",
+        "Multi-stage builds",
+        heading_line=1,
+        heading_occurrence=1,
+    )
+    duplicate = SourceReference.create(
+        "Docker/Optimization.md",
+        "Multi-stage builds",
+        heading_line=1,
+        heading_occurrence=1,
+    )
+    second = SourceReference.create(
+        "Backend/Containers.md",
+        "Images",
+        heading_line=3,
+        heading_occurrence=1,
+    )
 
     answer = GroundedAnswer.create(
         text="Use a multi-stage build.",

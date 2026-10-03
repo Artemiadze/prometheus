@@ -52,7 +52,14 @@ def test_score_answer_citation_correctness() -> None:
     )
     answer = GroundedAnswer.create(
         text="marker answer",
-        sources=(SourceReference(RelativePath("notes/a.md"), "Facts"),),
+        sources=(
+            SourceReference.create(
+                RelativePath("notes/a.md"),
+                "Facts",
+                heading_line=0,
+                heading_occurrence=1,
+            ),
+        ),
         used_chunk_ids=(),
         insufficient_context=False,
     )

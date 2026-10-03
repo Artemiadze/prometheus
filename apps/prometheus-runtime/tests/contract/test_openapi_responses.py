@@ -65,13 +65,22 @@ def _client() -> TestClient:
                     "Heading",
                     "fragment",
                     0.9,
+                    heading_line=2,
+                    heading_occurrence=1,
                 ),
             )
         ),
         answer_question=_AsyncValue(
             GroundedAnswer.create(
                 text="grounded",
-                sources=(SourceReference(RelativePath("Notes/One.md"), "Heading"),),
+                sources=(
+                    SourceReference.create(
+                        RelativePath("Notes/One.md"),
+                        "Heading",
+                        heading_line=2,
+                        heading_occurrence=1,
+                    ),
+                ),
                 used_chunk_ids=(ChunkId("chunk-000001"),),
                 insufficient_context=False,
             )

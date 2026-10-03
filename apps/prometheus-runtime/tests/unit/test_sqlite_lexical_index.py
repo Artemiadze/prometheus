@@ -33,7 +33,7 @@ def _document(*, path: str = "Notes/security.md", content: str = "Body") -> Docu
 
 def _chunk(document: Document, text: str, *, index: int = 0) -> Chunk:
     return Chunk(
-        id=ChunkId.from_parts(document.id, ("Section",), index),
+        id=ChunkId.from_parts(document.id, ("Section",), 1, index),
         document_id=document.id,
         text=text,
         heading_path=("Section",),
@@ -41,6 +41,8 @@ def _chunk(document: Document, text: str, *, index: int = 0) -> Chunk:
         char_range=CharRange(0, len(text)),
         token_count=max(1, len(text.split())),
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

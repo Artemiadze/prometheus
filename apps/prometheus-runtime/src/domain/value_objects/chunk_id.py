@@ -29,12 +29,13 @@ class ChunkId:
         cls,
         document_id: DocumentId,
         heading_path: Sequence[str],
+        section_ordinal: int,
         chunk_index: int,
     ) -> ChunkId:
-        if chunk_index < 0:
+        if section_ordinal < 0 or chunk_index < 0:
             raise InvalidIdentifierError()
         identity = json.dumps(
-            [document_id.value, *heading_path, chunk_index],
+            [document_id.value, *heading_path, section_ordinal, chunk_index],
             ensure_ascii=False,
             separators=(",", ":"),
         )

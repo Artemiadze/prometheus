@@ -57,7 +57,7 @@ def _chunk() -> Chunk:
     document_id = DocumentId("document-01")
     text = "cache dir note"
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("Note",), 0),
+        id=ChunkId.from_parts(document_id, ("Note",), 1, 0),
         document_id=document_id,
         text=text,
         heading_path=("Note",),
@@ -65,6 +65,8 @@ def _chunk() -> Chunk:
         char_range=CharRange(0, len(text)),
         token_count=3,
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

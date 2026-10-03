@@ -14,7 +14,7 @@ from fakes.fake_token_counter import FakeTokenCounter
 
 def _chunk(document_id: DocumentId, index: int, text: str, heading: str) -> Chunk:
     return Chunk(
-        id=ChunkId.from_parts(document_id, (heading,), index),
+        id=ChunkId.from_parts(document_id, (heading,), 1, index),
         document_id=document_id,
         text=text,
         heading_path=(heading,),
@@ -22,6 +22,8 @@ def _chunk(document_id: DocumentId, index: int, text: str, heading: str) -> Chun
         char_range=CharRange(index * 100, index * 100 + len(text)),
         token_count=len(text.split()),
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 
@@ -43,7 +45,14 @@ def test_prompt_contains_grounding_instruction_numbered_fragments_and_sources() 
     assert "[1] Source: Docker/Optimization.md#Images" in prompt.text
     assert chunk.text in prompt.text
     assert prompt.included_chunks == (chunk,)
-    assert prompt.sources == (SourceReference.create("Docker/Optimization.md", "Images"),)
+    assert prompt.sources == (
+        SourceReference.create(
+            "Docker/Optimization.md",
+            "Images",
+            heading_line=0,
+            heading_occurrence=1,
+        ),
+    )
 
 
 def test_chunks_that_do_not_fit_are_excluded_from_prompt_and_sources() -> None:
@@ -77,7 +86,14 @@ def test_chunks_that_do_not_fit_are_excluded_from_prompt_and_sources() -> None:
 
     assert prompt.token_count <= exact_context_size - 32
     assert prompt.included_chunks == (first,)
-    assert prompt.sources == (SourceReference.create("Notes/First.md", "First"),)
+    assert prompt.sources == (
+        SourceReference.create(
+            "Notes/First.md",
+            "First",
+            heading_line=0,
+            heading_occurrence=1,
+        ),
+    )
     assert second.text not in prompt.text
     assert "Notes/Second.md" not in prompt.text
 

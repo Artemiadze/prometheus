@@ -21,6 +21,7 @@ class FakeChunker:
                         id=ChunkId.from_parts(
                             parsed_document.document_id,
                             section.heading_path,
+                            section.section_ordinal,
                             index,
                         ),
                         document_id=parsed_document.document_id,
@@ -30,6 +31,8 @@ class FakeChunker:
                         char_range=block.char_range,
                         token_count=max(1, len(block.text.split())),
                         content_hash=compute_content_hash(block.text),
+                        heading_line=section.heading_line,
+                        heading_occurrence=section.heading_occurrence,
                     )
                 )
         return tuple(chunks)

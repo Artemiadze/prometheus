@@ -61,7 +61,12 @@ class GroundingPolicy:
                 path = document_paths[hit.chunk.document_id]
             except KeyError as exc:
                 raise InvariantViolationError() from exc
-            source = SourceReference(path, hit.chunk.heading)
+            source = SourceReference.create(
+                path,
+                hit.chunk.heading,
+                heading_line=hit.chunk.heading_line,
+                heading_occurrence=hit.chunk.heading_occurrence,
+            )
             if source not in sources:
                 sources.append(source)
         return tuple(sources)

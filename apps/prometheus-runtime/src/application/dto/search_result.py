@@ -15,3 +15,12 @@ class SearchResult:
     heading: str | None
     text: str
     score: float
+    heading_line: int | None = None
+    heading_occurrence: int | None = None
+
+    @property
+    def link(self) -> str:
+        base = self.relative_path.value
+        if self.heading is None:
+            return base
+        return f"{base}#{self.heading}"

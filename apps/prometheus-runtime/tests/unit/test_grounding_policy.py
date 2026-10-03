@@ -18,7 +18,7 @@ def _hit(index: int, score: float, document_id: DocumentId | None = None) -> Sea
     owner = document_id or DocumentId("document-01")
     text = f"Relevant chunk {index}"
     chunk = Chunk(
-        id=ChunkId.from_parts(owner, ("Topic",), index),
+        id=ChunkId.from_parts(owner, ("Topic",), 1, index),
         document_id=owner,
         text=text,
         heading_path=("Topic",),
@@ -26,6 +26,8 @@ def _hit(index: int, score: float, document_id: DocumentId | None = None) -> Sea
         char_range=CharRange(index * 100, index * 100 + len(text)),
         token_count=3,
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
     return SearchHit(chunk, score)
 

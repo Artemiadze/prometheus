@@ -452,6 +452,11 @@ Reranker включается `PROMETHEUS_RERANKER_ENABLED=true` (модель
 Перед rerank retrieval поднимает до `reranker_candidate_limit` (default 20)
 кандидатов, затем cross-encoder пересортировывает их в финальный `limit`.
 
+Заголовки в индексе несут `heading_line` (0-based строка в заметке) и
+`heading_occurrence` (номер среди заголовков с тем же текстом). API возвращает
+Obsidian-ссылку `link` (`path#heading`) и эти поля в search/chat/stream.
+Parser/chunker/payload schema version = 3; смена версии требует reindex.
+
 Игнорируемые папки Vault хранятся в SQLite (`vault_ignored_folders`), задаются
 плагином через `GET/PUT /v1/vaults/{vaultId}/settings/ignored-folders`.
 `.obsidian/` исключается всегда. Такие пути не индексируются; при поиске

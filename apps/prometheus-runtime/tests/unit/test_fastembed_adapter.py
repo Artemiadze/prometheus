@@ -77,7 +77,7 @@ def _chunk(index: int, text: str | None = None) -> Chunk:
     document_id = DocumentId("document-01")
     content = text or f"private chunk {index}"
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("Testing",), index),
+        id=ChunkId.from_parts(document_id, ("Testing",), 1, index),
         document_id=document_id,
         text=content,
         heading_path=("Testing",),
@@ -85,6 +85,8 @@ def _chunk(index: int, text: str | None = None) -> Chunk:
         char_range=CharRange(index * 100, index * 100 + len(content)),
         token_count=max(1, len(content.split())),
         content_hash=compute_content_hash(content),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

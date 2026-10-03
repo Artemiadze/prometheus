@@ -194,9 +194,7 @@ def test_chat_stream_returns_ndjson_token_sources_done_sequence() -> None:
 
 def test_chat_stream_emits_error_event_when_llm_fails_mid_stream() -> None:
     class _FailingStream:
-        async def stream(
-            self, *_: object, **__: object
-        ) -> AsyncIterator[AnswerTokenEvent]:
+        async def stream(self, *_: object, **__: object) -> AsyncIterator[AnswerTokenEvent]:
             yield AnswerTokenEvent("partial")
             raise OllamaUnavailableError()
 
@@ -227,7 +225,15 @@ def test_search_and_chat_follow_public_response_contracts() -> None:
 
     assert search.json() == {
         "results": [
-            {"path": "Notes/One.md", "heading": "Heading", "text": "fragment", "score": 0.9}
+            {
+                "path": "Notes/One.md",
+                "heading": "Heading",
+                "text": "fragment",
+                "score": 0.9,
+                "link": "Notes/One.md#Heading",
+                "heading_line": None,
+                "heading_occurrence": None,
+            }
         ]
     }
     assert chat.json() == {"answer": "grounded", "sources": [], "insufficient_context": True}

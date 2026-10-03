@@ -14,7 +14,7 @@ pytestmark = pytest.mark.domain
 def _chunk(text: str = "Index details") -> Chunk:
     document_id = DocumentId("document-01")
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("PostgreSQL", "Indexes"), 0),
+        id=ChunkId.from_parts(document_id, ("PostgreSQL", "Indexes"), 1, 0),
         document_id=document_id,
         text=text,
         heading_path=("PostgreSQL", "Indexes"),
@@ -22,6 +22,8 @@ def _chunk(text: str = "Index details") -> Chunk:
         char_range=CharRange(13, 13 + len(text)),
         token_count=2,
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

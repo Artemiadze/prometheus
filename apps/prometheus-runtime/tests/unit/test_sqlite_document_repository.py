@@ -29,7 +29,7 @@ def _document(identifier: str = "document-01", path: str = "Notes/One.md") -> Do
 
 def _chunk(document: Document, index: int, text: str) -> Chunk:
     return Chunk(
-        id=ChunkId.from_parts(document.id, ("Section",), index),
+        id=ChunkId.from_parts(document.id, ("Section",), 1, index),
         document_id=document.id,
         text=text,
         heading_path=("Section",),
@@ -37,6 +37,8 @@ def _chunk(document: Document, index: int, text: str) -> Chunk:
         char_range=CharRange(index * 10, index * 10 + len(text)),
         token_count=max(1, len(text.split())),
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

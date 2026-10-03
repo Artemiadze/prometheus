@@ -52,7 +52,12 @@ def build_grounded_prompt(
             path = document_paths[chunk.document_id]
         except KeyError as error:
             raise InvariantViolationError() from error
-        source = SourceReference(path, chunk.heading)
+        source = SourceReference.create(
+            path,
+            chunk.heading,
+            heading_line=chunk.heading_line,
+            heading_occurrence=chunk.heading_occurrence,
+        )
         candidate_chunks = (*included, chunk)
         candidate_sources = (*sources, source)
         candidate = _render_prompt(

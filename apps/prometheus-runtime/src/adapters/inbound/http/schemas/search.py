@@ -44,6 +44,9 @@ class SearchResultResponse(ApiSchema):
     heading: str | None
     text: str
     score: float
+    link: str
+    heading_line: int | None = None
+    heading_occurrence: int | None = None
 
     @classmethod
     def from_dto(cls, result: SearchResult) -> "SearchResultResponse":
@@ -52,6 +55,9 @@ class SearchResultResponse(ApiSchema):
             heading=result.heading,
             text=result.text,
             score=result.score,
+            link=result.link,
+            heading_line=result.heading_line,
+            heading_occurrence=result.heading_occurrence,
         )
 
 

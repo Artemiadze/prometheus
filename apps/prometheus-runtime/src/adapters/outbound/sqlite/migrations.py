@@ -83,11 +83,17 @@ _MIGRATION_4 = (
     """,
 )
 
+_MIGRATION_5 = (
+    "ALTER TABLE chunks ADD COLUMN heading_line INTEGER",
+    "ALTER TABLE chunks ADD COLUMN heading_occurrence INTEGER",
+)
+
 MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (1, _MIGRATION_1),
     (2, _MIGRATION_2),
     (3, _MIGRATION_3),
     (4, _MIGRATION_4),
+    (5, _MIGRATION_5),
 )
 
 LATEST_VERSION = MIGRATIONS[-1][0]

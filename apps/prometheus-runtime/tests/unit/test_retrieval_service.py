@@ -59,7 +59,7 @@ class RecordingLexicalIndex:
 def _chunk(*, text: str, index: int = 0) -> Chunk:
     document_id = DocumentId("document-01")
     return Chunk(
-        id=ChunkId.from_parts(document_id, ("Heading",), index),
+        id=ChunkId.from_parts(document_id, ("Heading",), 1, index),
         document_id=document_id,
         text=text,
         heading_path=("Heading",),
@@ -67,6 +67,8 @@ def _chunk(*, text: str, index: int = 0) -> Chunk:
         char_range=CharRange(0, len(text)),
         token_count=3,
         content_hash=compute_content_hash(text),
+        heading_line=0,
+        heading_occurrence=1,
     )
 
 

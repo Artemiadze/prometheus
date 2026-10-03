@@ -34,6 +34,8 @@ class Chunk:
     char_range: CharRange
     token_count: int
     content_hash: str
+    heading_line: int | None = None
+    heading_occurrence: int | None = None
 
     def __post_init__(self) -> None:
         headings = tuple(self.heading_path)
@@ -45,6 +47,13 @@ class Chunk:
             or any(not heading.strip() for heading in headings)
             or self.content_hash != compute_content_hash(self.text)
         ):
+            raise InvariantViolationError()
+        if headings:
+            if self.heading_line is None or self.heading_occurrence is None:
+                raise InvariantViolationError()
+            if self.heading_line < 0 or self.heading_occurrence < 1:
+                raise InvariantViolationError()
+        elif self.heading_line is not None or self.heading_occurrence is not None:
             raise InvariantViolationError()
 
     @property

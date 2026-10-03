@@ -35,14 +35,18 @@ class HeadingAwareChunker:
     def chunk(self, parsed_document: ParsedDocument) -> Sequence[Chunk]:
         self._tokens.clear_cache()
         chunks: list[Chunk] = []
+        chunk_index = 0
         for section in parsed_document.sections:
-            chunks.extend(self._chunk_section(parsed_document.document_id, section))
+            for piece in self._chunk_section(parsed_document.document_id, section, chunk_index):
+                chunks.append(piece)
+                chunk_index += 1
         return tuple(chunks)
 
     def _chunk_section(
         self,
         document_id: object,
         section: ParsedSection,
+        start_index: int,
     ) -> list[Chunk]:
         from domain.value_objects.document_id import DocumentId
 
@@ -64,8 +68,8 @@ class HeadingAwareChunker:
         return [
             self._make_chunk(
                 document_id=document_id,
-                heading_path=section.heading_path,
-                chunk_index=index,
+                section=section,
+                chunk_index=start_index + index,
                 text=text,
                 char_range=char_range,
             )
@@ -217,7 +221,7 @@ class HeadingAwareChunker:
         self,
         *,
         document_id: object,
-        heading_path: tuple[str, ...],
+        section: ParsedSection,
         chunk_index: int,
         text: str,
         char_range: CharRange,
@@ -229,14 +233,21 @@ class HeadingAwareChunker:
             raise ValueError("chunk text must not be blank")
         token_count = self._tokens.count(text)
         return Chunk(
-            id=ChunkId.from_parts(document_id, heading_path, chunk_index),
+            id=ChunkId.from_parts(
+                document_id,
+                section.heading_path,
+                section.section_ordinal,
+                chunk_index,
+            ),
             document_id=document_id,
             text=text,
-            heading_path=heading_path,
+            heading_path=section.heading_path,
             chunk_index=chunk_index,
             char_range=char_range,
             token_count=max(1, token_count),
             content_hash=compute_content_hash(text),
+            heading_line=section.heading_line,
+            heading_occurrence=section.heading_occurrence,
         )
 
 

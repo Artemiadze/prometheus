@@ -18,7 +18,6 @@ from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
 
 from prometheus_evals.dataset.models import EvalDataset
-from prometheus_evals.harness.chunker import EvalChunker
 from prometheus_evals.harness.embedder import HashedBagOfWordsEmbedder
 from prometheus_evals.harness.language_model import ExtractiveEvalLanguageModel
 
@@ -48,13 +47,11 @@ def build_eval_container(
     parser = ObsidianMarkdownParser()
     token_counter = HeuristicTokenCounter()
 
-    def build_chunker() -> EvalChunker:
-        return EvalChunker(
-            HeadingAwareChunker(
-                max_tokens=chunk_size,
-                overlap_tokens=chunk_overlap,
-                token_counter=token_counter,
-            )
+    def build_chunker() -> HeadingAwareChunker:
+        return HeadingAwareChunker(
+            max_tokens=chunk_size,
+            overlap_tokens=chunk_overlap,
+            token_counter=token_counter,
         )
 
     container = Container(
