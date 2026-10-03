@@ -12,6 +12,7 @@ from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
 from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.lexical_index import LexicalIndex
 from application.ports.markdown_parser import MarkdownParser
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
@@ -31,6 +32,7 @@ class IndexDocument:
         chunker: Chunker,
         embedder: Embedder,
         vector_index: VectorIndex,
+        lexical_index: LexicalIndex | None,
         document_repository: DocumentRepository,
         unit_of_work: UnitOfWork,
         index_metadata_store: IndexMetadataStore,
@@ -45,6 +47,7 @@ class IndexDocument:
         self._chunker = chunker
         self._embedder = embedder
         self._vectors = vector_index
+        self._lexical = lexical_index
         self._documents = document_repository
         self._unit_of_work = unit_of_work
         self._metadata = index_metadata_store
@@ -87,6 +90,7 @@ class IndexDocument:
             vector_index=self._vectors,
             document_repository=self._documents,
             unit_of_work=self._unit_of_work,
+            lexical_index=self._lexical,
         )
         if stored_fingerprint is None and not force:
             self._metadata.save(self._fingerprint)

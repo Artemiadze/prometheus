@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from application.ports.document_repository import DocumentRepository
+from application.ports.lexical_index import LexicalIndex
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
 from domain.entities.chunk import Chunk
@@ -29,6 +30,7 @@ def replace_document_index(
     vector_index: VectorIndex,
     document_repository: DocumentRepository,
     unit_of_work: UnitOfWork,
+    lexical_index: LexicalIndex | None = None,
 ) -> None:
     """Write vectors first, then commit the manifest; compensate on a manifest failure.
 
@@ -42,6 +44,8 @@ def replace_document_index(
     try:
         with unit_of_work:
             document_repository.save_indexed(document, chunks, indexed_at)
+            if lexical_index is not None:
+                lexical_index.replace_document(document, chunks)
             unit_of_work.commit()
     except Exception:
         vector_index.delete_by_document(document.id)
@@ -54,11 +58,14 @@ def remove_document_index(
     vector_index: VectorIndex,
     document_repository: DocumentRepository,
     unit_of_work: UnitOfWork,
+    lexical_index: LexicalIndex | None = None,
 ) -> None:
     """Delete vectors, then the manifest row; idempotent for an already-removed Document."""
 
     vector_index.delete_by_document(document_id)
     with unit_of_work:
+        if lexical_index is not None:
+            lexical_index.delete_by_document(document_id)
         document_repository.delete(document_id)
         unit_of_work.commit()
 
@@ -71,6 +78,7 @@ def relocate_document_index(
     vector_index: VectorIndex,
     document_repository: DocumentRepository,
     unit_of_work: UnitOfWork,
+    lexical_index: LexicalIndex | None = None,
 ) -> None:
     """Update vector payload first and compensate if the manifest update fails."""
 
@@ -78,6 +86,8 @@ def relocate_document_index(
     try:
         with unit_of_work:
             document_repository.update_path(document_id, new_path)
+            if lexical_index is not None:
+                lexical_index.update_document_path(document_id, new_path)
             unit_of_work.commit()
     except Exception:
         vector_index.update_document_path(document_id, old_path)

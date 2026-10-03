@@ -171,7 +171,7 @@ def test_fake_index_metadata_store_and_statistics_reader_hold_fixed_state() -> N
         embedding=EmbeddingFingerprint("fastembed", "test/model", 4),
         parser_version=1,
         chunker_version=1,
-        payload_schema_version=1,
+        payload_schema_version=2,
         chunk_size=700,
         chunk_overlap=80,
     )

@@ -34,6 +34,7 @@ from application.ports.index_rebuild import IndexRebuildWorkspace
 from application.ports.index_statistics_reader import IndexStatisticsReader
 from application.ports.job_store import JobStore
 from application.ports.language_model import LanguageModel
+from application.ports.lexical_index import LexicalIndex
 from application.ports.markdown_parser import MarkdownParser
 from application.ports.progress_reporter import ProgressReporter
 from application.ports.reranker import Reranker
@@ -80,6 +81,7 @@ class Container:
         unit_of_work_factory: Callable[[], UnitOfWork] | None = None,
         index_metadata_store_factory: Callable[[], IndexMetadataStore] | None = None,
         index_statistics_factory: Callable[[], IndexStatisticsReader] | None = None,
+        lexical_index_factory: Callable[[], LexicalIndex] | None = None,
         markdown_parser_factory: Callable[[], MarkdownParser] | None = None,
         chunker_factory: Callable[[], Chunker] | None = None,
         token_counter_factory: Callable[[], TokenCounter] | None = None,
@@ -102,6 +104,7 @@ class Container:
             index_metadata_store_factory or self._build_index_metadata_store
         )
         self._index_statistics_factory = index_statistics_factory or self._build_index_statistics
+        self._lexical_index_factory = lexical_index_factory or self._build_lexical_index
         self._markdown_parser_factory = markdown_parser_factory or self._build_markdown_parser
         self._chunker_factory = chunker_factory or self._build_chunker
         self._token_counter_factory = token_counter_factory or self._build_token_counter
@@ -176,6 +179,7 @@ class Container:
             vectors: VectorIndex,
             metadata: IndexMetadataStore,
             unit_of_work: UnitOfWork,
+            lexical_index: LexicalIndex,
         ) -> IndexDocument:
             return build_staging_index_document(
                 vault_id=vault_id,
@@ -186,6 +190,7 @@ class Container:
                 vector_index=vectors,
                 index_metadata_store=metadata,
                 unit_of_work=unit_of_work,
+                lexical_index=lexical_index,
                 active_fingerprint=self.active_index_fingerprint,
                 max_document_chars=self.settings.max_document_chars,
                 max_chunks_per_document=self.settings.max_chunks_per_document,
@@ -215,6 +220,7 @@ class Container:
             "unit_of_work",
             "index_metadata_store",
             "index_statistics",
+            "lexical_index",
             "rename_document",
             "index_document",
             "serialized_index_document",
@@ -254,6 +260,9 @@ class Container:
     def _build_index_statistics(self) -> IndexStatisticsReader:
         return self._metadata_database.statistics
 
+    def _build_lexical_index(self) -> LexicalIndex:
+        return self._metadata_database.lexical
+
     @cached_property
     def embedder(self) -> Embedder:
         return _resolve(self._embedder_factory, "Embedder")
@@ -281,6 +290,10 @@ class Container:
     @cached_property
     def index_statistics(self) -> IndexStatisticsReader:
         return _resolve(self._index_statistics_factory, "IndexStatisticsReader")
+
+    @cached_property
+    def lexical_index(self) -> LexicalIndex:
+        return _resolve(self._lexical_index_factory, "LexicalIndex")
 
     @cached_property
     def markdown_parser(self) -> MarkdownParser:
@@ -324,6 +337,7 @@ class Container:
         return RenameDocument(
             document_repository=self.document_repository,
             vector_index=self.vector_index,
+            lexical_index=self.lexical_index,
             unit_of_work=self.unit_of_work,
         )
 
@@ -350,6 +364,7 @@ class Container:
             chunker=self.chunker,
             embedder=self.embedder,
             vector_index=self.vector_index,
+            lexical_index=self.lexical_index,
             document_repository=self.document_repository,
             unit_of_work=self.unit_of_work,
             index_metadata_store=self.index_metadata_store,
@@ -368,6 +383,7 @@ class Container:
         return RemoveDocument(
             document_repository=self.document_repository,
             vector_index=self.vector_index,
+            lexical_index=self.lexical_index,
             unit_of_work=self.unit_of_work,
         )
 

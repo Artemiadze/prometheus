@@ -28,6 +28,13 @@ class MetadataStoreError(PrometheusError):
     default_message = "Metadata store operation failed"
 
 
+class LexicalIndexUnavailableError(PrometheusError):
+    """Raised when SQLite was built without FTS5 support."""
+
+    code = "LEXICAL_INDEX_UNAVAILABLE"
+    default_message = "Lexical search requires SQLite FTS5 support"
+
+
 def wrap_driver_errors[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     """Translate ``sqlite3.Error`` into the stable :class:`MetadataStoreError`."""
 

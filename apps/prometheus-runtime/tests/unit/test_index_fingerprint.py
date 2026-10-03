@@ -29,7 +29,7 @@ def _fingerprint(
     provider: str = "fastembed",
     parser_version: int = 1,
     chunker_version: int = 1,
-    payload_schema_version: int = 1,
+    payload_schema_version: int = 2,
 ) -> IndexFingerprint:
     return IndexFingerprint(
         embedding=EmbeddingFingerprint(provider, model_id, dimension),
@@ -124,7 +124,7 @@ def test_describe_fingerprint_mismatch_lists_all_changed_fields() -> None:
             provider="other",
             parser_version=2,
             chunker_version=2,
-            payload_schema_version=2,
+            payload_schema_version=3,
             chunk_size=500,
             chunk_overlap=40,
         ),
@@ -135,7 +135,7 @@ def test_describe_fingerprint_mismatch_lists_all_changed_fields() -> None:
     assert "embedding.dimension" in message
     assert "parser_version" in message
     assert "chunker_version" in message
-    assert "payload_schema_version" in message
+    assert "payload_schema_version: 2 -> 3" in message
     assert "chunk_size" in message
     assert "chunk_overlap" in message
 

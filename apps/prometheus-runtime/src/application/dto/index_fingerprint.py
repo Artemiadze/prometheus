@@ -14,7 +14,7 @@ PARSER_SCHEMA_VERSION = 2
 CHUNKER_ALGORITHM_VERSION = 2
 
 #: Bumped whenever the Qdrant payload schema changes shape.
-PAYLOAD_SCHEMA_VERSION = 1
+PAYLOAD_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)

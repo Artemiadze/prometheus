@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from application.dto.index_fingerprint import IndexFingerprint
+from application.dto.index_fingerprint import PAYLOAD_SCHEMA_VERSION, IndexFingerprint
 from application.dto.runtime_status import IndexState
 from application.dto.statistics import IndexStatistics
 from application.dto.vault_sync import VaultSnapshot, VaultSnapshotEntry
@@ -82,7 +82,14 @@ def _document(path: str = "Notes/One.md", *, revision: int = 1) -> Document:
 
 
 def _fingerprint(embedder: FakeEmbedder) -> IndexFingerprint:
-    return IndexFingerprint(embedder.fingerprint, 1, 1, 1, 700, 80)
+    return IndexFingerprint(
+        embedder.fingerprint,
+        1,
+        1,
+        PAYLOAD_SCHEMA_VERSION,
+        700,
+        80,
+    )
 
 
 def _indexing_setup() -> tuple[
@@ -102,6 +109,7 @@ def _indexing_setup() -> tuple[
     rename = RenameDocument(
         document_repository=documents,
         vector_index=vectors,
+        lexical_index=None,
         unit_of_work=unit_of_work,
     )
     index = IndexDocument(
@@ -110,6 +118,7 @@ def _indexing_setup() -> tuple[
         chunker=FakeChunker(),
         embedder=embedder,
         vector_index=vectors,
+        lexical_index=None,
         document_repository=documents,
         unit_of_work=unit_of_work,
         index_metadata_store=metadata,
@@ -122,6 +131,7 @@ def _indexing_setup() -> tuple[
     remove = RemoveDocument(
         document_repository=documents,
         vector_index=vectors,
+        lexical_index=None,
         unit_of_work=unit_of_work,
     )
     return index, remove, rename, embedder, documents, vectors, metadata

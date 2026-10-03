@@ -96,8 +96,9 @@ def test_upgrade_from_schema_v1_preserves_documents_and_chunks(tmp_path: Path) -
     versions = [
         row[0] for row in connection.execute("SELECT version FROM schema_version ORDER BY version")
     ]
-    assert versions == [1, 2]
+    assert versions == [1, 2, 3]
     assert "jobs" not in _tables(connection)
+    assert "chunks_fts" in _tables(connection)
     document = connection.execute("SELECT document_id, relative_path FROM documents").fetchone()
     chunk = connection.execute("SELECT chunk_id, document_id FROM chunks").fetchone()
     assert document is not None and tuple(document) == ("document-01", "Notes/One.md")

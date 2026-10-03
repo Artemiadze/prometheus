@@ -22,6 +22,7 @@ def test_migrations_create_expected_tables_and_enable_wal(tmp_path: Path) -> Non
     apply_migrations(connection)
 
     assert {"documents", "chunks", "index_meta", "schema_version"} <= _tables(connection)
+    assert "chunks_fts" in _tables(connection)
     assert "jobs" not in _tables(connection)
     mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
     assert str(mode).lower() == "wal"

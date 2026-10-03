@@ -15,6 +15,7 @@ from application.ports.chunker import Chunker
 from application.ports.document_repository import DocumentRepository
 from application.ports.embedder import Embedder
 from application.ports.index_metadata_store import IndexMetadataStore
+from application.ports.lexical_index import LexicalIndex
 from application.ports.markdown_parser import MarkdownParser
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
@@ -153,7 +154,7 @@ class FilesystemIndexRebuildWorkspace:
         vault_id: VaultId,
         embedding_fingerprint: EmbeddingFingerprint,
         build_index_document: Callable[
-            [DocumentRepository, VectorIndex, IndexMetadataStore, UnitOfWork],
+            [DocumentRepository, VectorIndex, IndexMetadataStore, UnitOfWork, LexicalIndex],
             IndexDocument,
         ],
         release_active_storage: Callable[[], None],
@@ -181,6 +182,7 @@ class FilesystemIndexRebuildWorkspace:
             vector_index,
             database.index_metadata,
             unit_of_work,
+            database.lexical,
         )
         return FilesystemIndexRebuildSession(
             index_document=index_document,
@@ -205,6 +207,7 @@ def build_staging_index_document(
     vector_index: VectorIndex,
     index_metadata_store: IndexMetadataStore,
     unit_of_work: UnitOfWork,
+    lexical_index: LexicalIndex,
     active_fingerprint: IndexFingerprint,
     max_document_chars: int,
     max_chunks_per_document: int,
@@ -214,6 +217,7 @@ def build_staging_index_document(
     rename = RenameDocument(
         document_repository=document_repository,
         vector_index=vector_index,
+        lexical_index=lexical_index,
         unit_of_work=unit_of_work,
     )
     return IndexDocument(
@@ -222,6 +226,7 @@ def build_staging_index_document(
         chunker=chunker,
         embedder=embedder,
         vector_index=vector_index,
+        lexical_index=lexical_index,
         document_repository=document_repository,
         unit_of_work=unit_of_work,
         index_metadata_store=index_metadata_store,

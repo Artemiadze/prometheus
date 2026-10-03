@@ -85,6 +85,7 @@ class FakeIndexRebuildWorkspace:
         rename = RenameDocument(
             document_repository=documents,
             vector_index=vectors,
+            lexical_index=None,
             unit_of_work=unit_of_work,
         )
         index_document = IndexDocument(
@@ -93,6 +94,7 @@ class FakeIndexRebuildWorkspace:
             chunker=self._chunker,
             embedder=self._embedder,
             vector_index=vectors,
+            lexical_index=None,
             document_repository=documents,
             unit_of_work=unit_of_work,
             index_metadata_store=metadata,

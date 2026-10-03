@@ -7,6 +7,7 @@ from pathlib import Path
 from adapters.outbound.sqlite.connection import open_connection
 from adapters.outbound.sqlite.document_repository import SqliteDocumentRepository
 from adapters.outbound.sqlite.index_metadata_store import SqliteIndexMetadataStore
+from adapters.outbound.sqlite.lexical_index import SqliteLexicalIndex
 from adapters.outbound.sqlite.migrations import apply_migrations
 from adapters.outbound.sqlite.statistics import SqliteIndexStatisticsReader
 from adapters.outbound.sqlite.unit_of_work import SqliteUnitOfWork
@@ -25,6 +26,7 @@ class MetadataDatabase:
         self.documents = SqliteDocumentRepository(self._connection)
         self.index_metadata = SqliteIndexMetadataStore(self._connection)
         self.statistics = SqliteIndexStatisticsReader(self._connection, self._vault_dir)
+        self.lexical = SqliteLexicalIndex(self._connection)
 
     def unit_of_work(self) -> SqliteUnitOfWork:
         """Return a fresh transaction boundary bound to the shared connection."""

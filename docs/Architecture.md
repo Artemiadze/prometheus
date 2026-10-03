@@ -513,6 +513,7 @@ prometheus/
 
 - Vault хранит исходные Markdown-файлы;
 - SQLite хранит документы, revisions, hashes, jobs и состояние индексации;
+- SQLite FTS5 (`chunks_fts` в `metadata.sqlite`) хранит lexical BM25-индекс по тексту chunks;
 - Qdrant хранит vectors и поисковый payload chunks;
 - plugin `data.json` хранит только настройки UI и runtime;
 - история чата в MVP не сохраняется;
@@ -530,7 +531,7 @@ vector dimension
 parser schema version
 chunking algorithm version
 chunk size and overlap
-payload schema version
+payload schema version (включая наличие FTS5 lexical-индекса; текущая версия 2)
 ```
 
 Изменение embedding-модели, размерности vector или несовместимой схемы требует

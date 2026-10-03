@@ -74,7 +74,7 @@ def test_reindex_reports_progress_every_n_documents() -> None:
             embedding=embedder.fingerprint,
             parser_version=1,
             chunker_version=1,
-            payload_schema_version=1,
+            payload_schema_version=2,
             chunk_size=700,
             chunk_overlap=80,
         ),

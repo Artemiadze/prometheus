@@ -6,6 +6,7 @@ import sqlite3
 from datetime import UTC, datetime
 
 from adapters.outbound.sqlite.errors import SchemaDowngradeError
+from adapters.outbound.sqlite.lexical_index import ensure_fts5_available
 
 _MIGRATION_1 = (
     """
@@ -60,9 +61,24 @@ _MIGRATION_1 = (
 #: Ordered (version, statements) pairs; each is applied inside its own transaction.
 _MIGRATION_2 = ("DROP TABLE IF EXISTS jobs",)
 
+_MIGRATION_3 = (
+    """
+    CREATE VIRTUAL TABLE chunks_fts USING fts5(
+        content,
+        content_split,
+        chunk_id UNINDEXED,
+        document_id UNINDEXED,
+        file_path UNINDEXED,
+        folder UNINDEXED,
+        tokenize='unicode61 remove_diacritics 2 tokenchars ''-_'''
+    )
+    """,
+)
+
 MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (1, _MIGRATION_1),
     (2, _MIGRATION_2),
+    (3, _MIGRATION_3),
 )
 
 LATEST_VERSION = MIGRATIONS[-1][0]
@@ -90,6 +106,8 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
     for version, statements in MIGRATIONS:
         if version <= current_version:
             continue
+        if version == 3:
+            ensure_fts5_available(connection)
         connection.execute("BEGIN")
         try:
             for statement in statements:
