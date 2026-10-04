@@ -92,20 +92,28 @@ def test_ollama_ok() -> None:
 
 
 def test_embedding_missing_fail(tmp_path: Path) -> None:
-    result = check_embedding_model(tmp_path, "intfloat/multilingual-e5-large", allow_download=False)
+    result = check_embedding_model(
+        tmp_path, "intfloat/multilingual-e5-large", allow_download=False
+    )
     assert result.status is CheckStatus.FAIL
 
 
 def test_embedding_missing_warn_when_download_allowed(tmp_path: Path) -> None:
-    result = check_embedding_model(tmp_path, "intfloat/multilingual-e5-large", allow_download=True)
+    result = check_embedding_model(
+        tmp_path, "intfloat/multilingual-e5-large", allow_download=True
+    )
     assert result.status is CheckStatus.WARN
 
 
 def test_embedding_present(tmp_path: Path) -> None:
-    cache = tmp_path / "models" / "embeddings" / "models--intfloat--multilingual-e5-large"
+    cache = (
+        tmp_path / "models" / "embeddings" / "models--intfloat--multilingual-e5-large"
+    )
     cache.mkdir(parents=True)
     (cache / "model.onnx").write_bytes(b"x")
-    result = check_embedding_model(tmp_path, "intfloat/multilingual-e5-large", allow_download=False)
+    result = check_embedding_model(
+        tmp_path, "intfloat/multilingual-e5-large", allow_download=False
+    )
     assert result.status is CheckStatus.OK
 
 
@@ -145,7 +153,9 @@ def test_memory_ok() -> None:
     assert result.status is CheckStatus.OK
 
 
-def test_doctor_does_not_create_layout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_doctor_does_not_create_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from bootstrap import doctor as doctor_module
     from bootstrap.config import RuntimeSettings
 

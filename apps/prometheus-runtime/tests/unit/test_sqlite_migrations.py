@@ -13,7 +13,9 @@ from adapters.outbound.sqlite.migrations import LATEST_VERSION, apply_migrations
 
 
 def _tables(connection: sqlite3.Connection) -> set[str]:
-    rows = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()
     return {row[0] for row in rows}
 
 
@@ -21,7 +23,9 @@ def test_migrations_create_expected_tables_and_enable_wal(tmp_path: Path) -> Non
     connection = open_connection(tmp_path / "metadata.sqlite")
     apply_migrations(connection)
 
-    assert {"documents", "chunks", "index_meta", "schema_version"} <= _tables(connection)
+    assert {"documents", "chunks", "index_meta", "schema_version"} <= _tables(
+        connection
+    )
     assert "chunks_fts" in _tables(connection)
     assert "jobs" not in _tables(connection)
     mode = connection.execute("PRAGMA journal_mode").fetchone()[0]

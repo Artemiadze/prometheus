@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from application.services.grounded_prompt import build_grounded_prompt
+from application.services.grounded_prompt import (
+    _CHAT_ROLE_OVERHEAD,
+    build_grounded_prompt,
+)
 from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import compute_content_hash
 from domain.value_objects.chunk_id import ChunkId
@@ -27,7 +30,7 @@ def _chunk(document_id: DocumentId, index: int, text: str, heading: str) -> Chun
     )
 
 
-def test_prompt_contains_grounding_instruction_numbered_fragments_and_sources() -> None:
+def test_prompt_splits_system_rules_and_numbered_user_context() -> None:
     document_id = DocumentId("document-01")
     chunk = _chunk(document_id, 0, "Use multi-stage Docker builds.", "Images")
 
@@ -40,10 +43,13 @@ def test_prompt_contains_grounding_instruction_numbered_fragments_and_sources() 
         response_token_reserve=32,
     )
 
-    assert "Answer using only the provided context." in prompt.text
-    assert "not enough information in the user's notes" in prompt.text
-    assert "[1] Source: Docker/Optimization.md#Images" in prompt.text
-    assert chunk.text in prompt.text
+    assert "Answer using only the context fragments provided in the user message." in prompt.system
+    assert "Reply in English." in prompt.system
+    assert "Use at most three sentences" in prompt.system
+    assert "Context:" in prompt.user
+    assert "[1] Source: Docker/Optimization.md#Images" in prompt.user
+    assert chunk.text in prompt.user
+    assert "Question:\nHow can I reduce image size?" in prompt.user
     assert prompt.included_chunks == (chunk,)
     assert prompt.sources == (
         SourceReference.create(
@@ -94,8 +100,8 @@ def test_chunks_that_do_not_fit_are_excluded_from_prompt_and_sources() -> None:
             heading_occurrence=1,
         ),
     )
-    assert second.text not in prompt.text
-    assert "Notes/Second.md" not in prompt.text
+    assert second.text not in prompt.user
+    assert "Notes/Second.md" not in prompt.user
 
 
 def test_smaller_later_chunk_can_use_budget_after_oversized_chunk_is_skipped() -> None:
@@ -108,12 +114,12 @@ def test_smaller_later_chunk_can_use_budget_after_oversized_chunk_is_skipped() -
         chunks=(oversized, small),
         document_paths={document_id: RelativePath("Notes/One.md")},
         token_counter=FakeTokenCounter(),
-        context_size=80,
+        context_size=200,
         response_token_reserve=16,
     )
 
     assert prompt.included_chunks == (small,)
-    assert "[1] Source: Notes/One.md#Small" in prompt.text
+    assert "[1] Source: Notes/One.md#Small" in prompt.user
 
 
 def test_empty_context_still_produces_a_grounded_insufficiency_prompt() -> None:
@@ -124,11 +130,12 @@ def test_empty_context_still_produces_a_grounded_insufficiency_prompt() -> None:
         chunks=(),
         document_paths={},
         token_counter=counter,
-        context_size=128,
+        context_size=256,
         response_token_reserve=32,
     )
 
     assert prompt.included_chunks == ()
     assert prompt.sources == ()
-    assert "No context fragments were included." in prompt.text
-    assert prompt.token_count == counter.count(prompt.text)
+    assert "No context fragments were included." in prompt.user
+    expected = counter.count(prompt.system) + counter.count(prompt.user) + _CHAT_ROLE_OVERHEAD
+    assert prompt.token_count == expected

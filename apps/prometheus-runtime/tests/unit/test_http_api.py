@@ -156,13 +156,21 @@ def test_document_endpoints_map_request_and_chunk_statistics() -> None:
         "modified_at": NOW.isoformat(),
     }
 
-    put = client.put(f"/v1/vaults/{VAULT}/documents/{DOCUMENT}", json=payload, headers=_headers())
-    delete = client.delete(f"/v1/vaults/{VAULT}/documents/{DOCUMENT}", headers=_headers())
+    put = client.put(
+        f"/v1/vaults/{VAULT}/documents/{DOCUMENT}", json=payload, headers=_headers()
+    )
+    delete = client.delete(
+        f"/v1/vaults/{VAULT}/documents/{DOCUMENT}", headers=_headers()
+    )
 
     assert put.status_code == 200
     assert put.json()["created_chunks"] == 2
     assert put.json()["skipped"] is False
-    assert delete.json() == {"document_id": DOCUMENT, "removed": True, "removed_chunks": 2}
+    assert delete.json() == {
+        "document_id": DOCUMENT,
+        "removed": True,
+        "removed_chunks": 2,
+    }
 
 
 def test_chat_stream_returns_ndjson_token_sources_done_sequence() -> None:
@@ -188,13 +196,19 @@ def test_chat_stream_returns_ndjson_token_sources_done_sequence() -> None:
 
     events = [json.loads(line) for line in lines]
     assert events[0] == {"type": "token", "text": "part"}
-    assert events[1] == {"type": "sources", "sources": [], "insufficient_context": False}
+    assert events[1] == {
+        "type": "sources",
+        "sources": [],
+        "insufficient_context": False,
+    }
     assert events[2] == {"type": "done"}
 
 
 def test_chat_stream_emits_error_event_when_llm_fails_mid_stream() -> None:
     class _FailingStream:
-        async def stream(self, *_: object, **__: object) -> AsyncIterator[AnswerTokenEvent]:
+        async def stream(
+            self, *_: object, **__: object
+        ) -> AsyncIterator[AnswerTokenEvent]:
             yield AnswerTokenEvent("partial")
             raise OllamaUnavailableError()
 
@@ -202,7 +216,9 @@ def test_chat_stream_emits_error_event_when_llm_fails_mid_stream() -> None:
             raise AssertionError("execute should not run")
 
     client = _client()
-    cast(Any, client.app).state.vault_registry.runtime.answer_question = _FailingStream()
+    cast(Any, client.app).state.vault_registry.runtime.answer_question = (
+        _FailingStream()
+    )
     with client.stream(
         "POST",
         f"/v1/vaults/{VAULT}/chat/stream",
@@ -220,8 +236,12 @@ def test_chat_stream_emits_error_event_when_llm_fails_mid_stream() -> None:
 def test_search_and_chat_follow_public_response_contracts() -> None:
     client = _client()
 
-    search = client.post(f"/v1/vaults/{VAULT}/search", json={"query": "query"}, headers=_headers())
-    chat = client.post(f"/v1/vaults/{VAULT}/chat", json={"query": "question"}, headers=_headers())
+    search = client.post(
+        f"/v1/vaults/{VAULT}/search", json={"query": "query"}, headers=_headers()
+    )
+    chat = client.post(
+        f"/v1/vaults/{VAULT}/chat", json={"query": "question"}, headers=_headers()
+    )
 
     assert search.json() == {
         "results": [
@@ -236,7 +256,11 @@ def test_search_and_chat_follow_public_response_contracts() -> None:
             }
         ]
     }
-    assert chat.json() == {"answer": "grounded", "sources": [], "insufficient_context": True}
+    assert chat.json() == {
+        "answer": "grounded",
+        "sources": [],
+        "insufficient_context": True,
+    }
 
 
 def test_validation_and_application_errors_use_stable_envelopes() -> None:
@@ -268,7 +292,9 @@ def test_search_and_chat_return_rebuild_required_envelope() -> None:
 
     client = _client()
     runtime = cast(Any, client.app).state.vault_registry.runtime
-    runtime.search_notes = _Raises(IndexRebuildRequiredError("Index rebuild required: chunk_size"))
+    runtime.search_notes = _Raises(
+        IndexRebuildRequiredError("Index rebuild required: chunk_size")
+    )
     runtime.answer_question = _Raises(
         IndexRebuildRequiredError("Index rebuild required: chunk_size")
     )
@@ -287,8 +313,12 @@ def test_search_and_chat_return_rebuild_required_envelope() -> None:
         )
     )
 
-    search = client.post(f"/v1/vaults/{VAULT}/search", json={"query": "query"}, headers=_headers())
-    chat = client.post(f"/v1/vaults/{VAULT}/chat", json={"query": "question"}, headers=_headers())
+    search = client.post(
+        f"/v1/vaults/{VAULT}/search", json={"query": "query"}, headers=_headers()
+    )
+    chat = client.post(
+        f"/v1/vaults/{VAULT}/chat", json={"query": "question"}, headers=_headers()
+    )
     status = client.get(f"/v1/status?vaultId={VAULT}", headers=_headers())
 
     assert search.status_code == 409

@@ -66,7 +66,9 @@ class SearchScope:
         cls,
         folders: Iterable[RelativePath | str],
     ) -> SearchScope:
-        return cls(ScopeMode.SELECTED_FOLDERS, folders=tuple(_path(path) for path in folders))
+        return cls(
+            ScopeMode.SELECTED_FOLDERS, folders=tuple(_path(path) for path in folders)
+        )
 
     def with_exclusions(self, folders: Iterable[RelativePath | str]) -> SearchScope:
         merged = tuple(

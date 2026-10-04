@@ -56,8 +56,8 @@ class RuntimeSettings(BaseSettings):
     llm_host: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen3:4b"
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
-    llm_context_size: int = Field(default=8192, gt=0)
-    llm_output_reserve: int = Field(default=1024, gt=0)
+    llm_context_size: int = Field(default=12288, gt=0)
+    llm_output_reserve: int = Field(default=4096, gt=0)
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
     log_level: LogLevel = "INFO"
 

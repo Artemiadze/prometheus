@@ -32,7 +32,9 @@ pytestmark = pytest.mark.integration
 
 
 def _tables(connection: sqlite3.Connection) -> set[str]:
-    rows = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()
     return {row[0] for row in rows}
 
 
@@ -87,19 +89,31 @@ def test_upgrade_from_schema_v1_preserves_documents_and_chunks(tmp_path: Path) -
         INSERT INTO jobs (job_id, status, progress, error, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        ("job-01", "running", 0.5, None, "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"),
+        (
+            "job-01",
+            "running",
+            0.5,
+            None,
+            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:00+00:00",
+        ),
     )
     connection.execute("COMMIT")
 
     apply_migrations(connection)
 
     versions = [
-        row[0] for row in connection.execute("SELECT version FROM schema_version ORDER BY version")
+        row[0]
+        for row in connection.execute(
+            "SELECT version FROM schema_version ORDER BY version"
+        )
     ]
     assert versions == [1, 2, 3, 4, 5]
     assert "jobs" not in _tables(connection)
     assert "chunks_fts" in _tables(connection)
-    document = connection.execute("SELECT document_id, relative_path FROM documents").fetchone()
+    document = connection.execute(
+        "SELECT document_id, relative_path FROM documents"
+    ).fetchone()
     chunk = connection.execute("SELECT chunk_id, document_id FROM chunks").fetchone()
     assert document is not None and tuple(document) == ("document-01", "Notes/One.md")
     assert chunk is not None and tuple(chunk) == ("chunk-01", "document-01")
@@ -145,7 +159,10 @@ def test_embedding_model_change_marks_index_rebuild_required() -> None:
         index_metadata_store=metadata,
         index_statistics=FakeIndexStatisticsReader(
             IndexStatistics(
-                document_count=1, chunk_count=1, last_indexed_at=None, index_size_bytes=10
+                document_count=1,
+                chunk_count=1,
+                last_indexed_at=None,
+                index_size_bytes=10,
             )
         ),
         active_fingerprint=active,

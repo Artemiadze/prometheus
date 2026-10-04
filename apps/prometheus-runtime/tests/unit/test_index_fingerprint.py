@@ -103,7 +103,11 @@ def test_ensure_index_compatible_allows_a_matching_fingerprint() -> None:
             r"payload_schema_version",
         ),
         (_fingerprint(chunk_size=700), _fingerprint(chunk_size=500), r"chunk_size"),
-        (_fingerprint(chunk_overlap=80), _fingerprint(chunk_overlap=40), r"chunk_overlap"),
+        (
+            _fingerprint(chunk_overlap=80),
+            _fingerprint(chunk_overlap=40),
+            r"chunk_overlap",
+        ),
     ],
 )
 def test_ensure_index_compatible_requires_rebuild_on_significant_change(

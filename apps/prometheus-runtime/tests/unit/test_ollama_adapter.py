@@ -18,16 +18,44 @@ from adapters.outbound.ollama.errors import (
     OllamaUnavailableError,
 )
 from application.dto.llm import LlmGeneration, LocalLlmModel
+from application.services.answer_contract import ANSWER_SCHEMA
 
 _Handler = Callable[[httpx.Request], Coroutine[None, None, httpx.Response]]
+_THINKING_CAPABILITIES = ("completion", "tools", "thinking")
+_SYSTEM = "System rules"
+_USER = "User question"
+
+
+def _chat_response(content: str, **extra: object) -> dict[str, object]:
+    return {
+        "model": "qwen3:4b",
+        "message": {"role": "assistant", "content": content},
+        "done": True,
+        "done_reason": "stop",
+        **extra,
+    }
+
+
+def _with_show(handler: _Handler, capabilities: tuple[str, ...]) -> _Handler:
+    async def wrapped(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            assert json.loads(request.content) == {"model": "qwen3:4b"}
+            return httpx.Response(200, json={"capabilities": list(capabilities)})
+        return await handler(request)
+
+    return wrapped
 
 
 def _run_with_client[T](
     handler: _Handler,
     operation: Callable[[OllamaLanguageModel], Awaitable[T]],
+    *,
+    capabilities: tuple[str, ...] = _THINKING_CAPABILITIES,
 ) -> T:
+    transport = httpx.MockTransport(_with_show(handler, capabilities))
+
     async def run() -> T:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(transport=transport) as client:
             adapter = OllamaLanguageModel(
                 base_url="http://127.0.0.1:11434",
                 model="qwen3:4b",
@@ -39,15 +67,19 @@ def _run_with_client[T](
     return asyncio.run(run())
 
 
-def test_generate_sends_expected_options_and_returns_typed_result() -> None:
+def test_generate_sends_expected_chat_payload_and_returns_typed_result() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == "http://127.0.0.1:11434/api/generate"
+        assert request.url.path == "/api/chat"
         payload = json.loads(request.content)
         assert payload == {
             "model": "qwen3:4b",
-            "prompt": "Grounded prompt",
             "stream": False,
-            "think": False,
+            "think": True,
+            "messages": [
+                {"role": "system", "content": _SYSTEM},
+                {"role": "user", "content": _USER},
+            ],
+            "format": ANSWER_SCHEMA,
             "options": {
                 "temperature": 0.1,
                 "num_ctx": 8192,
@@ -56,21 +88,21 @@ def test_generate_sends_expected_options_and_returns_typed_result() -> None:
         }
         return httpx.Response(
             200,
-            json={
-                "model": "qwen3:4b",
-                "response": "Grounded answer",
-                "prompt_eval_count": 42,
-                "eval_count": 12,
-                "done_reason": "stop",
-            },
+            json=_chat_response(
+                "Grounded answer",
+                prompt_eval_count=42,
+                eval_count=12,
+            ),
         )
 
     async def generate(adapter: OllamaLanguageModel) -> LlmGeneration:
         return await adapter.generate(
-            "Grounded prompt",
+            _SYSTEM,
+            _USER,
             temperature=0.1,
             context_size=8192,
             max_output_tokens=1024,
+            response_schema=ANSWER_SCHEMA,
         )
 
     result = _run_with_client(handler, generate)
@@ -150,7 +182,8 @@ def test_generate_maps_http_failures_without_leaking_response(
     async def generate(adapter: OllamaLanguageModel) -> str:
         with pytest.raises(expected_error) as caught:
             await adapter.generate(
-                "private prompt",
+                "private system",
+                "private user",
                 temperature=0.1,
                 context_size=8192,
                 max_output_tokens=1024,
@@ -159,7 +192,7 @@ def test_generate_maps_http_failures_without_leaking_response(
 
     message = _run_with_client(handler, generate)
 
-    assert "private prompt" not in message
+    assert "private" not in message
     assert body["error"] not in message
 
 
@@ -170,7 +203,8 @@ def test_generate_maps_transport_timeout() -> None:
     async def generate(adapter: OllamaLanguageModel) -> None:
         with pytest.raises(LlmTimeoutError) as caught:
             await adapter.generate(
-                "private prompt",
+                "private system",
+                "private user",
                 temperature=0.1,
                 context_size=8192,
                 max_output_tokens=1024,
@@ -182,7 +216,7 @@ def test_generate_maps_transport_timeout() -> None:
 
 @pytest.mark.parametrize(
     "path",
-    ["/api/generate", "/api/tags"],
+    ["/api/chat", "/api/tags"],
 )
 def test_malformed_ollama_json_is_not_exposed(path: str) -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -190,9 +224,10 @@ def test_malformed_ollama_json_is_not_exposed(path: str) -> None:
 
     async def call(adapter: OllamaLanguageModel) -> None:
         with pytest.raises(OllamaUnavailableError) as caught:
-            if path.endswith("generate"):
+            if path.endswith("chat"):
                 await adapter.generate(
-                    "private prompt",
+                    "private system",
+                    "private user",
                     temperature=0.1,
                     context_size=8192,
                     max_output_tokens=1024,
@@ -211,8 +246,8 @@ def test_stream_yields_response_fragments_in_order() -> None:
         assert payload["model"] == "qwen3:4b"
 
         async def body() -> AsyncIterator[bytes]:
-            yield b'{"response":"Hello","done":false}\n'
-            yield b'{"response":" world","done":false}\n'
+            yield b'{"message":{"role":"assistant","content":"Hello"},"done":false}\n'
+            yield b'{"message":{"role":"assistant","content":" world"},"done":false}\n'
             yield b'{"done":true}\n'
 
         return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
@@ -220,7 +255,8 @@ def test_stream_yields_response_fragments_in_order() -> None:
     async def collect(adapter: OllamaLanguageModel) -> str:
         parts: list[str] = []
         async for piece in adapter.stream(
-            "Grounded prompt",
+            _SYSTEM,
+            _USER,
             temperature=0.1,
             context_size=8192,
             max_output_tokens=1024,
@@ -232,6 +268,139 @@ def test_stream_yields_response_fragments_in_order() -> None:
     assert text == "Hello world"
 
 
+def test_stream_drops_reasoning_trace() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        async def body() -> AsyncIterator[bytes]:
+            yield b'{"message":{"role":"assistant","content":"<thi"},"done":false}\n'
+            yield b'{"message":{"role":"assistant","content":"nk>private reasoning</th"},"done":false}\n'
+            yield b'{"message":{"role":"assistant","content":"ink>\\n\\nsqlite3"},"done":false}\n'
+            yield b'{"done":true}\n'
+
+        return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
+
+    assert _run_with_client(handler, _collect) == "sqlite3"
+
+
+async def _generate(adapter: OllamaLanguageModel) -> LlmGeneration:
+    return await adapter.generate(
+        _SYSTEM,
+        _USER,
+        temperature=0.1,
+        context_size=8192,
+        max_output_tokens=1024,
+    )
+
+
+async def _collect(adapter: OllamaLanguageModel) -> str:
+    parts: list[str] = []
+    async for piece in adapter.stream(
+        _SYSTEM,
+        _USER,
+        temperature=0.1,
+        context_size=8192,
+        max_output_tokens=1024,
+    ):
+        parts.append(piece)
+    return "".join(parts)
+
+
+def test_model_without_thinking_capability_is_sent_think_false() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["think"] is False
+        return httpx.Response(200, json=_chat_response("sqlite3"))
+
+    result = _run_with_client(handler, _generate, capabilities=("completion",))
+
+    assert result.text == "sqlite3"
+
+
+def test_model_capabilities_are_requested_once() -> None:
+    show_calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal show_calls
+        if request.url.path == "/api/show":
+            show_calls += 1
+            return httpx.Response(200, json={"capabilities": ["completion", "thinking"]})
+        return httpx.Response(200, json=_chat_response("answer"))
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            adapter = OllamaLanguageModel(
+                base_url="http://127.0.0.1:11434",
+                model="qwen3:4b",
+                timeout_seconds=120,
+                client=client,
+            )
+            await _generate(adapter)
+            await _generate(adapter)
+
+    asyncio.run(run())
+
+    assert show_calls == 1
+
+
+def test_stream_ignores_separate_thinking_field() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["think"] is True
+
+        async def body() -> AsyncIterator[bytes]:
+            yield b'{"message":{"role":"assistant","content":"","thinking":"private reasoning"},"done":false}\n'
+            yield b'{"message":{"role":"assistant","content":"sqlite3"},"done":false}\n'
+            yield b'{"done":true,"done_reason":"stop"}\n'
+
+        return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
+
+    assert _run_with_client(handler, _collect) == "sqlite3"
+
+
+def test_generate_reports_output_budget_spent_on_thinking() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:4b",
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "thinking": "private reasoning",
+                },
+                "done_reason": "length",
+            },
+        )
+
+    async def generate(adapter: OllamaLanguageModel) -> None:
+        with pytest.raises(LlmContextExceededError):
+            await _generate(adapter)
+
+    _run_with_client(handler, generate)
+
+
+def test_stream_reports_output_budget_spent_on_thinking() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        async def body() -> AsyncIterator[bytes]:
+            yield b'{"message":{"role":"assistant","content":"","thinking":"private reasoning"},"done":false}\n'
+            yield b'{"done":true,"done_reason":"length"}\n'
+
+        return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
+
+    async def consume(adapter: OllamaLanguageModel) -> None:
+        with pytest.raises(LlmContextExceededError):
+            await _collect(adapter)
+
+    _run_with_client(handler, consume)
+
+
+def test_generate_drops_reasoning_trace() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=_chat_response("<think>reasoning</think>\nsqlite3"),
+        )
+
+    assert _run_with_client(handler, _generate).text == "sqlite3"
+
+
 def test_stream_maps_http_failures_like_generate() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": "model 'qwen3:4b' not found"})
@@ -239,7 +408,8 @@ def test_stream_maps_http_failures_like_generate() -> None:
     async def consume(adapter: OllamaLanguageModel) -> None:
         with pytest.raises(LlmModelNotFoundError):
             async for _ in adapter.stream(
-                "private prompt",
+                "private system",
+                "private user",
                 temperature=0.1,
                 context_size=8192,
                 max_output_tokens=1024,
@@ -258,7 +428,8 @@ def test_cancelling_generation_propagates_asyncio_cancellation() -> None:
         raise AssertionError("unreachable")
 
     async def run() -> None:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = httpx.MockTransport(_with_show(handler, _THINKING_CAPABILITIES))
+        async with httpx.AsyncClient(transport=transport) as client:
             adapter = OllamaLanguageModel(
                 base_url="http://localhost:11434/api",
                 model="qwen3:4b",
@@ -267,7 +438,8 @@ def test_cancelling_generation_propagates_asyncio_cancellation() -> None:
             )
             task = asyncio.create_task(
                 adapter.generate(
-                    "Grounded prompt",
+                    _SYSTEM,
+                    _USER,
                     temperature=0.1,
                     context_size=8192,
                     max_output_tokens=1024,

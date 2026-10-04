@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from adapters.outbound.fastembed.errors import RerankerBatchError, RerankerModelUnavailableError
+from adapters.outbound.fastembed.errors import (
+    RerankerBatchError,
+    RerankerModelUnavailableError,
+)
 from adapters.outbound.fastembed.reranker import FastEmbedReranker
 from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import compute_content_hash
@@ -17,7 +20,9 @@ from domain.value_objects.document_id import DocumentId
 
 
 class RecordingCrossEncoder:
-    def __init__(self, scores: Sequence[float] | None = None, *, fail: bool = False) -> None:
+    def __init__(
+        self, scores: Sequence[float] | None = None, *, fail: bool = False
+    ) -> None:
         self.scores = scores
         self.fail = fail
         self.calls: list[tuple[str, tuple[str, ...], int]] = []

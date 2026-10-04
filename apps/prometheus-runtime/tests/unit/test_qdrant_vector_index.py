@@ -236,7 +236,9 @@ def test_search_excludes_ignored_folder_ancestors(tmp_path: Path) -> None:
     assert {hit.chunk.document_id for hit in hits} == {documents[1].id}
 
 
-def test_update_document_path_moves_scope_without_replacing_vectors(tmp_path: Path) -> None:
+def test_update_document_path_moves_scope_without_replacing_vectors(
+    tmp_path: Path,
+) -> None:
     index, _ = _memory_index(tmp_path)
     document = _document("document-01", "Work/Current.md")
     chunk = _chunk(document, 0, "unchanged vector")
@@ -355,7 +357,9 @@ def test_search_drops_points_tagged_with_a_foreign_vault_id(tmp_path: Path) -> N
     assert [hit.chunk.text for hit in hits] == ["local chunk"]
 
 
-def test_input_validation_happens_before_existing_points_are_deleted(tmp_path: Path) -> None:
+def test_input_validation_happens_before_existing_points_are_deleted(
+    tmp_path: Path,
+) -> None:
     index, _ = _memory_index(tmp_path)
     document = _document("document-01", "Notes/One.md")
     chunk = _chunk(document, 0, "preserved")

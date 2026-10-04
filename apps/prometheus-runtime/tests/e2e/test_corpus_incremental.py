@@ -17,7 +17,13 @@ from domain.entities.document import Document
 from domain.errors import ConfigurationError
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeChunker, FakeEmbedder, FakeLanguageModel, FakeMarkdownParser, FakeTokenCounter
+from fakes import (
+    FakeChunker,
+    FakeEmbedder,
+    FakeLanguageModel,
+    FakeMarkdownParser,
+    FakeTokenCounter,
+)
 
 pytestmark = pytest.mark.e2e
 
@@ -27,7 +33,8 @@ CORPUS = Path(__file__).resolve().parent / "fixtures" / "corpus"
 
 def _load_corpus() -> dict[str, str]:
     return {
-        path.name: path.read_text(encoding="utf-8").strip() for path in sorted(CORPUS.glob("*.md"))
+        path.name: path.read_text(encoding="utf-8").strip()
+        for path in sorted(CORPUS.glob("*.md"))
     }
 
 
@@ -69,9 +76,7 @@ def test_corpus_index_search_answer_and_incremental_update(tmp_path: Path) -> No
         with pytest.raises(ConfigurationError, match="target localhost"):
             socket.create_connection(("8.8.8.8", 53))
 
-        updated_content = (
-            "# Alpha Note\n\nUnique token: alphaincrementalmarker\n\nUpdated alpha body."
-        )
+        updated_content = "# Alpha Note\n\nUnique token: alphaincrementalmarker\n\nUpdated alpha body."
         updated = Document.create(
             id=alpha.id,
             vault_id=vault_id,
@@ -89,7 +94,9 @@ def test_corpus_index_search_answer_and_incremental_update(tmp_path: Path) -> No
     assert "alphacorpusmarker" in alpha_hits[0].text
     assert answer.insufficient_context is False
     assert answer.sources
-    assert any(source.relative_path.value == "Notes/alpha.md" for source in answer.sources)
+    assert any(
+        source.relative_path.value == "Notes/alpha.md" for source in answer.sources
+    )
     assert language_model.calls
     assert new_hits
     assert "alphaincrementalmarker" in new_hits[0].text

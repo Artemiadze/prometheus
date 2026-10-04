@@ -42,8 +42,8 @@ def test_defaults_match_product_settings() -> None:
     assert settings.llm_host == "http://127.0.0.1:11434"
     assert settings.llm_model == "qwen3:4b"
     assert settings.llm_temperature == 0.1
-    assert settings.llm_context_size == 8192
-    assert settings.llm_output_reserve == 1024
+    assert settings.llm_context_size == 12288
+    assert settings.llm_output_reserve == 4096
     assert settings.llm_timeout_seconds == 120
 
 
@@ -94,7 +94,9 @@ def test_non_loopback_host_is_rejected() -> None:
     ],
 )
 def test_non_local_llm_host_is_rejected(llm_host: str) -> None:
-    with pytest.raises(ConfigurationError, match="llm_host must be an HTTP loopback URL"):
+    with pytest.raises(
+        ConfigurationError, match="llm_host must be an HTTP loopback URL"
+    ):
         load_settings({"llm_host": llm_host})
 
 

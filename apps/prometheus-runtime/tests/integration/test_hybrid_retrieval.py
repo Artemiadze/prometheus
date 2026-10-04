@@ -14,7 +14,13 @@ from bootstrap.container import Container
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeChunker, FakeEmbedder, FakeLanguageModel, FakeMarkdownParser, FakeTokenCounter
+from fakes import (
+    FakeChunker,
+    FakeEmbedder,
+    FakeLanguageModel,
+    FakeMarkdownParser,
+    FakeTokenCounter,
+)
 
 pytestmark = pytest.mark.integration
 

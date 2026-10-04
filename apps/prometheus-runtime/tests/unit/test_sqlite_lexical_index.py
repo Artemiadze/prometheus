@@ -47,7 +47,9 @@ def _chunk(document: Document, text: str, *, index: int = 0) -> Chunk:
 
 
 def _index(database: MetadataDatabase, document: Document, *texts: str) -> None:
-    chunks = tuple(_chunk(document, text, index=index) for index, text in enumerate(texts))
+    chunks = tuple(
+        _chunk(document, text, index=index) for index, text in enumerate(texts)
+    )
     vectors = tuple((float(index),) for index in range(len(chunks)))
     replace_document_index(
         document=document,
@@ -121,7 +123,9 @@ def test_update_document_path_changes_scope_filter(tmp_path: Path) -> None:
     database = MetadataDatabase(tmp_path)
     document = _document(path="Notes/old/name.md")
     _index(database, document, "relocatable token")
-    database.lexical.update_document_path(document.id, RelativePath("Notes/new/name.md"))
+    database.lexical.update_document_path(
+        document.id, RelativePath("Notes/new/name.md")
+    )
     database.documents.update_path(document.id, RelativePath("Notes/new/name.md"))
     scope = SearchScope.current_note("Notes/new/name.md")
     assert database.lexical.search("relocatable", limit=5, scope=scope)

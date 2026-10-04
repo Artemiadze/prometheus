@@ -111,4 +111,6 @@ class FakeVectorIndex:
         right_norm = math.sqrt(sum(value * value for value in right))
         if left_norm == 0.0 or right_norm == 0.0:
             return 0.0
-        return sum(a * b for a, b in zip(left, right, strict=True)) / (left_norm * right_norm)
+        return sum(a * b for a, b in zip(left, right, strict=True)) / (
+            left_norm * right_norm
+        )

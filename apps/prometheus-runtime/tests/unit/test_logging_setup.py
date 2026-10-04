@@ -14,7 +14,9 @@ from adapters.outbound.filesystem.logging_setup import (
 
 
 def _read_logs(log_directory: Path) -> str:
-    return "".join(path.read_text(encoding="utf-8") for path in log_directory.glob("runtime.log*"))
+    return "".join(
+        path.read_text(encoding="utf-8") for path in log_directory.glob("runtime.log*")
+    )
 
 
 def test_user_content_is_never_written(tmp_path: Path) -> None:
@@ -59,7 +61,9 @@ def test_json_contains_only_safe_required_fields(tmp_path: Path) -> None:
             },
         )
 
-    record: dict[str, Any] = json.loads((layout.logs / "runtime.log").read_text(encoding="utf-8"))
+    record: dict[str, Any] = json.loads(
+        (layout.logs / "runtime.log").read_text(encoding="utf-8")
+    )
     assert record == {
         "timestamp": record["timestamp"],
         "level": "INFO",
@@ -76,7 +80,9 @@ def test_rotation_caps_total_log_size(tmp_path: Path) -> None:
     logger = configure_logging(layout, max_bytes=300, backup_count=2)
 
     for index in range(100):
-        logger.info("private payload", extra={"event": "rotation.test", "result_count": index})
+        logger.info(
+            "private payload", extra={"event": "rotation.test", "result_count": index}
+        )
 
     files = list(layout.logs.glob("runtime.log*"))
     assert len(files) <= 3

@@ -43,7 +43,9 @@ class RecordingLexicalIndex:
     def delete_by_document(self, document_id: DocumentId) -> None:
         raise NotImplementedError
 
-    def update_document_path(self, document_id: DocumentId, relative_path: RelativePath) -> None:
+    def update_document_path(
+        self, document_id: DocumentId, relative_path: RelativePath
+    ) -> None:
         raise NotImplementedError
 
     def search(

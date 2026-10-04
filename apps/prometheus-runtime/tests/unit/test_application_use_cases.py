@@ -333,7 +333,10 @@ def test_answer_stream_emits_tokens_before_llm_finishes_and_sources_last() -> No
         active_fingerprint=_fingerprint(embedder),
     )
     pause = asyncio.Event()
-    llm = FakeLanguageModel(stream_parts=("first", "second"), stream_pause_after_first=pause)
+    llm = FakeLanguageModel(
+        stream_parts=('{"answer":"first', ' second","sources":[1]}'),
+        stream_pause_after_first=pause,
+    )
     answer = AnswerQuestion(
         retrieval=retrieval,
         grounding_policy=GroundingPolicy(min_score=-1.0),
@@ -348,14 +351,14 @@ def test_answer_stream_emits_tokens_before_llm_finishes_and_sources_last() -> No
         events: list[object] = []
         async for event in answer.stream("semantic question", limit=10):
             events.append(event)
-            if isinstance(event, AnswerTokenEvent) and event.text == "first":
+            if isinstance(event, AnswerTokenEvent) and event.text.startswith("first"):
                 pause.set()
         return events
 
     events = asyncio.run(collect())
     assert [event.text for event in events if isinstance(event, AnswerTokenEvent)] == [
         "first",
-        "second",
+        " second",
     ]
     assert isinstance(events[-1], AnswerCompletedEvent)
     assert not events[-1].insufficient_context

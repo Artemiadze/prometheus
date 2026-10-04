@@ -8,12 +8,13 @@ from fakes import FakeLanguageModel
 
 
 def test_fake_language_model_marks_stream_closed_when_consumer_stops_early() -> None:
-    llm = FakeLanguageModel(stream_parts=("only", "blocked"))
+    llm = FakeLanguageModel(stream_parts=('{"answer":"only","sources":[]}', "blocked"))
 
     async def read_one() -> str:
         token = ""
         async for piece in llm.stream(
-            "prompt",
+            "system",
+            "user",
             temperature=0.1,
             context_size=1024,
             max_output_tokens=128,
@@ -23,5 +24,5 @@ def test_fake_language_model_marks_stream_closed_when_consumer_stops_early() -> 
         return token
 
     token = asyncio.run(read_one())
-    assert token == "only"
+    assert token == '{"answer":"only","sources":[]}'
     assert llm.stream_closed

@@ -24,7 +24,9 @@ class FakeDocumentRepository:
         return self._states.get(document_id)
 
     def list_states(self) -> Sequence[DocumentState]:
-        return tuple(sorted(self._states.values(), key=lambda state: state.relative_path.value))
+        return tuple(
+            sorted(self._states.values(), key=lambda state: state.relative_path.value)
+        )
 
     def list_relative_paths(self) -> Sequence[RelativePath]:
         return tuple(state.relative_path for state in self.list_states())

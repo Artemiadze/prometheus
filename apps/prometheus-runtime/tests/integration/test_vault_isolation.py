@@ -193,7 +193,9 @@ def test_guarded_wrapper_blocks_leaky_shared_index_cross_talk(tmp_path: Path) ->
     vault_b.close()
 
 
-def test_http_search_is_isolated_per_vault_and_rejects_unsafe_vault_id(tmp_path: Path) -> None:
+def test_http_search_is_isolated_per_vault_and_rejects_unsafe_vault_id(
+    tmp_path: Path,
+) -> None:
     layout = ensure_layout(tmp_path)
     settings = RuntimeSettings(data_dir=tmp_path, session_token=SecretStr("test-token"))
     base = Container(
@@ -254,8 +256,12 @@ def test_http_search_is_isolated_per_vault_and_rejects_unsafe_vault_id(tmp_path:
 
     assert put_a.status_code == 200
     assert put_b.status_code == 200
-    assert [item["text"] for item in search_a.json()["results"]] == ["alpha secret from vault a"]
-    assert [item["text"] for item in search_b.json()["results"]] == ["bravo secret from vault b"]
+    assert [item["text"] for item in search_a.json()["results"]] == [
+        "alpha secret from vault a"
+    ]
+    assert [item["text"] for item in search_b.json()["results"]] == [
+        "bravo secret from vault b"
+    ]
     assert invalid.status_code == 400
     registry.close_all()
     base.close()

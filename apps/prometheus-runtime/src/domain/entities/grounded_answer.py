@@ -25,7 +25,9 @@ class GroundedAnswer:
         object.__setattr__(self, "sources", unique_sources)
         object.__setattr__(self, "used_chunk_ids", unique_chunk_ids)
 
-        if not self.text.strip() or (not self.insufficient_context and not unique_sources):
+        if not self.text.strip() or (
+            not self.insufficient_context and not unique_sources
+        ):
             raise InvariantViolationError()
 
     @classmethod

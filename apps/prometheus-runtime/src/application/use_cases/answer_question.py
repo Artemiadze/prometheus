@@ -5,16 +5,29 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
+from application.errors import GroundedAnswerGenerationError
 from application.dto.grounded_prompt import GroundedPrompt
 from application.ports.language_model import LanguageModel
 from application.ports.token_counter import TokenCounter
+from application.services.answer_contract import (
+    ANSWER_SCHEMA,
+    AnswerParseError,
+    AnswerStreamExtractor,
+    ParsedAnswer,
+    parse_answer,
+)
+from application.services.answer_language import detect_language, insufficient_message
 from application.services.grounded_prompt import build_grounded_prompt
 from application.services.retrieval import RetrievalService
 from domain.entities.grounded_answer import GroundedAnswer
 from domain.services.grounding_policy import GroundingPolicy
+from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.search_scope import SearchScope
+from domain.value_objects.source_reference import SourceReference
 
-_INSUFFICIENT_MESSAGE = "The notes do not contain enough information to answer this question."
+_REPAIR_PREFIX = (
+    "\n\nRepair: return valid JSON with a non-empty answer and a sources array. " "Previous error:"
+)
 
 
 class AnswerQuestion:
@@ -46,17 +59,13 @@ class AnswerQuestion:
     ) -> GroundedAnswer:
         prompt = await self._prepare(question, scope=scope, limit=limit)
         if prompt is None:
-            return _insufficient_answer()
-        generation = await self._llm.generate(
-            prompt.text,
-            temperature=self._temperature,
-            context_size=self._context_size,
-            max_output_tokens=self._reserve,
-        )
+            return _insufficient_answer(question)
+        parsed = await self._generate_parsed(prompt)
+        sources, chunk_ids = _resolve_citations(prompt, parsed.cited)
         return GroundedAnswer.create(
-            text=generation.text,
-            sources=prompt.sources,
-            used_chunk_ids=(chunk.id for chunk in prompt.included_chunks),
+            text=parsed.text,
+            sources=sources,
+            used_chunk_ids=chunk_ids,
             insufficient_context=False,
         )
 
@@ -71,14 +80,44 @@ class AnswerQuestion:
         if prompt is None:
             yield AnswerCompletedEvent(sources=(), insufficient_context=True)
             return
+
+        extractor = AnswerStreamExtractor()
         async for token in self._llm.stream(
-            prompt.text,
+            prompt.system,
+            prompt.user,
             temperature=self._temperature,
             context_size=self._context_size,
             max_output_tokens=self._reserve,
+            response_schema=ANSWER_SCHEMA,
         ):
-            yield AnswerTokenEvent(text=token)
-        yield AnswerCompletedEvent(sources=prompt.sources, insufficient_context=False)
+            visible = extractor.feed(token)
+            if visible:
+                yield AnswerTokenEvent(text=visible)
+
+        try:
+            parsed = parse_answer(extractor.finish(), len(prompt.included_chunks))
+            sources, _ = _resolve_citations(prompt, parsed.cited)
+        except AnswerParseError:
+            sources = prompt.sources
+        yield AnswerCompletedEvent(sources=sources, insufficient_context=False)
+
+    async def _generate_parsed(self, prompt: GroundedPrompt) -> ParsedAnswer:
+        repair_error = ""
+        for attempt in range(2):
+            user = prompt.user if attempt == 0 else f"{prompt.user}{_REPAIR_PREFIX} {repair_error}"
+            generation = await self._llm.generate(
+                prompt.system,
+                user,
+                temperature=self._temperature,
+                context_size=self._context_size,
+                max_output_tokens=self._reserve,
+                response_schema=ANSWER_SCHEMA,
+            )
+            try:
+                return parse_answer(generation.text, len(prompt.included_chunks))
+            except AnswerParseError as error:
+                repair_error = str(error)
+        raise GroundedAnswerGenerationError()
 
     async def _prepare(
         self,
@@ -105,5 +144,23 @@ class AnswerQuestion:
         return prompt
 
 
-def _insufficient_answer() -> GroundedAnswer:
-    return GroundedAnswer.create(text=_INSUFFICIENT_MESSAGE, insufficient_context=True)
+def _insufficient_answer(question: str) -> GroundedAnswer:
+    return GroundedAnswer.create(
+        text=insufficient_message(detect_language(question)),
+        insufficient_context=True,
+    )
+
+
+def _resolve_citations(
+    prompt: GroundedPrompt,
+    cited: tuple[int, ...],
+) -> tuple[tuple[SourceReference, ...], tuple[ChunkId, ...]]:
+    if not cited:
+        return prompt.sources, tuple(chunk.id for chunk in prompt.included_chunks)
+    sources: list[SourceReference] = []
+    chunk_ids: list[ChunkId] = []
+    for index in cited:
+        position = index - 1
+        sources.append(prompt.sources[position])
+        chunk_ids.append(prompt.included_chunks[position].id)
+    return tuple(sources), tuple(chunk_ids)

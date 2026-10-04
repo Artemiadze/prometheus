@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -16,6 +16,7 @@ from adapters.outbound.ollama.errors import (
     LlmTimeoutError,
     OllamaUnavailableError,
 )
+from adapters.outbound.ollama.reasoning import ReasoningFilter, strip_reasoning
 from application.dto.llm import LlmGeneration, LocalLlmModel
 
 _CONTEXT_ERROR_MARKERS = (
@@ -50,31 +51,38 @@ class OllamaLanguageModel:
             base_url=self._base_url,
             timeout=httpx.Timeout(timeout_seconds),
         )
+        self._supports_thinking: bool | None = None
 
     async def generate(
         self,
-        prompt: str,
+        system: str,
+        user: str,
         *,
         temperature: float,
         context_size: int,
         max_output_tokens: int,
+        response_schema: Mapping[str, object] | None = None,
     ) -> LlmGeneration:
         """Generate a typed result; cancellation propagates as ``CancelledError``."""
 
-        if not prompt.strip():
-            raise ValueError("prompt cannot be blank")
+        if not system.strip() or not user.strip():
+            raise ValueError("system and user cannot be blank")
         if context_size <= 0 or max_output_tokens <= 0:
             raise ValueError("LLM token limits must be positive")
+        think = await self._think()
         try:
             response = await self._client.post(
-                f"{self._base_url}/api/generate",
-                json=_generation_payload(
+                f"{self._base_url}/api/chat",
+                json=_chat_payload(
                     model=self._model,
-                    prompt=prompt,
+                    system=system,
+                    user=user,
                     stream=False,
+                    think=think,
                     temperature=temperature,
                     context_size=context_size,
                     max_output_tokens=max_output_tokens,
+                    response_schema=response_schema,
                 ),
             )
         except httpx.TimeoutException as error:
@@ -85,44 +93,61 @@ class OllamaLanguageModel:
         _raise_generation_error(response)
         try:
             payload = _json_object(response)
-            return LlmGeneration(
-                text=_required_string(payload, "response"),
-                model=_optional_string(payload, "model") or self._model,
-                prompt_tokens=_optional_integer(payload, "prompt_eval_count"),
-                completion_tokens=_optional_integer(payload, "eval_count"),
-                done_reason=_optional_string(payload, "done_reason"),
-            )
+            raw_text = _message_content(payload)
+            text = strip_reasoning(raw_text)
+            done_reason = _optional_string(payload, "done_reason")
+            model = _optional_string(payload, "model") or self._model
+            prompt_tokens = _optional_integer(payload, "prompt_eval_count")
+            completion_tokens = _optional_integer(payload, "eval_count")
         except (KeyError, TypeError, ValueError) as error:
             raise OllamaUnavailableError() from error
+        if not text.strip():
+            _raise_empty_answer(done_reason)
+        return LlmGeneration(
+            text=text,
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            done_reason=done_reason,
+        )
 
     async def stream(
         self,
-        prompt: str,
+        system: str,
+        user: str,
         *,
         temperature: float,
         context_size: int,
         max_output_tokens: int,
+        response_schema: Mapping[str, object] | None = None,
     ) -> AsyncIterator[str]:
         """Yield response fragments; closing the iterator cancels Ollama generation."""
 
-        if not prompt.strip():
-            raise ValueError("prompt cannot be blank")
+        if not system.strip() or not user.strip():
+            raise ValueError("system and user cannot be blank")
         if context_size <= 0 or max_output_tokens <= 0:
             raise ValueError("LLM token limits must be positive")
+        think = await self._think()
         try:
             async with self._client.stream(
                 "POST",
-                f"{self._base_url}/api/generate",
-                json=_generation_payload(
+                f"{self._base_url}/api/chat",
+                json=_chat_payload(
                     model=self._model,
-                    prompt=prompt,
+                    system=system,
+                    user=user,
                     stream=True,
+                    think=think,
                     temperature=temperature,
                     context_size=context_size,
                     max_output_tokens=max_output_tokens,
+                    response_schema=response_schema,
                 ),
             ) as response:
                 _raise_generation_error(response)
+                reasoning_filter = ReasoningFilter()
+                answered = False
+                done_reason: object = None
                 async for line in response.aiter_lines():
                     if not line.strip():
                         continue
@@ -133,10 +158,20 @@ class OllamaLanguageModel:
                     if not isinstance(payload, Mapping):
                         raise OllamaUnavailableError()
                     if payload.get("done"):
+                        done_reason = payload.get("done_reason")
                         break
-                    piece = payload.get("response")
-                    if isinstance(piece, str) and piece:
-                        yield piece
+                    piece = _message_content(payload)
+                    if piece:
+                        visible = reasoning_filter.feed(piece)
+                        if visible:
+                            answered = True
+                            yield visible
+                tail = reasoning_filter.flush()
+                if tail:
+                    answered = True
+                    yield tail
+                if not answered:
+                    _raise_empty_answer(done_reason)
         except httpx.TimeoutException as error:
             raise LlmTimeoutError() from error
         except httpx.NetworkError as error:
@@ -177,6 +212,29 @@ class OllamaLanguageModel:
             return False
         return True
 
+    async def _think(self) -> bool:
+        """Enable ``think`` only for models whose Ollama capabilities include thinking."""
+
+        if self._supports_thinking is None:
+            try:
+                response = await self._client.post(
+                    f"{self._base_url}/api/show",
+                    json={"model": self._model},
+                )
+            except httpx.TimeoutException as error:
+                raise LlmTimeoutError() from error
+            except httpx.NetworkError as error:
+                raise OllamaUnavailableError() from error
+            _raise_generation_error(response)
+            try:
+                capabilities = _json_object(response).get("capabilities") or []
+                if not isinstance(capabilities, list):
+                    raise TypeError
+            except (TypeError, ValueError) as error:
+                raise OllamaUnavailableError() from error
+            self._supports_thinking = "thinking" in capabilities
+        return self._supports_thinking
+
     async def aclose(self) -> None:
         """Close the internally owned HTTP client."""
 
@@ -184,28 +242,47 @@ class OllamaLanguageModel:
             await self._client.aclose()
 
 
-def _generation_payload(
+def _chat_payload(
     *,
     model: str,
-    prompt: str,
+    system: str,
+    user: str,
     stream: bool,
+    think: bool,
     temperature: float,
     context_size: int,
     max_output_tokens: int,
+    response_schema: Mapping[str, object] | None,
 ) -> dict[str, object]:
-    # Top-level think=false is required for Qwen3-family models: otherwise Ollama
-    # spends num_predict on a thinking trace and returns an empty `response`.
-    return {
+    # Thinking-only models (e.g. qwen3:4b 2507) ignore think=false and leak their
+    # reasoning into assistant content; think=true routes it to message.thinking,
+    # which is never surfaced. Reasoning still consumes num_predict. Models without
+    # the thinking capability reject think=true.
+    payload: dict[str, object] = {
         "model": model,
-        "prompt": prompt,
         "stream": stream,
-        "think": False,
+        "think": think,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
         "options": {
             "temperature": temperature,
             "num_ctx": context_size,
             "num_predict": max_output_tokens,
         },
     }
+    if response_schema is not None:
+        payload["format"] = response_schema
+    return payload
+
+
+def _message_content(payload: Mapping[str, Any]) -> str:
+    message = payload.get("message")
+    if not isinstance(message, Mapping):
+        return ""
+    content = message.get("content")
+    return content if isinstance(content, str) else ""
 
 
 def _normalize_loopback_url(value: str) -> str:
@@ -224,6 +301,12 @@ def _normalize_loopback_url(value: str) -> str:
     elif path:
         raise ValueError("Ollama URL must not contain a path")
     return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
+
+
+def _raise_empty_answer(done_reason: object) -> NoReturn:
+    if done_reason == "length":
+        raise LlmContextExceededError()
+    raise OllamaUnavailableError()
 
 
 def _raise_generation_error(response: httpx.Response) -> None:
@@ -255,13 +338,6 @@ def _json_object(response: httpx.Response) -> Mapping[str, Any]:
     if not isinstance(payload, Mapping):
         raise TypeError
     return payload
-
-
-def _required_string(payload: Mapping[str, Any], key: str) -> str:
-    value = payload[key]
-    if not isinstance(value, str) or not value.strip():
-        raise TypeError
-    return value
 
 
 def _optional_string(payload: Mapping[str, Any], key: str) -> str | None:

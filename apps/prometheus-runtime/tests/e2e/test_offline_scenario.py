@@ -21,12 +21,20 @@ from domain.entities.document import Document
 from domain.errors import ConfigurationError
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeChunker, FakeEmbedder, FakeLanguageModel, FakeMarkdownParser, FakeTokenCounter
+from fakes import (
+    FakeChunker,
+    FakeEmbedder,
+    FakeLanguageModel,
+    FakeMarkdownParser,
+    FakeTokenCounter,
+)
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
-def test_index_search_and_answer_work_while_external_network_is_blocked(tmp_path: Path) -> None:
+def test_index_search_and_answer_work_while_external_network_is_blocked(
+    tmp_path: Path,
+) -> None:
     vault_id = VaultId("offline-vault")
     embedder = FakeEmbedder()
     language_model = FakeLanguageModel()
@@ -51,8 +59,12 @@ def test_index_search_and_answer_work_while_external_network_is_blocked(tmp_path
 
     with NetworkGuard():
         asyncio.run(container.index_document.execute(document))
-        results = asyncio.run(container.search_notes.execute(document.content, limit=10))
-        answer = asyncio.run(container.answer_question.execute(document.content, limit=10))
+        results = asyncio.run(
+            container.search_notes.execute(document.content, limit=10)
+        )
+        answer = asyncio.run(
+            container.answer_question.execute(document.content, limit=10)
+        )
 
         with pytest.raises(ConfigurationError, match="target localhost"):
             socket.create_connection(("8.8.8.8", 53))
@@ -63,9 +75,13 @@ def test_index_search_and_answer_work_while_external_network_is_blocked(tmp_path
     container.close()
 
 
-def test_http_index_search_chat_work_while_external_network_is_blocked(tmp_path: Path) -> None:
+def test_http_index_search_chat_work_while_external_network_is_blocked(
+    tmp_path: Path,
+) -> None:
     layout = ensure_layout(tmp_path)
-    settings = RuntimeSettings(data_dir=tmp_path, session_token=SecretStr("offline-token"))
+    settings = RuntimeSettings(
+        data_dir=tmp_path, session_token=SecretStr("offline-token")
+    )
     base = Container(
         settings,
         layout,
@@ -114,7 +130,9 @@ def test_http_index_search_chat_work_while_external_network_is_blocked(tmp_path:
     assert put.status_code == 200
     assert search.status_code == 200
     assert chat.status_code == 200
-    assert [item["text"] for item in search.json()["results"]] == ["local offline retrieval answer"]
+    assert [item["text"] for item in search.json()["results"]] == [
+        "local offline retrieval answer"
+    ]
     assert chat.json()["insufficient_context"] is False
     assert chat.json()["answer"]
     registry.close_all()

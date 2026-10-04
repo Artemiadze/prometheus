@@ -37,8 +37,12 @@ def test_statistics_reflect_saved_documents_and_last_indexed_at(tmp_path: Path) 
     database = MetadataDatabase(tmp_path)
     first_indexed_at = datetime(2026, 1, 1, tzinfo=UTC)
     second_indexed_at = datetime(2026, 1, 2, tzinfo=UTC)
-    database.documents.save_indexed(_document("document-01", "Notes/A.md"), (), first_indexed_at)
-    database.documents.save_indexed(_document("document-02", "Notes/B.md"), (), second_indexed_at)
+    database.documents.save_indexed(
+        _document("document-01", "Notes/A.md"), (), first_indexed_at
+    )
+    database.documents.save_indexed(
+        _document("document-02", "Notes/B.md"), (), second_indexed_at
+    )
 
     statistics = database.statistics.read()
 
@@ -47,7 +51,9 @@ def test_statistics_reflect_saved_documents_and_last_indexed_at(tmp_path: Path) 
     database.close()
 
 
-def test_index_size_includes_the_qdrant_directory_without_querying_it(tmp_path: Path) -> None:
+def test_index_size_includes_the_qdrant_directory_without_querying_it(
+    tmp_path: Path,
+) -> None:
     database = MetadataDatabase(tmp_path)
     qdrant_dir = tmp_path / "qdrant"
     qdrant_dir.mkdir()

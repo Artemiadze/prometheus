@@ -18,7 +18,13 @@ from bootstrap.container import Container
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeChunker, FakeEmbedder, FakeJobStore, FakeMarkdownParser, FakeProgressReporter
+from fakes import (
+    FakeChunker,
+    FakeEmbedder,
+    FakeJobStore,
+    FakeMarkdownParser,
+    FakeProgressReporter,
+)
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 VAULT = VaultId("vault-rebuild")
@@ -141,7 +147,9 @@ def test_reindex_skips_oversized_document_and_indexes_the_rest(tmp_path: Path) -
     container.close()
 
 
-def test_failed_rebuild_discards_staging_and_keeps_active_searchable(tmp_path: Path) -> None:
+def test_failed_rebuild_discards_staging_and_keeps_active_searchable(
+    tmp_path: Path,
+) -> None:
     import pytest
 
     from application.errors import VaultMismatchError
@@ -159,7 +167,9 @@ def test_failed_rebuild_discards_staging_and_keeps_active_searchable(tmp_path: P
     )
 
     with pytest.raises(VaultMismatchError):
-        asyncio.run(container.reindex_vault.execute((foreign,), cancellation=_NeverCancelled()))
+        asyncio.run(
+            container.reindex_vault.execute((foreign,), cancellation=_NeverCancelled())
+        )
 
     vault_path = vault_dir(container.layout, VAULT.value)
     assert not (vault_path / REBUILD_DIRNAME).exists()
@@ -202,7 +212,9 @@ def test_crash_after_switching_active_finalizes_and_cleans_temp(tmp_path: Path) 
     original = _document("document-a", "original alpha content")
     asyncio.run(container.index_document.execute(original))
     replacement = _document("document-b", "replacement bravo content")
-    asyncio.run(container.reindex_vault.execute((replacement,), cancellation=_NeverCancelled()))
+    asyncio.run(
+        container.reindex_vault.execute((replacement,), cancellation=_NeverCancelled())
+    )
     container.close()
 
     vault_path = vault_dir(ensure_layout(tmp_path), VAULT.value)
