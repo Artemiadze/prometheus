@@ -43,9 +43,9 @@ def test_prompt_splits_system_rules_and_numbered_user_context() -> None:
         response_token_reserve=32,
     )
 
-    assert "Answer using only the context fragments provided in the user message." in prompt.system
+    assert "Answer using only the context fragments in the user message." in prompt.system
     assert "Reply in English." in prompt.system
-    assert "Use at most three sentences" in prompt.system
+    assert '"sources": 1-based fragment numbers' in prompt.system
     assert "Context:" in prompt.user
     assert "[1] Source: Docker/Optimization.md#Images" in prompt.user
     assert chunk.text in prompt.user

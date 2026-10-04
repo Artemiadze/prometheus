@@ -30,20 +30,14 @@ def build_system_instruction(language: AnswerLanguage | None) -> str:
         language_rule = "Reply in the same language as the question."
         insufficiency = "say that there is not enough information in the user's notes"
 
-    return f"""Answer using only the context fragments provided in the user message.
-If the information required to answer the question is not present in the context,
-{insufficiency}. Do not use outside knowledge.
+    return f"""Answer using only the context fragments in the user message.
+If the answer is not in the context, {insufficiency}. Do not use outside knowledge.
 
 {language_rule}
 
-Response rules:
-- Return JSON with fields "answer" and "sources" only through the model format constraint.
-- "answer" must contain the final answer only: short and to the point.
-- Use at most three sentences unless the question explicitly asks for more detail.
-- Do not show reasoning, do not restate the question, and do not describe or compare
-  context fragments.
-- Put commands, code, and exact values in fenced code blocks inside "answer".
-- "sources" must list the 1-based fragment numbers you used, in first-use order."""
+Output JSON with "answer" and "sources" (enforced by the response format):
+- "answer": the user-facing reply; put commands, code, and exact values in fenced code blocks.
+- "sources": 1-based fragment numbers you used, in first-use order."""
 
 
 def insufficient_message(language: AnswerLanguage | None) -> str:

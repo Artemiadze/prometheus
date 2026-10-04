@@ -16,7 +16,6 @@ from adapters.outbound.ollama.errors import (
     LlmTimeoutError,
     OllamaUnavailableError,
 )
-from adapters.outbound.ollama.reasoning import ReasoningFilter, strip_reasoning
 from application.dto.llm import LlmGeneration, LocalLlmModel
 
 _CONTEXT_ERROR_MARKERS = (
@@ -93,8 +92,7 @@ class OllamaLanguageModel:
         _raise_generation_error(response)
         try:
             payload = _json_object(response)
-            raw_text = _message_content(payload)
-            text = strip_reasoning(raw_text)
+            text = _message_content(payload)
             done_reason = _optional_string(payload, "done_reason")
             model = _optional_string(payload, "model") or self._model
             prompt_tokens = _optional_integer(payload, "prompt_eval_count")
@@ -145,7 +143,6 @@ class OllamaLanguageModel:
                 ),
             ) as response:
                 _raise_generation_error(response)
-                reasoning_filter = ReasoningFilter()
                 answered = False
                 done_reason: object = None
                 async for line in response.aiter_lines():
@@ -162,14 +159,8 @@ class OllamaLanguageModel:
                         break
                     piece = _message_content(payload)
                     if piece:
-                        visible = reasoning_filter.feed(piece)
-                        if visible:
-                            answered = True
-                            yield visible
-                tail = reasoning_filter.flush()
-                if tail:
-                    answered = True
-                    yield tail
+                        answered = True
+                        yield piece
                 if not answered:
                     _raise_empty_answer(done_reason)
         except httpx.TimeoutException as error:

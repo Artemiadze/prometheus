@@ -268,19 +268,6 @@ def test_stream_yields_response_fragments_in_order() -> None:
     assert text == "Hello world"
 
 
-def test_stream_drops_reasoning_trace() -> None:
-    async def handler(request: httpx.Request) -> httpx.Response:
-        async def body() -> AsyncIterator[bytes]:
-            yield b'{"message":{"role":"assistant","content":"<thi"},"done":false}\n'
-            yield b'{"message":{"role":"assistant","content":"nk>private reasoning</th"},"done":false}\n'
-            yield b'{"message":{"role":"assistant","content":"ink>\\n\\nsqlite3"},"done":false}\n'
-            yield b'{"done":true}\n'
-
-        return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
-
-    assert _run_with_client(handler, _collect) == "sqlite3"
-
-
 async def _generate(adapter: OllamaLanguageModel) -> LlmGeneration:
     return await adapter.generate(
         _SYSTEM,
@@ -389,16 +376,6 @@ def test_stream_reports_output_budget_spent_on_thinking() -> None:
             await _collect(adapter)
 
     _run_with_client(handler, consume)
-
-
-def test_generate_drops_reasoning_trace() -> None:
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json=_chat_response("<think>reasoning</think>\nsqlite3"),
-        )
-
-    assert _run_with_client(handler, _generate).text == "sqlite3"
 
 
 def test_stream_maps_http_failures_like_generate() -> None:
