@@ -40,9 +40,7 @@ def test_empty_retrieval_is_insufficient() -> None:
 
 
 def test_hits_below_threshold_are_excluded() -> None:
-    selection = GroundingPolicy(min_score=0.5).select_context(
-        (_hit(0, 0.49), _hit(1, 0.5))
-    )
+    selection = GroundingPolicy(min_score=0.5).select_context((_hit(0, 0.49), _hit(1, 0.5)))
 
     assert tuple(hit.score for hit in selection.hits) == (0.5,)
     assert not selection.insufficient_context

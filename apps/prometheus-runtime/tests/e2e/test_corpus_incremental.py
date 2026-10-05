@@ -33,8 +33,7 @@ CORPUS = Path(__file__).resolve().parent / "fixtures" / "corpus"
 
 def _load_corpus() -> dict[str, str]:
     return {
-        path.name: path.read_text(encoding="utf-8").strip()
-        for path in sorted(CORPUS.glob("*.md"))
+        path.name: path.read_text(encoding="utf-8").strip() for path in sorted(CORPUS.glob("*.md"))
     }
 
 
@@ -96,9 +95,7 @@ def test_corpus_index_search_answer_and_incremental_update(tmp_path: Path) -> No
     assert "alphacorpusmarker" in alpha_hits[0].text
     assert answer.insufficient_context is False
     assert answer.sources
-    assert any(
-        source.relative_path.value == "Notes/alpha.md" for source in answer.sources
-    )
+    assert any(source.relative_path.value == "Notes/alpha.md" for source in answer.sources)
     assert language_model.calls
     assert new_hits
     assert "alphaincrementalmarker" in new_hits[0].text

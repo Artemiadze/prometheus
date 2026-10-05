@@ -39,9 +39,7 @@ def test_frontmatter_is_metadata_not_body() -> None:
     parsed = ObsidianMarkdownParser().parse(_document(raw))
     assert parsed.frontmatter == (("title", "Note"),)
     assert all(
-        "title:" not in block.text
-        for section in parsed.sections
-        for block in section.blocks
+        "title:" not in block.text for section in parsed.sections for block in section.blocks
     )
 
 
@@ -75,9 +73,7 @@ def test_list_and_table_blocks_stay_intact() -> None:
     kinds = [block.kind for block in parsed.sections[0].blocks]
     assert BlockKind.LIST in kinds
     assert BlockKind.TABLE in kinds
-    list_block = next(
-        block for block in parsed.sections[0].blocks if block.kind == BlockKind.LIST
-    )
+    list_block = next(block for block in parsed.sections[0].blocks if block.kind == BlockKind.LIST)
     assert "- one" in list_block.text and "- two" in list_block.text
 
 
@@ -85,9 +81,7 @@ def test_section_exposes_full_heading_path() -> None:
     content = "# Root\n\n## Child\n\nParagraph\n"
     parsed = ObsidianMarkdownParser().parse(_document(content))
     child = next(
-        section
-        for section in parsed.sections
-        if section.heading_path == ("Root", "Child")
+        section for section in parsed.sections if section.heading_path == ("Root", "Child")
     )
     assert child.level == 2
 
@@ -126,13 +120,9 @@ def test_small_section_becomes_single_chunk() -> None:
         token_counter=HeuristicTokenCounter(),
     )
     section = next(
-        section
-        for section in parsed.sections
-        if section.heading_path == ("PostgreSQL", "Indexes")
+        section for section in parsed.sections if section.heading_path == ("PostgreSQL", "Indexes")
     )
-    chunks = chunker.chunk(
-        ParsedDocument(parsed.document_id, (section,), parsed.frontmatter)
-    )
+    chunks = chunker.chunk(ParsedDocument(parsed.document_id, (section,), parsed.frontmatter))
     assert len(chunks) == 1
     assert chunks[0].heading_path == ("PostgreSQL", "Indexes")
 
@@ -154,21 +144,14 @@ def test_chunk_ids_are_stable_per_section_index() -> None:
     edited_chunks = chunker.chunk(parser.parse(edited))
     b_chunk = next(chunk for chunk in edited_chunks if chunk.heading_path == ("B",))
     unchanged = next(chunk for chunk in edited_chunks if chunk.heading_path == ("A",))
-    assert (
-        unchanged.id
-        == next(chunk for chunk in first if chunk.heading_path == ("A",)).id
-    )
-    assert (
-        b_chunk.id == next(chunk for chunk in first if chunk.heading_path == ("B",)).id
-    )
+    assert unchanged.id == next(chunk for chunk in first if chunk.heading_path == ("A",)).id
+    assert b_chunk.id == next(chunk for chunk in first if chunk.heading_path == ("B",)).id
 
 
 def test_duplicate_heading_sections_get_distinct_chunk_ids_and_occurrences() -> None:
     content = "## Notes\n\nfirst body\n\n## Notes\n\nsecond body\n"
     parsed = ObsidianMarkdownParser().parse(_document(content))
-    notes_sections = [
-        section for section in parsed.sections if section.heading_path == ("Notes",)
-    ]
+    notes_sections = [section for section in parsed.sections if section.heading_path == ("Notes",)]
     assert len(notes_sections) == 2
     assert notes_sections[0].heading_occurrence == 1
     assert notes_sections[1].heading_occurrence == 2

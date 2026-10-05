@@ -40,9 +40,7 @@ def test_health_does_not_initialize_embedder(tmp_path: Path) -> None:
         embedder_factory=build_embedder,
     )
 
-    response = TestClient(create_app(container), base_url="http://127.0.0.1:8765").get(
-        "/v1/health"
-    )
+    response = TestClient(create_app(container), base_url="http://127.0.0.1:8765").get("/v1/health")
 
     assert response.status_code == 200
     assert calls == 0
@@ -71,9 +69,7 @@ def test_provider_is_initialized_once(tmp_path: Path) -> None:
 def test_unconfigured_provider_has_explicit_error(tmp_path: Path) -> None:
     container = Container(RuntimeSettings(data_dir=tmp_path), ensure_layout(tmp_path))
 
-    with pytest.raises(
-        AdapterNotConfiguredError, match="VectorIndex adapter is not configured"
-    ):
+    with pytest.raises(AdapterNotConfiguredError, match="VectorIndex adapter is not configured"):
         _ = container.vector_index
 
 
@@ -156,9 +152,7 @@ def test_metadata_adapters_share_one_underlying_database(tmp_path: Path) -> None
         modified_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
-    container.document_repository.save_indexed(
-        document, (), datetime(2026, 1, 2, tzinfo=UTC)
-    )
+    container.document_repository.save_indexed(document, (), datetime(2026, 1, 2, tzinfo=UTC))
     statistics = container.index_statistics.read()
 
     assert statistics.document_count == 1
@@ -168,14 +162,10 @@ def test_metadata_adapters_share_one_underlying_database(tmp_path: Path) -> None
 def test_unconfigured_metadata_adapters_have_an_explicit_error(tmp_path: Path) -> None:
     container = Container(RuntimeSettings(data_dir=tmp_path), ensure_layout(tmp_path))
 
-    with pytest.raises(
-        AdapterNotConfiguredError, match="Metadata store adapter is not configured"
-    ):
+    with pytest.raises(AdapterNotConfiguredError, match="Metadata store adapter is not configured"):
         _ = container.document_repository
 
-    with pytest.raises(
-        AdapterNotConfiguredError, match="Metadata store adapter is not configured"
-    ):
+    with pytest.raises(AdapterNotConfiguredError, match="Metadata store adapter is not configured"):
         _ = container.unit_of_work
 
 
@@ -183,9 +173,7 @@ def test_active_index_fingerprint_excludes_llm_and_top_k_settings(
     tmp_path: Path,
 ) -> None:
     layout = ensure_layout(tmp_path)
-    baseline = Container(
-        RuntimeSettings(data_dir=tmp_path), layout
-    ).active_index_fingerprint
+    baseline = Container(RuntimeSettings(data_dir=tmp_path), layout).active_index_fingerprint
     changed = Container(
         RuntimeSettings(data_dir=tmp_path, llm_model="different-model", top_k=25),
         layout,
@@ -196,9 +184,7 @@ def test_active_index_fingerprint_excludes_llm_and_top_k_settings(
 
 def test_active_index_fingerprint_reflects_chunking_settings(tmp_path: Path) -> None:
     layout = ensure_layout(tmp_path)
-    baseline = Container(
-        RuntimeSettings(data_dir=tmp_path), layout
-    ).active_index_fingerprint
+    baseline = Container(RuntimeSettings(data_dir=tmp_path), layout).active_index_fingerprint
     changed = Container(
         RuntimeSettings(data_dir=tmp_path, chunk_size=500, chunk_overlap=50),
         layout,

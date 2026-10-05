@@ -32,9 +32,7 @@ pytestmark = pytest.mark.integration
 
 
 def _tables(connection: sqlite3.Connection) -> set[str]:
-    rows = connection.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table'"
-    ).fetchall()
+    rows = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
     return {row[0] for row in rows}
 
 
@@ -103,17 +101,12 @@ def test_upgrade_from_schema_v1_preserves_documents_and_chunks(tmp_path: Path) -
     apply_migrations(connection)
 
     versions = [
-        row[0]
-        for row in connection.execute(
-            "SELECT version FROM schema_version ORDER BY version"
-        )
+        row[0] for row in connection.execute("SELECT version FROM schema_version ORDER BY version")
     ]
     assert versions == [1, 2, 3, 4, 5]
     assert "jobs" not in _tables(connection)
     assert "chunks_fts" in _tables(connection)
-    document = connection.execute(
-        "SELECT document_id, relative_path FROM documents"
-    ).fetchone()
+    document = connection.execute("SELECT document_id, relative_path FROM documents").fetchone()
     chunk = connection.execute("SELECT chunk_id, document_id FROM chunks").fetchone()
     assert document is not None and tuple(document) == ("document-01", "Notes/One.md")
     assert chunk is not None and tuple(chunk) == ("chunk-01", "document-01")

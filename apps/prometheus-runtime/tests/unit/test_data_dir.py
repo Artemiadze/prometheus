@@ -14,9 +14,7 @@ from adapters.outbound.filesystem.data_dir import (
 )
 
 
-def test_explicit_path_has_priority(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_explicit_path_has_priority(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.platform", "win32")
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
 
@@ -43,9 +41,7 @@ def test_unix_platform_defaults(
     assert resolve_data_dir() == (tmp_path / expected_suffix).resolve()
 
 
-def test_windows_platform_default(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_windows_platform_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.platform", "win32")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 

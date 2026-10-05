@@ -20,9 +20,7 @@ from domain.value_objects.document_id import DocumentId
 
 
 class RecordingCrossEncoder:
-    def __init__(
-        self, scores: Sequence[float] | None = None, *, fail: bool = False
-    ) -> None:
+    def __init__(self, scores: Sequence[float] | None = None, *, fail: bool = False) -> None:
         self.scores = scores
         self.fail = fail
         self.calls: list[tuple[str, tuple[str, ...], int]] = []

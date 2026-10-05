@@ -69,9 +69,7 @@ class Document:
             relative_path=path,
             content=content,
             revision=revision,
-            content_hash=(
-                compute_content_hash(content) if content_hash is None else content_hash
-            ),
+            content_hash=(compute_content_hash(content) if content_hash is None else content_hash),
             modified_at=modified_at,
         )
 

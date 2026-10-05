@@ -167,9 +167,7 @@ def test_failed_rebuild_discards_staging_and_keeps_active_searchable(
     )
 
     with pytest.raises(VaultMismatchError):
-        asyncio.run(
-            container.reindex_vault.execute((foreign,), cancellation=_NeverCancelled())
-        )
+        asyncio.run(container.reindex_vault.execute((foreign,), cancellation=_NeverCancelled()))
 
     vault_path = vault_dir(container.layout, VAULT.value)
     assert not (vault_path / REBUILD_DIRNAME).exists()
@@ -212,9 +210,7 @@ def test_crash_after_switching_active_finalizes_and_cleans_temp(tmp_path: Path) 
     original = _document("document-a", "original alpha content")
     asyncio.run(container.index_document.execute(original))
     replacement = _document("document-b", "replacement bravo content")
-    asyncio.run(
-        container.reindex_vault.execute((replacement,), cancellation=_NeverCancelled())
-    )
+    asyncio.run(container.reindex_vault.execute((replacement,), cancellation=_NeverCancelled()))
     container.close()
 
     vault_path = vault_dir(ensure_layout(tmp_path), VAULT.value)

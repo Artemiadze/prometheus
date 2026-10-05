@@ -47,6 +47,4 @@ def test_domain_errors_have_fixed_messages_without_user_content() -> None:
 
 def test_existing_bootstrap_errors_keep_safe_messages() -> None:
     assert str(ConfigurationError("Invalid port")) == "Invalid port"
-    assert (
-        str(AdapterNotConfiguredError("Embedder unavailable")) == "Embedder unavailable"
-    )
+    assert str(AdapterNotConfiguredError("Embedder unavailable")) == "Embedder unavailable"

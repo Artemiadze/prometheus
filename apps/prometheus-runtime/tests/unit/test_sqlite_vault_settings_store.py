@@ -16,9 +16,7 @@ pytestmark = pytest.mark.unit
 def test_migration_includes_vault_ignored_folders(tmp_path: Path) -> None:
     db = MetadataDatabase(tmp_path)
     try:
-        version = db._connection.execute(
-            "SELECT MAX(version) FROM schema_version"
-        ).fetchone()[0]
+        version = db._connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
         assert version == LATEST_VERSION
         db._connection.execute("SELECT 1 FROM vault_ignored_folders LIMIT 1")
     finally:

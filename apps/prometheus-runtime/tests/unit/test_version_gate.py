@@ -20,9 +20,7 @@ def _client() -> TestClient:
         language_model=FakeLanguageModel(),
         job_store=FakeJobStore(),
     )
-    return TestClient(
-        create_app(base, job_store=base.job_store), base_url="http://127.0.0.1:8765"
-    )
+    return TestClient(create_app(base, job_store=base.job_store), base_url="http://127.0.0.1:8765")
 
 
 def test_health_does_not_require_plugin_version() -> None:

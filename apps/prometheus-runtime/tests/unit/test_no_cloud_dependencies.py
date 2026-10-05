@@ -49,9 +49,7 @@ def _package_name(dependency: str) -> str:
 def test_runtime_declares_no_cloud_llm_or_embedding_sdk() -> None:
     project_file = Path(__file__).parents[2] / "pyproject.toml"
     project = tomllib.loads(project_file.read_text(encoding="utf-8"))["project"]
-    package_names = {
-        _package_name(dependency) for dependency in project["dependencies"]
-    }
+    package_names = {_package_name(dependency) for dependency in project["dependencies"]}
 
     assert package_names.isdisjoint(PROHIBITED_PACKAGES)
 

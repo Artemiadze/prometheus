@@ -14,15 +14,10 @@ pytestmark = pytest.mark.domain
 
 
 def test_relative_path_is_normalized_to_posix() -> None:
-    assert (
-        RelativePath(r"./Notes\Database//Indexes.md").value
-        == "Notes/Database/Indexes.md"
-    )
+    assert RelativePath(r"./Notes\Database//Indexes.md").value == "Notes/Database/Indexes.md"
 
 
-@pytest.mark.parametrize(
-    "value", ["", "/etc/passwd", "../Secrets.md", "C:/Vault/Note.md"]
-)
+@pytest.mark.parametrize("value", ["", "/etc/passwd", "../Secrets.md", "C:/Vault/Note.md"])
 def test_unsafe_relative_path_is_rejected(value: str) -> None:
     with pytest.raises(InvalidPathError):
         RelativePath(value)

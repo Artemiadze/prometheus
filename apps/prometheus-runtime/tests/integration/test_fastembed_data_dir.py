@@ -30,9 +30,7 @@ class _RecordingBackend:
         batch_size: int,
     ) -> Sequence[Sequence[float]]:
         self.calls.append(tuple(texts))
-        return tuple(
-            tuple(float(index) for index in range(self.dimension)) for _ in texts
-        )
+        return tuple(tuple(float(index) for index in range(self.dimension)) for _ in texts)
 
 
 class _Factory:

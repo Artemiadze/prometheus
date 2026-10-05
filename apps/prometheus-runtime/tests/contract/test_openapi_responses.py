@@ -148,9 +148,7 @@ def test_success_responses_match_openapi_schemas() -> None:
     )
 
     assert health.status_code == 200
-    assert_matches_schema(
-        health.json(), path_response_schema("/v1/health", "get", "200")
-    )
+    assert_matches_schema(health.json(), path_response_schema("/v1/health", "get", "200"))
     assert status.status_code == 200
     assert_schema_named(status.json(), "StatusResponse")
     assert put.status_code == 200

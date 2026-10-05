@@ -31,9 +31,7 @@ def test_current_folder_contains_one_normalized_folder() -> None:
 
 
 def test_selected_folders_are_nonempty_and_deduplicated() -> None:
-    scope = SearchScope.selected_folders(
-        ["University/ML", r"University\ML", "Work/Backend"]
-    )
+    scope = SearchScope.selected_folders(["University/ML", r"University\ML", "Work/Backend"])
 
     assert scope.folders == (
         RelativePath("University/ML"),

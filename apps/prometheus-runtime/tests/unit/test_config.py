@@ -94,9 +94,7 @@ def test_non_loopback_host_is_rejected() -> None:
     ],
 )
 def test_non_local_llm_host_is_rejected(llm_host: str) -> None:
-    with pytest.raises(
-        ConfigurationError, match="llm_host must be an HTTP loopback URL"
-    ):
+    with pytest.raises(ConfigurationError, match="llm_host must be an HTTP loopback URL"):
         load_settings({"llm_host": llm_host})
 
 

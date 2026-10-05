@@ -66,9 +66,7 @@ def test_serve_requires_session_token(tmp_path: Path) -> None:
     assert "test-token" not in result.stderr
 
 
-def test_network_guard_installs_by_default(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_network_guard_installs_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import uvicorn
 
     from adapters.outbound.network.guard import NetworkGuard
@@ -84,13 +82,9 @@ def test_network_guard_installs_by_default(
 
     monkeypatch.setattr(NetworkGuard, "install", lambda: installed.append(True))
     monkeypatch.setattr(cli_module, "configure_logging", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        cli_module, "_assert_port_available", lambda *_args, **_kwargs: None
-    )
+    monkeypatch.setattr(cli_module, "_assert_port_available", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cli_module, "Container", _FakeContainer)
-    monkeypatch.setattr(
-        cli_module, "VaultContainerRegistry", lambda *_args, **_kwargs: object()
-    )
+    monkeypatch.setattr(cli_module, "VaultContainerRegistry", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(cli_module, "create_app", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(uvicorn, "run", lambda *_args, **_kwargs: None)
 
@@ -143,13 +137,9 @@ def test_network_guard_skipped_when_embedding_download_allowed(
     )
     monkeypatch.setattr(NetworkGuard, "install", lambda: installed.append(True))
     monkeypatch.setattr(cli_module, "configure_logging", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        cli_module, "_assert_port_available", lambda *_args, **_kwargs: None
-    )
+    monkeypatch.setattr(cli_module, "_assert_port_available", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cli_module, "Container", _FakeContainer)
-    monkeypatch.setattr(
-        cli_module, "VaultContainerRegistry", lambda *_args, **_kwargs: object()
-    )
+    monkeypatch.setattr(cli_module, "VaultContainerRegistry", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(cli_module, "create_app", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(uvicorn, "run", lambda *_args, **_kwargs: None)
 

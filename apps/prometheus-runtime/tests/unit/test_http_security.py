@@ -19,9 +19,7 @@ def _header_names(response: Response) -> set[str]:
 def _client(*, port: int = 8765) -> TestClient:
     return TestClient(
         create_app(
-            SimpleNamespace(
-                settings=RuntimeSettings(port=port, session_token=SecretStr("tok"))
-            )
+            SimpleNamespace(settings=RuntimeSettings(port=port, session_token=SecretStr("tok")))
         ),
         base_url=f"http://127.0.0.1:{port}",
     )

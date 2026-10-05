@@ -34,9 +34,7 @@ def test_reindex_reports_progress_every_n_documents() -> None:
         def __init__(self) -> None:
             self.calls = 0
 
-        async def execute(
-            self, document: Document, *, force: bool = False
-        ) -> IndexDocumentResult:
+        async def execute(self, document: Document, *, force: bool = False) -> IndexDocumentResult:
             self.calls += 1
             return IndexDocumentResult(document.id, 1, 0)
 

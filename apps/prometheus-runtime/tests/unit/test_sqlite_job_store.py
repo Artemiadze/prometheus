@@ -43,9 +43,7 @@ def test_only_one_active_job_per_vault(tmp_path: Path) -> None:
     database = JobsDatabase(tmp_path / "state")
     first = database.job_store.create(VAULT, JobKind.REINDEX)
     database.job_store.update(
-        first.with_state(
-            status=JobStatus.RUNNING, progress=0.0, updated_at=datetime.now(UTC)
-        )
+        first.with_state(status=JobStatus.RUNNING, progress=0.0, updated_at=datetime.now(UTC))
     )
     with pytest.raises(MetadataStoreError):
         second = database.job_store.create(VAULT, JobKind.SYNC)
@@ -63,9 +61,7 @@ def test_recover_interrupted_marks_running_jobs_failed(tmp_path: Path) -> None:
     database = JobsDatabase(tmp_path / "state")
     job = database.job_store.create(VAULT, JobKind.REINDEX)
     database.job_store.update(
-        job.with_state(
-            status=JobStatus.RUNNING, progress=0.1, updated_at=datetime.now(UTC)
-        )
+        job.with_state(status=JobStatus.RUNNING, progress=0.1, updated_at=datetime.now(UTC))
     )
     database.close()
 

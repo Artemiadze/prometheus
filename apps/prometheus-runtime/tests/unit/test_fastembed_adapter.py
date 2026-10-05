@@ -36,9 +36,7 @@ class RecordingBackend:
         self.batch_sizes.append(batch_size)
         if self.fail_on_call == len(self.calls):
             raise RuntimeError("backend failed")
-        return tuple(
-            tuple(float(index) for index in range(self.dimension)) for _ in texts
-        )
+        return tuple(tuple(float(index) for index in range(self.dimension)) for _ in texts)
 
 
 class RecordingFactory:
@@ -70,9 +68,7 @@ class RecordingFactory:
                 "local_files_only": local_files_only,
             }
         )
-        if (local_files_only and self.fail_local) or (
-            not local_files_only and self.fail_online
-        ):
+        if (local_files_only and self.fail_local) or (not local_files_only and self.fail_online):
             raise RuntimeError("model unavailable")
         return self.backend
 

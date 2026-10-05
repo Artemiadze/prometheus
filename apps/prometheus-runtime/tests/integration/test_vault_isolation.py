@@ -256,12 +256,8 @@ def test_http_search_is_isolated_per_vault_and_rejects_unsafe_vault_id(
 
     assert put_a.status_code == 200
     assert put_b.status_code == 200
-    assert [item["text"] for item in search_a.json()["results"]] == [
-        "alpha secret from vault a"
-    ]
-    assert [item["text"] for item in search_b.json()["results"]] == [
-        "bravo secret from vault b"
-    ]
+    assert [item["text"] for item in search_a.json()["results"]] == ["alpha secret from vault a"]
+    assert [item["text"] for item in search_b.json()["results"]] == ["bravo secret from vault b"]
     assert invalid.status_code == 400
     registry.close_all()
     base.close()

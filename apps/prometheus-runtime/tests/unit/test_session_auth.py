@@ -43,9 +43,7 @@ def test_missing_authorization_header_returns_401_envelope() -> None:
 
 
 def test_wrong_token_returns_401_envelope() -> None:
-    response = _client().get(
-        "/v1/models", headers={"Authorization": "Bearer wrong-token"}
-    )
+    response = _client().get("/v1/models", headers={"Authorization": "Bearer wrong-token"})
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
@@ -54,9 +52,7 @@ def test_wrong_token_returns_401_envelope() -> None:
 
 
 def test_non_bearer_scheme_returns_401() -> None:
-    response = _client().get(
-        "/v1/models", headers={"Authorization": "Basic test-token"}
-    )
+    response = _client().get("/v1/models", headers={"Authorization": "Basic test-token"})
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
@@ -72,9 +68,7 @@ def test_raw_token_without_bearer_scheme_returns_401() -> None:
 def test_non_ascii_authorization_token_returns_401_not_500() -> None:
     app = SimpleNamespace(
         state=SimpleNamespace(
-            container=SimpleNamespace(
-                settings=RuntimeSettings(session_token=_DEFAULT_TOKEN)
-            )
+            container=SimpleNamespace(settings=RuntimeSettings(session_token=_DEFAULT_TOKEN))
         )
     )
     scope = {
@@ -97,9 +91,7 @@ def test_non_ascii_authorization_token_returns_401_not_500() -> None:
 
 
 def test_missing_configured_token_fails_closed() -> None:
-    response = _client(token=None).get(
-        "/v1/models", headers={"Authorization": "Bearer anything"}
-    )
+    response = _client(token=None).get("/v1/models", headers={"Authorization": "Bearer anything"})
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
@@ -134,19 +126,14 @@ def test_failed_auth_does_not_write_token_to_runtime_log(tmp_path: Path) -> None
     token = "session-token-must-never-appear"
 
     response = TestClient(
-        create_app(
-            SimpleNamespace(settings=RuntimeSettings(session_token=SecretStr(token)))
-        ),
+        create_app(SimpleNamespace(settings=RuntimeSettings(session_token=SecretStr(token)))),
         base_url="http://127.0.0.1:8765",
     ).get("/v1/models", headers={"Authorization": f"Bearer {token}-wrong"})
 
     log_text = (
         (layout.logs / "runtime.log").read_text(encoding="utf-8")
         if (layout.logs / "runtime.log").exists()
-        else "".join(
-            path.read_text(encoding="utf-8")
-            for path in layout.logs.glob("runtime.log*")
-        )
+        else "".join(path.read_text(encoding="utf-8") for path in layout.logs.glob("runtime.log*"))
     )
 
     assert response.status_code == 401
