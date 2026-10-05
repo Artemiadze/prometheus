@@ -55,6 +55,41 @@ def parse_answer(raw: str, fragment_count: int) -> ParsedAnswer:
     return ParsedAnswer(text=answer.strip(), cited=tuple(cited))
 
 
+_SOURCES_KEY = re.compile(r'"sources"\s*:\s*\[([\d\s,]*)\]')
+
+
+def try_parse_answer(raw: str, fragment_count: int) -> ParsedAnswer | None:
+    """Strict parse first; recover answer text from malformed JSON when possible."""
+
+    try:
+        return parse_answer(raw, fragment_count)
+    except AnswerParseError:
+        pass
+
+    text = raw.strip()
+    match = _ANSWER_KEY.search(text)
+    if match is None:
+        return None
+    answer_text = _decode_json_string(text[match.end() :]).strip()
+    if not answer_text:
+        return None
+
+    cited: list[int] = []
+    seen: set[int] = set()
+    sources_match = _SOURCES_KEY.search(text)
+    if sources_match is not None:
+        for part in sources_match.group(1).split(","):
+            token = part.strip()
+            if not token.isdigit():
+                continue
+            index = int(token)
+            if index < 1 or index > fragment_count or index in seen:
+                continue
+            seen.add(index)
+            cited.append(index)
+    return ParsedAnswer(text=answer_text, cited=tuple(cited))
+
+
 class AnswerStreamExtractor:
     """Incrementally decode the ``answer`` string from a streaming JSON object."""
 

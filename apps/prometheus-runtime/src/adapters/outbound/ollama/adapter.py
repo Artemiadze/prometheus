@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import time
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any, NoReturn
 from urllib.parse import urlsplit, urlunsplit
@@ -37,6 +38,7 @@ class OllamaLanguageModel:
         base_url: str,
         model: str,
         timeout_seconds: float,
+        keep_alive: str = "30m",
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._base_url = _normalize_loopback_url(base_url)
@@ -51,6 +53,10 @@ class OllamaLanguageModel:
             timeout=httpx.Timeout(timeout_seconds),
         )
         self._supports_thinking: bool | None = None
+        self._keep_alive = keep_alive.strip() or "30m"
+        self._availability_checked_at: float | None = None
+        self._availability: bool | None = None
+        self._availability_ttl_seconds = 30.0
 
     async def generate(
         self,
@@ -82,6 +88,7 @@ class OllamaLanguageModel:
                     context_size=context_size,
                     max_output_tokens=max_output_tokens,
                     response_schema=response_schema,
+                    keep_alive=self._keep_alive,
                 ),
             )
         except httpx.TimeoutException as error:
@@ -140,6 +147,7 @@ class OllamaLanguageModel:
                     context_size=context_size,
                     max_output_tokens=max_output_tokens,
                     response_schema=response_schema,
+                    keep_alive=self._keep_alive,
                 ),
             ) as response:
                 _raise_generation_error(response)
@@ -197,11 +205,21 @@ class OllamaLanguageModel:
     async def is_available(self) -> bool:
         """Return availability without confusing an empty local catalog with failure."""
 
+        now = time.monotonic()
+        if (
+            self._availability is not None
+            and self._availability_checked_at is not None
+            and now - self._availability_checked_at < self._availability_ttl_seconds
+        ):
+            return self._availability
         try:
             await self.list_models()
+            available = True
         except OllamaUnavailableError:
-            return False
-        return True
+            available = False
+        self._availability = available
+        self._availability_checked_at = now
+        return available
 
     async def _think(self) -> bool:
         """Enable ``think`` only for models whose Ollama capabilities include thinking."""
@@ -244,6 +262,7 @@ def _chat_payload(
     context_size: int,
     max_output_tokens: int,
     response_schema: Mapping[str, object] | None,
+    keep_alive: str,
 ) -> dict[str, object]:
     # Thinking-only models (e.g. qwen3:4b 2507) ignore think=false and leak their
     # reasoning into assistant content; think=true routes it to message.thinking,
@@ -253,6 +272,7 @@ def _chat_payload(
         "model": model,
         "stream": stream,
         "think": think,
+        "keep_alive": keep_alive,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},

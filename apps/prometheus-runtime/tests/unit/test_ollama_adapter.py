@@ -75,6 +75,7 @@ def test_generate_sends_expected_chat_payload_and_returns_typed_result() -> None
             "model": "qwen3:4b",
             "stream": False,
             "think": True,
+            "keep_alive": "30m",
             "messages": [
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": _USER},

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StatusStore } from "../../../../../src/adapters/inbound/obsidian/status/StatusStore";
 import type { SystemStatus } from "../../../../../src/application/dto/system";
@@ -8,7 +8,6 @@ import {
   ManagedRuntimeState,
   OllamaState,
 } from "../../../../../src/domain/entities/RuntimeStatus";
-import { FakeClock } from "../../../../fakes/FakeClock";
 
 function makeStatus(runtime = ManagedRuntimeState.running("0.1.0")): SystemStatus {
   return {
@@ -30,19 +29,20 @@ function makeStatus(runtime = ManagedRuntimeState.running("0.1.0")): SystemStatu
 }
 
 describe("StatusStore", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("derives recommended actions from polled status", async () => {
-    const clock = new FakeClock();
     let current = makeStatus(ManagedRuntimeState.missing());
     const store = new StatusStore({
       getSystemStatus: {
         execute: async () => current,
-        poll: async (onUpdate, signal, intervalMs = 1000) => {
-          onUpdate(current);
-          while (!signal?.aborted) {
-            await clock.sleep(intervalMs, signal);
-            onUpdate(current);
-          }
-        },
+        poll: vi.fn(),
       },
       installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
       startRuntime: {
@@ -76,25 +76,24 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
+    store.setActiveUiViews(1);
     store.startPolling();
     await Promise.resolve();
     expect(store.getState().runtimeAction).toBe("download");
 
     current = makeStatus(ManagedRuntimeState.running("0.1.0"));
-    clock.advance(1000);
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(store.getState().runtimeAction).toBe("none");
 
     store.dispose();
   });
 
   it("does not poll until startPolling", async () => {
-    const poll = vi.fn(async () => undefined);
+    const execute = vi.fn(async () => makeStatus());
     const store = new StatusStore({
       getSystemStatus: {
-        execute: async () => makeStatus(),
-        poll,
+        execute,
+        poll: vi.fn(),
       },
       installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
       startRuntime: {
@@ -124,18 +123,18 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
-    await Promise.resolve();
     expect(store.isPolling()).toBe(false);
-    expect(poll).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
 
+    store.setActiveUiViews(1);
     store.startPolling();
     expect(store.isPolling()).toBe(true);
-    expect(poll).toHaveBeenCalledOnce();
+    await Promise.resolve();
+    expect(execute).toHaveBeenCalledOnce();
     store.dispose();
   });
 
   it("installRuntime dispatches download then start", async () => {
-    const clock = new FakeClock();
     const install = vi.fn(
       async (onState?: (s: ReturnType<typeof ManagedRuntimeState.downloading>) => void) => {
         onState?.(ManagedRuntimeState.downloading(50));
@@ -152,12 +151,7 @@ describe("StatusStore", () => {
     const store = new StatusStore({
       getSystemStatus: {
         execute: async () => makeStatus(ManagedRuntimeState.missing()),
-        poll: async (onUpdate, signal, intervalMs = 1000) => {
-          onUpdate(makeStatus(ManagedRuntimeState.missing()));
-          while (!signal?.aborted) {
-            await clock.sleep(intervalMs, signal);
-          }
-        },
+        poll: vi.fn(),
       },
       installRuntime: { execute: install },
       startRuntime: { execute: start },
@@ -186,18 +180,14 @@ describe("StatusStore", () => {
   });
 
   it("dispose aborts the poll loop", async () => {
-    const clock = new FakeClock();
     let polls = 0;
     const store = new StatusStore({
       getSystemStatus: {
-        execute: async () => makeStatus(),
-        poll: async (onUpdate, signal, intervalMs = 1000) => {
-          while (!signal?.aborted) {
-            polls += 1;
-            onUpdate(makeStatus());
-            await clock.sleep(intervalMs, signal);
-          }
+        execute: async () => {
+          polls += 1;
+          return makeStatus();
         },
+        poll: vi.fn(),
       },
       installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
       startRuntime: {
@@ -227,12 +217,12 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
+    store.setActiveUiViews(1);
     store.startPolling();
     await Promise.resolve();
     const before = polls;
     store.dispose();
-    clock.advance(5000);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(5000);
     expect(polls).toBe(before);
   });
 });

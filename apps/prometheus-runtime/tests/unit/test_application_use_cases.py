@@ -270,6 +270,7 @@ def test_answer_blocks_when_fingerprint_requires_rebuild() -> None:
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     with pytest.raises(IndexRebuildRequiredError, match=r"chunk_size"):
@@ -296,6 +297,7 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
     grounded = AnswerQuestion(
         retrieval=retrieval,
@@ -305,6 +307,7 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     missing = asyncio.run(insufficient.execute("semantic question", limit=10))
@@ -345,6 +348,7 @@ def test_answer_stream_emits_tokens_before_llm_finishes_and_sources_last() -> No
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     async def collect() -> list[object]:
@@ -390,6 +394,7 @@ def test_answer_stream_skips_llm_when_context_is_insufficient() -> None:
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     async def collect() -> list[AnswerCompletedEvent]:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,6 +20,7 @@ from bootstrap.container_registry import VaultContainerRegistry
 from domain.entities.chunk import Chunk
 from domain.entities.document import Document
 from domain.entities.search_hit import SearchHit
+from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import SearchScope
@@ -123,6 +124,9 @@ class _GuardingIndex:
 
     def delete_by_document(self, document_id: DocumentId) -> None:
         self._inner.delete_by_document(document_id)
+
+    def retrieve_vectors(self, chunk_ids: Sequence[ChunkId]) -> Mapping[str, Sequence[float]]:
+        return self._inner.retrieve_vectors(chunk_ids)
 
     def update_document_path(
         self,

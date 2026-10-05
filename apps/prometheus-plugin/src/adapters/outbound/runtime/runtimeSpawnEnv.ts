@@ -8,9 +8,14 @@ import { join } from "node:path";
  * Forces TMPDIR under the managed data root so PyInstaller onefile extraction
  * does not use Obsidian Snap's private /tmp (which can fail mid-extract).
  */
+export type RuntimeSpawnTuning = {
+  readonly llmContextSize?: number;
+};
+
 export async function buildRuntimeSpawnEnv(
   dataDir: string,
   baseEnv: NodeJS.ProcessEnv = process.env,
+  tuning?: RuntimeSpawnTuning,
 ): Promise<NodeJS.ProcessEnv> {
   const env: NodeJS.ProcessEnv = { ...baseEnv };
   const needsDownload = await embeddingCacheNeedsDownload(dataDir);
@@ -22,6 +27,19 @@ export async function buildRuntimeSpawnEnv(
   }
   if (!env.PROMETHEUS_LLM_MODEL) {
     env.PROMETHEUS_LLM_MODEL = "qwen3:4b";
+  }
+  if (!env.PROMETHEUS_TOP_K) {
+    env.PROMETHEUS_TOP_K = "6";
+  }
+  if (!env.PROMETHEUS_EMBEDDING_THREADS) {
+    env.PROMETHEUS_EMBEDDING_THREADS = "4";
+  }
+  if (
+    tuning?.llmContextSize !== undefined &&
+    tuning.llmContextSize > 0 &&
+    !env.PROMETHEUS_LLM_CONTEXT_SIZE
+  ) {
+    env.PROMETHEUS_LLM_CONTEXT_SIZE = String(tuning.llmContextSize);
   }
   const tmpDir = join(dataDir, "tmp");
   await mkdir(tmpDir, { recursive: true });

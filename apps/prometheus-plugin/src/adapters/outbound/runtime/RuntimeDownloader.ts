@@ -75,10 +75,7 @@ export class RuntimeDownloader {
     try {
       let binaryResponse: Response;
       try {
-        binaryResponse = await this.deps.fetchFn(
-          descriptor.binaryUrl,
-          withOptionalSignal(signal),
-        );
+        binaryResponse = await this.deps.fetchFn(descriptor.binaryUrl, withOptionalSignal(signal));
       } catch (error) {
         if (isAbortError(error)) {
           throw error;
@@ -172,10 +169,7 @@ export class RuntimeDownloader {
     }
   }
 
-  private async loadExpectedChecksum(
-    managedPath: string,
-    signal?: AbortSignal,
-  ): Promise<string> {
+  private async loadExpectedChecksum(managedPath: string, signal?: AbortSignal): Promise<string> {
     const sidecarPath = `${managedPath}.sha256`;
     const sidecar = await readFile(sidecarPath, "utf8").catch(() => null);
     if (sidecar !== null) {

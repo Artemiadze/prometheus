@@ -51,7 +51,7 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   networkAccess: "updates_only",
   vaultId: null,
   noteOpenMode: "reuse_active",
-  indexingDebounceMs: 750,
+  indexingDebounceMs: 5000,
   maxConcurrentSyncs: 2,
   searchScopeMode: "entire_vault",
   applySearchScopeToChat: false,
@@ -59,7 +59,7 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   chunkSizeTokens: 700,
   chunkOverlapTokens: 80,
   llmTemperature: 0.2,
-  llmContextSize: 4096,
+  llmContextSize: 8192,
   verboseLogging: false,
   runtimeAutostart: false,
 };

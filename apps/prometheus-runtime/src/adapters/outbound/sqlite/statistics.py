@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +36,18 @@ class SqliteIndexStatisticsReader:
         )
 
 
+_DIR_SIZE_TTL_SECONDS = 30.0
+_dir_size_cache: dict[str, tuple[float, int]] = {}
+
+
 def _directory_size(path: Path) -> int:
     if not path.exists():
         return 0
-    return sum(entry.stat().st_size for entry in path.rglob("*") if entry.is_file())
+    key = str(path.resolve())
+    now = time.monotonic()
+    cached = _dir_size_cache.get(key)
+    if cached is not None and now - cached[0] < _DIR_SIZE_TTL_SECONDS:
+        return cached[1]
+    size = sum(entry.stat().st_size for entry in path.rglob("*") if entry.is_file())
+    _dir_size_cache[key] = (now, size)
+    return size

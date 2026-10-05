@@ -8,7 +8,12 @@ export {
   resolveEffectiveHomedir,
   type PlatformPathsInput,
 } from "./paths";
-export { RuntimeDownloader, parseChecksumFile, isDevSkipRuntimeVerify, type FetchFn } from "./RuntimeDownloader";
+export {
+  RuntimeDownloader,
+  parseChecksumFile,
+  isDevSkipRuntimeVerify,
+  type FetchFn,
+} from "./RuntimeDownloader";
 export { nodeHttpFetch, nodeHttpNdjson } from "./nodeHttpFetch";
 export { RuntimeLocator, type RuntimeLocatorDeps } from "./RuntimeLocator";
 export { RuntimeProcess, type RuntimeExitHandler } from "./RuntimeProcess";

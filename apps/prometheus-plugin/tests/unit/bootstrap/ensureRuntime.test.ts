@@ -11,7 +11,10 @@ describe("createEnsureRuntime", () => {
       },
     });
     const result = await ensureRuntime(new AbortController().signal);
-    expect(result).toEqual({ ok: false, message: expect.stringContaining("port busy") });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("port busy");
+    }
   });
 
   it("does not throw when StartRuntime is aborted", async () => {

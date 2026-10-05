@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
+from application.dto.chunk_fingerprint import ChunkFingerprint
 from application.dto.document_state import DocumentState
 from domain.entities.chunk import Chunk
 from domain.entities.document import Document
@@ -19,9 +20,13 @@ class FakeDocumentRepository:
         self._states: dict[DocumentId, DocumentState] = {
             state.document_id: state for state in states
         }
+        self._fingerprints: dict[DocumentId, tuple[ChunkFingerprint, ...]] = {}
 
     def get_state(self, document_id: DocumentId) -> DocumentState | None:
         return self._states.get(document_id)
+
+    def list_chunk_fingerprints(self, document_id: DocumentId) -> Sequence[ChunkFingerprint]:
+        return self._fingerprints.get(document_id, ())
 
     def list_states(self) -> Sequence[DocumentState]:
         return tuple(sorted(self._states.values(), key=lambda state: state.relative_path.value))
@@ -46,6 +51,14 @@ class FakeDocumentRepository:
             indexed_at=indexed_at,
             chunk_count=len(chunks),
         )
+        self._fingerprints[document.id] = tuple(
+            ChunkFingerprint(
+                chunk_id=chunk.id,
+                chunk_index=chunk.chunk_index,
+                content_hash=chunk.content_hash,
+            )
+            for chunk in chunks
+        )
 
     def update_path(
         self,
@@ -69,3 +82,4 @@ class FakeDocumentRepository:
         """Remove state in a test setup; missing IDs are a no-op."""
 
         self._states.pop(document_id, None)
+        self._fingerprints.pop(document_id, None)

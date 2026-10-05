@@ -28,7 +28,9 @@ export function resolveReleaseBaseUrl(
   fallback: string = RUNTIME_RELEASE_BASE_URL,
 ): string {
   const override = env.PROMETHEUS_RUNTIME_RELEASE_BASE_URL?.trim();
-  return override && override.length > 0 ? override.replace(/\/$/, "") : fallback.replace(/\/$/, "");
+  return override && override.length > 0
+    ? override.replace(/\/$/, "")
+    : fallback.replace(/\/$/, "");
 }
 
 export function detectReleaseTarget(platform: NodeJS.Platform, arch: string): ReleaseTarget {

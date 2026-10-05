@@ -39,7 +39,7 @@ export function wireAutoIndexing(deps: WireAutoIndexingDeps): WiredAutoIndexing 
     deps.syncState,
     deps.notifier,
   );
-  let debounceMs = 750;
+  let debounceMs = 5000;
   let maxConcurrent = 2;
   const debouncer = new DocumentChangeDebouncer(sync, clock, { debounceMs, maxConcurrent });
   let unsubscribe: Unsubscribe | null = null;

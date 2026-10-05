@@ -10,6 +10,7 @@ from application.services.answer_contract import (
     AnswerParseError,
     AnswerStreamExtractor,
     parse_answer,
+    try_parse_answer,
 )
 
 
@@ -39,6 +40,20 @@ def test_stream_extractor_decodes_answer_across_fragment_boundaries(size: int) -
 
     assert emitted == "line1\nline2"
     assert parse_answer(extractor.finish(), fragment_count=1).text == "line1\nline2"
+
+
+def test_try_parse_answer_recovers_from_trailing_garbage() -> None:
+    raw = '{"answer":"sqlite3","sources":[1,2]} trailing garbage'
+
+    parsed = try_parse_answer(raw, fragment_count=3)
+
+    assert parsed is not None
+    assert parsed.text == "sqlite3"
+    assert parsed.cited == (1, 2)
+
+
+def test_try_parse_answer_returns_none_when_answer_missing() -> None:
+    assert try_parse_answer('{"sources":[1]}', fragment_count=1) is None
 
 
 def test_stream_extractor_emits_only_new_answer_characters() -> None:

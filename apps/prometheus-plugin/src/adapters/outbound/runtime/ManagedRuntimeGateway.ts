@@ -16,7 +16,11 @@ import {
   type ManagedRuntimeState as ManagedRuntimeStateType,
   type RuntimeStopReason,
 } from "../../../domain/entities/RuntimeStatus";
-import { isAbortError, RuntimeNotInstalledError, RuntimeStartFailedError } from "../../../domain/errors";
+import {
+  isAbortError,
+  RuntimeNotInstalledError,
+  RuntimeStartFailedError,
+} from "../../../domain/errors";
 import { DiagnosticBuffer } from "./DiagnosticBuffer";
 import { nodeHttpFetch } from "./nodeHttpFetch";
 import { killOrphanRuntimeServes } from "./orphanCleanup";
@@ -37,6 +41,7 @@ export type ManagedRuntimeGatewayOptions = {
 
 export class ManagedRuntimeGateway implements RuntimeGateway {
   private readonly diagnostics: DiagnosticBuffer;
+  private readonly settings: SettingsRepository;
   private readonly locator: RuntimeLocator;
   private readonly downloader: RuntimeDownloader;
   private readonly process: RuntimeProcess;
@@ -45,6 +50,7 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
 
   constructor(options: ManagedRuntimeGatewayOptions) {
     this.diagnostics = options.diagnostics ?? new DiagnosticBuffer();
+    this.settings = options.settings;
     const getSettings = async (): Promise<PluginSettings> => options.settings.get();
     this.locator = new RuntimeLocator({
       getSettings,
@@ -147,7 +153,10 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
       this.diagnostics.append("stdout", `[cleanup] cleared ${orphans} orphan runtime process(es)`);
     }
 
-    const spawnEnv = await buildRuntimeSpawnEnv(dataDir);
+    const pluginSettings = await this.settings.get();
+    const spawnEnv = await buildRuntimeSpawnEnv(dataDir, process.env, {
+      llmContextSize: pluginSettings.llmContextSize,
+    });
     if (spawnEnv.PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD === "true") {
       this.diagnostics.append(
         "stdout",

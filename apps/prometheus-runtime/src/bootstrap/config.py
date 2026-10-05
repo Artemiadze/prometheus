@@ -34,7 +34,7 @@ class RuntimeSettings(BaseSettings):
     embedding_provider: Literal["fastembed"] = "fastembed"
     embedding_model: str = "intfloat/multilingual-e5-large"
     embedding_batch_size: int = Field(default=64, gt=0)
-    embedding_threads: int | None = Field(default=None, gt=0)
+    embedding_threads: int | None = Field(default=4, gt=0)
     embedding_allow_download: bool = False
     chunk_size: int = Field(default=700, gt=0)
     chunk_overlap: int = Field(default=80, ge=0)
@@ -42,7 +42,7 @@ class RuntimeSettings(BaseSettings):
     shutdown_grace_seconds: float = Field(default=10.0, gt=0)
     max_document_chars: int = Field(default=2_000_000, gt=0)
     max_chunks_per_document: int = Field(default=10_000, gt=0)
-    top_k: int = Field(default=10, gt=0)
+    top_k: int = Field(default=6, gt=0)
     retrieval_mode: RetrievalMode = "dense"
     hybrid_rrf_k: int = Field(default=60, gt=0)
     hybrid_dense_weight: float = Field(default=1.0, gt=0.0)
@@ -56,9 +56,10 @@ class RuntimeSettings(BaseSettings):
     llm_host: str = "http://127.0.0.1:11434"
     llm_model: str = "qwen3:4b"
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
-    llm_context_size: int = Field(default=12288, gt=0)
+    llm_context_size: int = Field(default=8192, gt=0)
     llm_output_reserve: int = Field(default=4096, gt=0)
     llm_timeout_seconds: float = Field(default=600.0, gt=0)
+    llm_keep_alive: str = "30m"
     log_level: LogLevel = "INFO"
 
     @field_validator("host")

@@ -29,7 +29,9 @@ describe("runtimeRelease", () => {
   it("allows PROMETHEUS_RUNTIME_RELEASE_BASE_URL override", () => {
     expect(resolveReleaseBaseUrl({})).toBe(RUNTIME_RELEASE_BASE_URL.replace(/\/$/, ""));
     expect(
-      resolveReleaseBaseUrl({ PROMETHEUS_RUNTIME_RELEASE_BASE_URL: "http://127.0.0.1:8766/runtime/" }),
+      resolveReleaseBaseUrl({
+        PROMETHEUS_RUNTIME_RELEASE_BASE_URL: "http://127.0.0.1:8766/runtime/",
+      }),
     ).toBe("http://127.0.0.1:8766/runtime");
   });
 });

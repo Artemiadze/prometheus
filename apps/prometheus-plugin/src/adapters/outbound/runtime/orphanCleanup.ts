@@ -67,11 +67,7 @@ export async function killOrphanRuntimeServes(
       } catch {
         continue;
       }
-      if (
-        cmdline.includes(binaryPath) &&
-        cmdline.includes("serve") &&
-        cmdline.includes(dataDir)
-      ) {
+      if (cmdline.includes(binaryPath) && cmdline.includes("serve") && cmdline.includes(dataDir)) {
         try {
           process.kill(pid, "SIGKILL");
           diagnosticsAppend?.("stdout", `[cleanup] sent SIGKILL to orphan pid=${pid}`);

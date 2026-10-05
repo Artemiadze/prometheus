@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_PLUGIN_SETTINGS } from "../../../../src/application/dto/settings";
@@ -130,8 +130,6 @@ describe("RuntimeDownloader", () => {
       platformPaths: { platform: "linux", env: {}, homedir: dir },
       access: async () => undefined,
     });
-    const { writeFile, mkdir } = await import("node:fs/promises");
-    const { dirname } = await import("node:path");
     await mkdir(dirname(locator.managedInstallPath()), { recursive: true });
     await writeFile(locator.managedInstallPath(), payload);
     await writeFile(`${locator.managedInstallPath()}.sha256`, `${digest}  prometheus-runtime\n`);
@@ -156,8 +154,6 @@ describe("RuntimeDownloader", () => {
       platformPaths: { platform: "linux", env: {}, homedir: dir },
       access: async () => undefined,
     });
-    const { writeFile, mkdir } = await import("node:fs/promises");
-    const { dirname } = await import("node:path");
     await mkdir(dirname(locator.managedInstallPath()), { recursive: true });
     await writeFile(locator.managedInstallPath(), Buffer.from("x"));
 

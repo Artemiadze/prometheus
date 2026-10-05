@@ -37,7 +37,9 @@ export class AskQuestion {
       return { kind: "validation", error: new QueryTooShortError() };
     }
 
-    let { next, pending } = prepareQuestionTurn(session, trimmed);
+    const prepared = prepareQuestionTurn(session, trimmed);
+    const pending = prepared.pending;
+    let next = prepared.next;
 
     const publish = (sessionSnapshot: ChatSession): void => {
       options?.onSessionUpdate?.(sessionSnapshot);

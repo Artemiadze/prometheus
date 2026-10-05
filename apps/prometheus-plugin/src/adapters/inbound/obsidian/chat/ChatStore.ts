@@ -105,9 +105,7 @@ export class ChatStore {
     this.setState({
       status: "sending",
       errorMessage: null,
-      ...(showOptimisticTurn
-        ? { session: appendPendingQuestion(this.session, trimmed) }
-        : {}),
+      ...(showOptimisticTurn ? { session: appendPendingQuestion(this.session, trimmed) } : {}),
     });
 
     try {

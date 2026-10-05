@@ -157,6 +157,25 @@ export class SettingsTab extends PluginSettingTab {
       });
 
     new Setting(section)
+      .setName("Indexing debounce")
+      .setDesc("Wait after edits before re-indexing a note (milliseconds).")
+      .addText((text) => {
+        text
+          .setValue(String(state.settings.indexingDebounceMs))
+          .setDisabled(state.actionBusy)
+          .onChange((value) => {
+            text.inputEl.dataset["pending"] = value;
+          });
+        text.inputEl.addEventListener("blur", () => {
+          const pending = text.inputEl.dataset["pending"];
+          if (pending !== undefined) {
+            const parsed = Number(pending);
+            void this.controller.setIndexingDebounceMs(parsed);
+          }
+        });
+      });
+
+    new Setting(section)
       .setName("Ignored folders")
       .setDesc("Relative vault paths, one per line (must exist).")
       .addTextArea((area) => {

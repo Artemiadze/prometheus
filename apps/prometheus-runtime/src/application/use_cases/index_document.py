@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 from application.dto.index_fingerprint import IndexFingerprint
@@ -23,9 +23,12 @@ from application.ports.markdown_parser import MarkdownParser
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vault_settings_store import VaultSettingsStore
 from application.ports.vector_index import VectorIndex
+from application.services.compute_gate import ComputeGate
 from application.services.index_fingerprint import ensure_index_compatible
+from application.services.index_generation import IndexGeneration
 from application.services.indexing_transaction import replace_document_index
 from application.use_cases.rename_document import RenameDocument
+from domain.entities.chunk import Chunk
 from domain.entities.document import Document, normalize_content
 from domain.value_objects.vault_id import VaultId
 
@@ -48,6 +51,8 @@ class IndexDocument:
         max_document_chars: int,
         max_chunks_per_document: int,
         vault_settings_store: VaultSettingsStore | None = None,
+        compute_gate: ComputeGate | None = None,
+        index_generation: IndexGeneration | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._vault_id = vault_id
@@ -64,6 +69,8 @@ class IndexDocument:
         self._max_document_chars = max_document_chars
         self._max_chunks_per_document = max_chunks_per_document
         self._vault_settings = vault_settings_store
+        self._compute_gate = compute_gate or ComputeGate()
+        self._index_generation = index_generation
         self._clock = clock
 
     async def execute(
@@ -94,9 +101,7 @@ class IndexDocument:
         chunks = tuple(self._chunker.chunk(self._parser.parse(document)))
         if len(chunks) > self._max_chunks_per_document:
             raise DocumentTooLargeError()
-        # Embedding is CPU-bound (ONNX); run it off the event loop so HTTP
-        # (health, job status, the 202 for /reindex) keeps being served.
-        vectors = await asyncio.to_thread(self._embedder.embed_documents, chunks)
+        vectors = await self._embed_chunks(document, chunks, state is not None)
         replace_document_index(
             document=document,
             chunks=chunks,
@@ -109,8 +114,58 @@ class IndexDocument:
         )
         if stored_fingerprint is None and not force:
             self._metadata.save(self._fingerprint)
+        if self._index_generation is not None:
+            self._index_generation.bump()
         return IndexDocumentResult(
             document.id,
             created_chunks=len(chunks),
             deleted_chunks=0 if state is None else state.chunk_count,
         )
+
+    async def _embed_chunks(
+        self,
+        document: Document,
+        chunks: tuple[Chunk, ...],
+        had_prior_index: bool,
+    ) -> tuple[Sequence[float], ...]:
+        old_by_index = {}
+        if had_prior_index:
+            old_by_index = {
+                fingerprint.chunk_index: fingerprint
+                for fingerprint in self._documents.list_chunk_fingerprints(document.id)
+            }
+        reuse_ids = [
+            old_by_index[chunk.chunk_index].chunk_id
+            for chunk in chunks
+            if chunk.chunk_index in old_by_index
+            and old_by_index[chunk.chunk_index].content_hash == chunk.content_hash
+        ]
+        cached = self._vectors.retrieve_vectors(reuse_ids) if reuse_ids else {}
+
+        vectors: list[Sequence[float] | None] = [None] * len(chunks)
+        embed_batch: list[Chunk] = []
+        embed_positions: list[int] = []
+        for index, chunk in enumerate(chunks):
+            old = old_by_index.get(chunk.chunk_index)
+            if (
+                old is not None
+                and old.content_hash == chunk.content_hash
+                and old.chunk_id.value in cached
+            ):
+                vectors[index] = cached[old.chunk_id.value]
+                continue
+            embed_batch.append(chunk)
+            embed_positions.append(index)
+
+        if embed_batch:
+            async with self._compute_gate.exclusive("background"):
+                embedded = await asyncio.to_thread(self._embedder.embed_documents, embed_batch)
+            for position, vector in zip(embed_positions, embedded, strict=True):
+                vectors[position] = vector
+
+        filled: list[Sequence[float]] = []
+        for slot in vectors:
+            if slot is None:
+                raise DocumentTooLargeError()
+            filled.append(slot)
+        return tuple(filled)
