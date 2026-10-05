@@ -43,7 +43,12 @@ export function registerPluginUi(deps: RegisterPluginUiDeps): RegisteredPluginUi
 
   plugin.registerView(
     CHAT_VIEW_TYPE,
-    (leaf) => new ChatView(leaf, { store: deps.chatStore, onActivate: deps.onActivate }),
+    (leaf) =>
+      new ChatView(leaf, {
+        store: deps.chatStore,
+        statusStore: deps.statusStore,
+        onActivate: deps.onActivate,
+      }),
   );
   plugin.registerView(
     SEARCH_VIEW_TYPE,

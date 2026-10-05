@@ -1,7 +1,6 @@
 import type { AskQuestion } from "../../../../application/use-cases/AskQuestion";
 import { MIN_QUERY_LENGTH } from "../../../../application/use-cases/SearchNotes";
 import { ChatSession } from "../../../../domain/entities/ChatSession";
-import type { ChatMessage } from "../../../../domain/entities/ChatMessage";
 import { ChatMessage as ChatMessageEntity } from "../../../../domain/entities/ChatMessage";
 import { isAbortError } from "../../../../domain/errors";
 import type { SourceReference } from "../../../../domain/entities/SourceReference";
@@ -11,11 +10,23 @@ import { presentError } from "../errors/presentError";
 
 export type ChatStatus = "idle" | "sending" | "streaming" | "error";
 
+export type ChatScopeMode = "auto" | "entire_vault" | "current_note" | "current_folder";
+
+export type ChatTabSummary = {
+  readonly id: string;
+  readonly title: string;
+  readonly busy: boolean;
+};
+
 export type ChatViewState = {
   readonly status: ChatStatus;
   readonly session: ChatSession;
   readonly errorMessage: string | null;
   readonly scopeOverrideLabel: string | null;
+  readonly tabs: readonly ChatTabSummary[];
+  readonly activeTabId: string;
+  readonly scopeMode: ChatScopeMode;
+  readonly durationsMs: Readonly<Record<string, number>>;
 };
 
 export type ChatRuntimeReadiness =
@@ -25,8 +36,9 @@ export type ChatStoreDeps = {
   readonly askQuestion: Pick<AskQuestion, "execute">;
   readonly ensureRuntime: (signal: AbortSignal) => Promise<ChatRuntimeReadiness>;
   readonly openSource: (source: SourceReference) => Promise<void>;
-  readonly resolveScope?: (() => Promise<SearchScope>) | undefined;
+  readonly resolveScope?: ((mode: ChatScopeMode) => Promise<SearchScope>) | undefined;
   readonly newSessionId?: (() => string) | undefined;
+  readonly now?: () => number;
 };
 
 type ScopeOverride = {
@@ -34,27 +46,59 @@ type ScopeOverride = {
   readonly label: string;
 };
 
+type ChatTab = {
+  readonly id: string;
+  title: string;
+  session: ChatSession;
+  status: ChatStatus;
+  errorMessage: string | null;
+  activeRequest: AbortController | null;
+  durationsMs: Map<string, number>;
+  scopeOverride: ScopeOverride | null;
+  /** Wall-clock start of the in-flight send, for duration on the assistant message. */
+  sendStartedAtMs: number | null;
+  pendingAssistantMessageId: string | null;
+};
+
 type Listener = (state: ChatViewState) => void;
 
+const DEFAULT_TAB_TITLE = "New chat";
+const TAB_TITLE_MAX = 48;
+
 export class ChatStore {
-  private session: ChatSession;
-  private status: ChatStatus = "idle";
-  private errorMessage: string | null = null;
-  private scopeOverride: ScopeOverride | null = null;
+  private tabs: ChatTab[] = [];
+  private activeTabId: string;
+  private scopeMode: ChatScopeMode = "auto";
   private readonly listeners = new Set<Listener>();
-  private activeRequest: AbortController | null = null;
   private disposed = false;
+  private readonly now: () => number;
 
   constructor(private readonly deps: ChatStoreDeps) {
-    this.session = ChatSession.empty(this.createSessionId());
+    this.now = deps.now ?? (() => Date.now());
+    const first = this.createEmptyTab();
+    this.tabs = [first];
+    this.activeTabId = first.id;
   }
 
   getState(): ChatViewState {
+    const active = this.requireActiveTab();
+    const durationsMs: Record<string, number> = {};
+    for (const [id, ms] of active.durationsMs.entries()) {
+      durationsMs[id] = ms;
+    }
     return {
-      status: this.status,
-      session: this.session,
-      errorMessage: this.errorMessage,
-      scopeOverrideLabel: this.scopeOverride?.label ?? null,
+      status: active.status,
+      session: active.session,
+      errorMessage: active.errorMessage,
+      scopeOverrideLabel: active.scopeOverride?.label ?? null,
+      tabs: this.tabs.map((tab) => ({
+        id: tab.id,
+        title: tab.title,
+        busy: tab.status === "sending" || tab.status === "streaming",
+      })),
+      activeTabId: this.activeTabId,
+      scopeMode: this.scopeMode,
+      durationsMs,
     };
   }
 
@@ -69,11 +113,70 @@ export class ChatStore {
     };
   }
 
+  newTab(): void {
+    if (this.disposed) {
+      return;
+    }
+    const tab = this.createEmptyTab();
+    this.tabs = [...this.tabs, tab];
+    this.activeTabId = tab.id;
+    this.notify();
+  }
+
+  closeTab(id: string): void {
+    if (this.disposed) {
+      return;
+    }
+    const index = this.tabs.findIndex((tab) => tab.id === id);
+    if (index < 0) {
+      return;
+    }
+    const tab = this.tabs[index];
+    if (!tab) {
+      return;
+    }
+    tab.activeRequest?.abort();
+    if (this.tabs.length === 1) {
+      const replacement = this.createEmptyTab();
+      this.tabs = [replacement];
+      this.activeTabId = replacement.id;
+      this.notify();
+      return;
+    }
+    const nextTabs = this.tabs.filter((t) => t.id !== id);
+    this.tabs = nextTabs;
+    if (this.activeTabId === id) {
+      const nextActive = nextTabs[Math.min(index, nextTabs.length - 1)];
+      this.activeTabId = nextActive?.id ?? nextTabs[0]!.id;
+    }
+    this.notify();
+  }
+
+  switchTab(id: string): void {
+    if (this.disposed || !this.tabs.some((tab) => tab.id === id)) {
+      return;
+    }
+    if (this.activeTabId === id) {
+      return;
+    }
+    this.activeTabId = id;
+    this.notify();
+  }
+
+  setScopeMode(mode: ChatScopeMode): void {
+    if (this.disposed || this.scopeMode === mode) {
+      return;
+    }
+    this.scopeMode = mode;
+    this.notify();
+  }
+
   focusNote(path: NotePath): void {
     if (this.disposed) {
       return;
     }
-    this.scopeOverride = {
+    const tab = this.requireActiveTab();
+    tab.scopeOverride = {
       scope: SearchScope.currentNote(path),
       label: path.value,
     };
@@ -81,15 +184,20 @@ export class ChatStore {
   }
 
   clearScopeOverride(): void {
-    if (this.disposed || this.scopeOverride === null) {
+    if (this.disposed) {
       return;
     }
-    this.scopeOverride = null;
+    const tab = this.requireActiveTab();
+    if (tab.scopeOverride === null) {
+      return;
+    }
+    tab.scopeOverride = null;
     this.notify();
   }
 
   async send(text: string): Promise<void> {
-    if (this.disposed || this.status === "sending" || this.status === "streaming") {
+    const tab = this.requireActiveTab();
+    if (this.disposed || tab.status === "sending" || tab.status === "streaming") {
       return;
     }
     const trimmed = text.trim();
@@ -97,102 +205,149 @@ export class ChatStore {
       return;
     }
 
-    this.activeRequest?.abort();
+    const tabId = tab.id;
+    tab.activeRequest?.abort();
     const controller = new AbortController();
-    this.activeRequest = controller;
+    tab.activeRequest = controller;
 
     const showOptimisticTurn = trimmed.length >= MIN_QUERY_LENGTH;
-    this.setState({
-      status: "sending",
-      errorMessage: null,
-      ...(showOptimisticTurn ? { session: appendPendingQuestion(this.session, trimmed) } : {}),
-    });
+    if (showOptimisticTurn) {
+      tab.session = appendPendingQuestion(tab.session, trimmed);
+      tab.pendingAssistantMessageId = lastAssistantMessageId(tab.session);
+      tab.sendStartedAtMs = this.now();
+      if (tab.title === DEFAULT_TAB_TITLE) {
+        tab.title = truncateTitle(trimmed);
+      }
+    } else {
+      tab.pendingAssistantMessageId = null;
+      tab.sendStartedAtMs = null;
+    }
+    tab.status = "sending";
+    tab.errorMessage = null;
+    this.notify();
 
     try {
       const readiness = await this.deps.ensureRuntime(controller.signal);
-      if (this.activeRequest !== controller) {
+      if (!this.isTabRequest(tabId, controller)) {
         return;
       }
       if (!readiness.ok) {
         if (controller.signal.aborted) {
-          this.revertOptimisticTurn(showOptimisticTurn);
+          this.revertOptimisticTurn(tabId, showOptimisticTurn);
           return;
         }
-        this.setState({
-          status: "error",
-          errorMessage: readiness.message,
-          session: showOptimisticTurn ? this.session.dropTrailingPending() : this.session,
+        this.patchTab(tabId, (t) => {
+          t.status = "error";
+          t.errorMessage = readiness.message;
+          if (showOptimisticTurn) {
+            t.session = t.session.dropTrailingPending();
+            t.pendingAssistantMessageId = null;
+            t.sendStartedAtMs = null;
+          }
+          t.activeRequest = null;
         });
-        this.activeRequest = null;
+        return;
+      }
+
+      const activeTab = this.findTab(tabId);
+      if (!activeTab) {
         return;
       }
 
       let scope: SearchScope;
-      if (this.scopeOverride) {
-        scope = this.scopeOverride.scope;
-        this.scopeOverride = null;
+      if (activeTab.scopeOverride) {
+        scope = activeTab.scopeOverride.scope;
+        activeTab.scopeOverride = null;
         this.notify();
       } else if (this.deps.resolveScope) {
-        scope = await this.deps.resolveScope();
+        scope = await this.deps.resolveScope(this.scopeMode);
       } else {
         scope = SearchScope.entireVault();
       }
-      if (this.activeRequest !== controller) {
+      if (!this.isTabRequest(tabId, controller)) {
+        return;
+      }
+
+      const sessionAtSend = this.findTab(tabId)?.session;
+      if (!sessionAtSend) {
         return;
       }
 
       const result = await this.deps.askQuestion.execute(
-        this.session,
+        sessionAtSend,
         trimmed,
         scope,
         controller.signal,
         {
           onSessionUpdate: (session) => {
-            if (this.activeRequest !== controller) {
+            if (!this.isTabRequest(tabId, controller)) {
               return;
             }
-            this.setState({
-              status: session.messages.some(
+            this.patchTab(tabId, (t) => {
+              t.session = session;
+              t.status = session.messages.some(
                 (message) => message.kind === "assistant" && message.state === "streaming",
               )
                 ? "streaming"
-                : "sending",
-              errorMessage: null,
-              session,
+                : "sending";
+              t.errorMessage = null;
             });
           },
         },
       );
 
-      if (this.activeRequest !== controller) {
+      if (!this.isTabRequest(tabId, controller)) {
         return;
       }
 
       if (controller.signal.aborted && result.kind === "aborted") {
-        this.setState({ status: "idle", errorMessage: null, session: result.session });
-        this.activeRequest = null;
+        this.patchTab(tabId, (t) => {
+          t.status = "idle";
+          t.errorMessage = null;
+          t.session = result.session;
+          t.activeRequest = null;
+          t.pendingAssistantMessageId = null;
+          t.sendStartedAtMs = null;
+        });
         return;
       }
 
       switch (result.kind) {
         case "ok":
-          this.setState({ status: "idle", errorMessage: null, session: result.session });
+          this.finishSend(tabId, controller, {
+            status: "idle",
+            errorMessage: null,
+            session: result.session,
+          });
           break;
         case "aborted":
-          this.setState({ status: "idle", errorMessage: null, session: result.session });
+          this.finishSend(tabId, controller, {
+            status: "idle",
+            errorMessage: null,
+            session: result.session,
+          });
           break;
         case "validation":
-          this.setState({
-            status: "error",
-            errorMessage: "Question is too short",
-            session: showOptimisticTurn ? this.session.dropTrailingPending() : this.session,
+          this.patchTab(tabId, (t) => {
+            t.status = "error";
+            t.errorMessage = "Question is too short";
+            if (showOptimisticTurn) {
+              t.session = t.session.dropTrailingPending();
+            }
+            t.activeRequest = null;
+            t.pendingAssistantMessageId = null;
+            t.sendStartedAtMs = null;
           });
           break;
         case "error":
-          this.setState({
-            status: "error",
-            errorMessage: presentError(result.cause).message,
-            session: result.session,
+          this.recordDurationOnFinish(tabId);
+          this.patchTab(tabId, (t) => {
+            t.status = "error";
+            t.errorMessage = presentError(result.cause).message;
+            t.session = result.session;
+            t.activeRequest = null;
+            t.pendingAssistantMessageId = null;
+            t.sendStartedAtMs = null;
           });
           break;
         default: {
@@ -200,48 +355,59 @@ export class ChatStore {
           return _exhaustive;
         }
       }
-      this.activeRequest = null;
     } catch (error) {
-      if (this.activeRequest !== controller) {
+      if (!this.isTabRequest(tabId, controller)) {
         return;
       }
       if (controller.signal.aborted || isAbortError(error)) {
-        this.revertOptimisticTurn(showOptimisticTurn);
-        this.activeRequest = null;
+        this.revertOptimisticTurn(tabId, showOptimisticTurn);
         return;
       }
-      this.setState({
-        status: "error",
-        errorMessage: presentError(error).message,
-        session: showOptimisticTurn ? this.session.dropTrailingPending() : this.session,
+      this.patchTab(tabId, (t) => {
+        t.status = "error";
+        t.errorMessage = presentError(error).message;
+        if (showOptimisticTurn) {
+          t.session = t.session.dropTrailingPending();
+        }
+        t.activeRequest = null;
+        t.pendingAssistantMessageId = null;
+        t.sendStartedAtMs = null;
       });
-      this.activeRequest = null;
     }
   }
 
   cancel(): void {
-    this.activeRequest?.abort();
-    this.activeRequest = null;
-    if (this.status === "sending" || this.status === "streaming") {
-      this.setState({ status: "idle", errorMessage: null });
+    const tab = this.requireActiveTab();
+    tab.activeRequest?.abort();
+    tab.activeRequest = null;
+    if (tab.status === "sending" || tab.status === "streaming") {
+      tab.status = "idle";
+      tab.errorMessage = null;
+      this.notify();
     }
   }
 
   clear(): void {
-    this.activeRequest?.abort();
-    this.activeRequest = null;
-    const hadOverride = this.scopeOverride !== null;
-    this.scopeOverride = null;
-    if (this.session.messages.length > 0) {
-      this.setState({
-        status: "idle",
-        errorMessage: null,
-        session: ChatSession.empty(this.createSessionId()),
-      });
+    const tab = this.requireActiveTab();
+    tab.activeRequest?.abort();
+    tab.activeRequest = null;
+    const hadOverride = tab.scopeOverride !== null;
+    tab.scopeOverride = null;
+    tab.pendingAssistantMessageId = null;
+    tab.sendStartedAtMs = null;
+    if (tab.session.messages.length > 0) {
+      tab.session = ChatSession.empty(this.createSessionId());
+      tab.title = DEFAULT_TAB_TITLE;
+      tab.status = "idle";
+      tab.errorMessage = null;
+      tab.durationsMs = new Map();
+      this.notify();
       return;
     }
-    if (this.status !== "idle" || this.errorMessage !== null || hadOverride) {
-      this.setState({ status: "idle", errorMessage: null });
+    if (tab.status !== "idle" || tab.errorMessage !== null || hadOverride) {
+      tab.status = "idle";
+      tab.errorMessage = null;
+      this.notify();
     }
   }
 
@@ -254,44 +420,100 @@ export class ChatStore {
       return;
     }
     this.disposed = true;
-    this.activeRequest?.abort();
-    this.activeRequest = null;
+    for (const tab of this.tabs) {
+      tab.activeRequest?.abort();
+      tab.activeRequest = null;
+    }
     this.listeners.clear();
+  }
+
+  private createEmptyTab(): ChatTab {
+    return {
+      id: crypto.randomUUID(),
+      title: DEFAULT_TAB_TITLE,
+      session: ChatSession.empty(this.createSessionId()),
+      status: "idle",
+      errorMessage: null,
+      activeRequest: null,
+      durationsMs: new Map(),
+      scopeOverride: null,
+      sendStartedAtMs: null,
+      pendingAssistantMessageId: null,
+    };
   }
 
   private createSessionId(): string {
     return this.deps.newSessionId?.() ?? crypto.randomUUID();
   }
 
-  private revertOptimisticTurn(showOptimisticTurn: boolean): void {
-    if (!showOptimisticTurn) {
-      this.setState({ status: "idle", errorMessage: null });
+  private requireActiveTab(): ChatTab {
+    const tab = this.tabs.find((t) => t.id === this.activeTabId);
+    if (!tab) {
+      throw new Error("Active chat tab missing");
+    }
+    return tab;
+  }
+
+  private findTab(id: string): ChatTab | undefined {
+    return this.tabs.find((t) => t.id === id);
+  }
+
+  private isTabRequest(tabId: string, controller: AbortController): boolean {
+    const tab = this.findTab(tabId);
+    return tab !== undefined && tab.activeRequest === controller;
+  }
+
+  private patchTab(tabId: string, fn: (tab: ChatTab) => void): void {
+    const tab = this.findTab(tabId);
+    if (!tab) {
       return;
     }
-    this.setState({
-      status: "idle",
-      errorMessage: null,
-      session: this.session.dropTrailingPending(),
+    fn(tab);
+    this.notify();
+  }
+
+  private finishSend(
+    tabId: string,
+    controller: AbortController,
+    outcome: { status: ChatStatus; errorMessage: string | null; session: ChatSession },
+  ): void {
+    this.recordDurationOnFinish(tabId, outcome.session);
+    this.patchTab(tabId, (t) => {
+      t.status = outcome.status;
+      t.errorMessage = outcome.errorMessage;
+      t.session = outcome.session;
+      t.activeRequest = null;
+      t.pendingAssistantMessageId = null;
+      t.sendStartedAtMs = null;
     });
   }
 
-  private setState(
-    partial: Partial<Pick<ChatViewState, "status" | "session" | "errorMessage">>,
-  ): void {
-    const nextStatus = partial.status ?? this.status;
-    const nextSession = partial.session ?? this.session;
-    const nextError = partial.errorMessage !== undefined ? partial.errorMessage : this.errorMessage;
-    const changed =
-      nextStatus !== this.status ||
-      !sessionsEqual(nextSession, this.session) ||
-      nextError !== this.errorMessage;
-    if (!changed) {
+  private recordDurationOnFinish(tabId: string, session?: ChatSession): void {
+    const tab = this.findTab(tabId);
+    if (!tab || tab.sendStartedAtMs === null) {
       return;
     }
-    this.status = nextStatus;
-    this.session = nextSession;
-    this.errorMessage = nextError;
-    this.notify();
+    const elapsed = this.now() - tab.sendStartedAtMs;
+    let messageId = tab.pendingAssistantMessageId;
+    if (!messageId && session) {
+      messageId = lastAssistantMessageId(session);
+    }
+    if (messageId) {
+      tab.durationsMs.set(messageId, elapsed);
+    }
+  }
+
+  private revertOptimisticTurn(tabId: string, showOptimisticTurn: boolean): void {
+    this.patchTab(tabId, (t) => {
+      t.status = "idle";
+      t.errorMessage = null;
+      t.activeRequest = null;
+      t.pendingAssistantMessageId = null;
+      t.sendStartedAtMs = null;
+      if (showOptimisticTurn) {
+        t.session = t.session.dropTrailingPending();
+      }
+    });
   }
 
   private notify(): void {
@@ -308,28 +530,20 @@ function appendPendingQuestion(session: ChatSession, text: string): ChatSession 
     .appendMessage(ChatMessageEntity.assistant("", { state: "pending" }));
 }
 
-function sessionsEqual(left: ChatSession, right: ChatSession): boolean {
-  if (left.id !== right.id || left.messages.length !== right.messages.length) {
-    return false;
+function lastAssistantMessageId(session: ChatSession): string | null {
+  for (let i = session.messages.length - 1; i >= 0; i -= 1) {
+    const message = session.messages[i];
+    if (message?.kind === "assistant") {
+      return message.id;
+    }
   }
-  return left.messages.every((message, index) => messagesEqual(message, right.messages[index]));
+  return null;
 }
 
-function messagesEqual(left: ChatMessage | undefined, right: ChatMessage | undefined): boolean {
-  if (!left || !right) {
-    return false;
+function truncateTitle(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= TAB_TITLE_MAX) {
+    return normalized;
   }
-  if (left.id !== right.id || left.kind !== right.kind || left.state !== right.state) {
-    return false;
-  }
-  if (left.text !== right.text) {
-    return false;
-  }
-  if (left.kind === "assistant" && right.kind === "assistant") {
-    return (
-      left.insufficientContext === right.insufficientContext &&
-      left.sources.length === right.sources.length
-    );
-  }
-  return true;
+  return `${normalized.slice(0, TAB_TITLE_MAX - 1)}…`;
 }
