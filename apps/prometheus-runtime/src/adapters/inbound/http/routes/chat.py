@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -15,6 +17,7 @@ from adapters.inbound.http.schemas.chat import (
     ChatResponse,
     ChatStreamDoneEvent,
     ChatStreamErrorEvent,
+    ChatStreamHeartbeatEvent,
     ChatStreamSourcesEvent,
     ChatStreamTokenEvent,
     source_responses,
@@ -23,6 +26,10 @@ from adapters.inbound.http.schemas.common import ERROR_RESPONSES
 from adapters.inbound.http.version_gate import require_compatible_plugin_version
 from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
 from domain.errors import PrometheusError
+
+# Local CPU models can stay silent for minutes (prompt evaluation, hidden thinking);
+# heartbeats keep the client's idle timeout from firing meanwhile.
+HEARTBEAT_INTERVAL_SECONDS = 10.0
 
 router = APIRouter(
     prefix="/v1/vaults/{vault_id}",
@@ -54,6 +61,7 @@ async def chat(request: Request, vault_id: str, body: ChatRequest) -> ChatRespon
                             {"$ref": "#/components/schemas/ChatStreamTokenEvent"},
                             {"$ref": "#/components/schemas/ChatStreamSourcesEvent"},
                             {"$ref": "#/components/schemas/ChatStreamDoneEvent"},
+                            {"$ref": "#/components/schemas/ChatStreamHeartbeatEvent"},
                             {"$ref": "#/components/schemas/ChatStreamErrorEvent"},
                         ]
                     }
@@ -68,22 +76,33 @@ async def chat_stream(request: Request, vault_id: str, body: ChatRequest) -> Str
     answer_question = get_vault_container(request, vault_id).answer_question
 
     async def events() -> AsyncIterator[bytes]:
+        stream = answer_question.stream(body.query, scope=scope, limit=body.limit)
+        pending: asyncio.Task[object] | None = None
         try:
-            async for event in answer_question.stream(body.query, scope=scope, limit=body.limit):
+            while True:
+                if pending is None:
+                    pending = asyncio.ensure_future(anext(stream))
+                done, _ = await asyncio.wait({pending}, timeout=HEARTBEAT_INTERVAL_SECONDS)
                 if await request.is_disconnected():
                     break
-                if isinstance(event, AnswerTokenEvent):
-                    payload = ChatStreamTokenEvent(text=event.text).model_dump()
-                elif isinstance(event, AnswerCompletedEvent):
-                    payload = ChatStreamSourcesEvent(
-                        sources=source_responses(event.sources),
-                        insufficient_context=event.insufficient_context,
-                    ).model_dump()
-                    yield _encode(payload)
-                    payload = ChatStreamDoneEvent().model_dump()
-                else:
+                if not done:
+                    yield _encode(ChatStreamHeartbeatEvent().model_dump())
                     continue
-                yield _encode(payload)
+                task, pending = pending, None
+                try:
+                    event = task.result()
+                except StopAsyncIteration:
+                    break
+                if isinstance(event, AnswerTokenEvent):
+                    yield _encode(ChatStreamTokenEvent(text=event.text).model_dump())
+                elif isinstance(event, AnswerCompletedEvent):
+                    yield _encode(
+                        ChatStreamSourcesEvent(
+                            sources=source_responses(event.sources),
+                            insufficient_context=event.insufficient_context,
+                        ).model_dump(),
+                    )
+                    yield _encode(ChatStreamDoneEvent().model_dump())
         except PrometheusError as error:
             yield _encode(
                 ChatStreamErrorEvent(code=error.code, message=str(error)).model_dump(),
@@ -95,6 +114,13 @@ async def chat_stream(request: Request, vault_id: str, body: ChatRequest) -> Str
                     message="An internal runtime error occurred",
                 ).model_dump(),
             )
+        finally:
+            if pending is not None:
+                pending.cancel()
+                with contextlib.suppress(BaseException):
+                    await pending
+            if isinstance(stream, AsyncGenerator):
+                await stream.aclose()
 
     return StreamingResponse(events(), media_type="application/x-ndjson")
 

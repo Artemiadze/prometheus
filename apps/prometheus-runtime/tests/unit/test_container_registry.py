@@ -12,7 +12,9 @@ from domain.value_objects.vault_id import VaultId
 from fakes.fake_embedder import FakeEmbedder
 
 
-def test_registry_reuses_each_vault_container_and_isolates_storage(tmp_path: Path) -> None:
+def test_registry_reuses_each_vault_container_and_isolates_storage(
+    tmp_path: Path,
+) -> None:
     layout = ensure_layout(tmp_path)
     base = Container(RuntimeSettings(data_dir=tmp_path), layout, embedder_factory=FakeEmbedder)
     registry = VaultContainerRegistry(base)

@@ -64,3 +64,10 @@ class DocumentTooLargeError(PrometheusError):
 class PathIgnoredError(PrometheusError):
     code = "PATH_IGNORED"
     default_message = "Document path is excluded from indexing"
+
+
+class GroundedAnswerGenerationError(PrometheusError):
+    """Raised when the language model fails to return a valid grounded answer."""
+
+    code = "GROUNDED_ANSWER_GENERATION_FAILED"
+    default_message = "Local language model returned an invalid grounded answer"

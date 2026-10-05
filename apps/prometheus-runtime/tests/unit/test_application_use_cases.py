@@ -270,6 +270,7 @@ def test_answer_blocks_when_fingerprint_requires_rebuild() -> None:
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     with pytest.raises(IndexRebuildRequiredError, match=r"chunk_size"):
@@ -296,6 +297,7 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
     grounded = AnswerQuestion(
         retrieval=retrieval,
@@ -305,6 +307,7 @@ def test_answer_skips_llm_for_insufficient_context_and_uses_prompt_sources() -> 
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     missing = asyncio.run(insufficient.execute("semantic question", limit=10))
@@ -333,7 +336,10 @@ def test_answer_stream_emits_tokens_before_llm_finishes_and_sources_last() -> No
         active_fingerprint=_fingerprint(embedder),
     )
     pause = asyncio.Event()
-    llm = FakeLanguageModel(stream_parts=("first", "second"), stream_pause_after_first=pause)
+    llm = FakeLanguageModel(
+        stream_parts=('{"answer":"first', ' second","sources":[1]}'),
+        stream_pause_after_first=pause,
+    )
     answer = AnswerQuestion(
         retrieval=retrieval,
         grounding_policy=GroundingPolicy(min_score=-1.0),
@@ -342,20 +348,21 @@ def test_answer_stream_emits_tokens_before_llm_finishes_and_sources_last() -> No
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     async def collect() -> list[object]:
         events: list[object] = []
         async for event in answer.stream("semantic question", limit=10):
             events.append(event)
-            if isinstance(event, AnswerTokenEvent) and event.text == "first":
+            if isinstance(event, AnswerTokenEvent) and event.text.startswith("first"):
                 pause.set()
         return events
 
     events = asyncio.run(collect())
     assert [event.text for event in events if isinstance(event, AnswerTokenEvent)] == [
         "first",
-        "second",
+        " second",
     ]
     assert isinstance(events[-1], AnswerCompletedEvent)
     assert not events[-1].insufficient_context
@@ -387,6 +394,7 @@ def test_answer_stream_skips_llm_when_context_is_insufficient() -> None:
         context_size=1024,
         response_token_reserve=128,
         temperature=0.1,
+        llm_model="test",
     )
 
     async def collect() -> list[AnswerCompletedEvent]:

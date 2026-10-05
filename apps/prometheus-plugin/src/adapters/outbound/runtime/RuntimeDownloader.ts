@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { chmod, mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { PluginSettings } from "../../../application/dto/settings";
@@ -21,12 +22,16 @@ export type RuntimeDownloaderDeps = {
   readonly fetchFn: FetchFn;
   readonly platform: NodeJS.Platform;
   readonly arch: string;
+  readonly env?: NodeJS.ProcessEnv;
 };
 
 export class RuntimeDownloader {
   private expectedSha256: string | null = null;
+  private readonly env: NodeJS.ProcessEnv;
 
-  constructor(private readonly deps: RuntimeDownloaderDeps) {}
+  constructor(private readonly deps: RuntimeDownloaderDeps) {
+    this.env = deps.env ?? process.env;
+  }
 
   getExpectedSha256(): string | null {
     return this.expectedSha256;
@@ -40,14 +45,26 @@ export class RuntimeDownloader {
     }
 
     const descriptor = resolveReleaseDescriptor(this.deps.platform, this.deps.arch);
-    const checksumResponse = await this.deps.fetchFn(
-      descriptor.checksumUrl,
-      withOptionalSignal(signal),
-    );
-    if (!checksumResponse.ok) {
-      throw new RuntimeDownloadFailedError("Failed to fetch runtime checksum");
+    let checksumText: string;
+    try {
+      const checksumResponse = await this.deps.fetchFn(
+        descriptor.checksumUrl,
+        withOptionalSignal(signal),
+      );
+      if (!checksumResponse.ok) {
+        throw new RuntimeDownloadFailedError(
+          `Failed to fetch runtime checksum (HTTP ${checksumResponse.status})`,
+        );
+      }
+      checksumText = await checksumResponse.text();
+    } catch (error) {
+      if (isAbortError(error) || error instanceof RuntimeDownloadFailedError) {
+        throw error;
+      }
+      throw new RuntimeDownloadFailedError(
+        `Failed to fetch runtime checksum: ${errorMessage(error)}`,
+      );
     }
-    const checksumText = await checksumResponse.text();
     this.expectedSha256 = parseChecksumFile(checksumText);
 
     const binDir = managedBinDirectory(this.deps.locator.dataRootPath());
@@ -56,12 +73,21 @@ export class RuntimeDownloader {
     const tempPath = join(binDir, `.download-${randomBytes(8).toString("hex")}`);
 
     try {
-      const binaryResponse = await this.deps.fetchFn(
-        descriptor.binaryUrl,
-        withOptionalSignal(signal),
-      );
+      let binaryResponse: Response;
+      try {
+        binaryResponse = await this.deps.fetchFn(descriptor.binaryUrl, withOptionalSignal(signal));
+      } catch (error) {
+        if (isAbortError(error)) {
+          throw error;
+        }
+        throw new RuntimeDownloadFailedError(
+          `Failed to download runtime binary: ${errorMessage(error)}`,
+        );
+      }
       if (!binaryResponse.ok) {
-        throw new RuntimeDownloadFailedError("Failed to download runtime binary");
+        throw new RuntimeDownloadFailedError(
+          `Failed to download runtime binary (HTTP ${binaryResponse.status})`,
+        );
       }
       const contentLengthHeader = binaryResponse.headers.get("content-length");
       const totalBytes =
@@ -98,25 +124,28 @@ export class RuntimeDownloader {
       if (error instanceof RuntimeDownloadFailedError) {
         throw error;
       }
-      throw new RuntimeDownloadFailedError("Runtime download failed");
+      throw new RuntimeDownloadFailedError(`Runtime download failed: ${errorMessage(error)}`);
     }
   }
 
   async verifyInstalledBinary(signal?: AbortSignal): Promise<void> {
     throwIfAborted(signal);
-    const expected = this.expectedSha256;
-    if (!expected) {
-      const descriptor = resolveReleaseDescriptor(this.deps.platform, this.deps.arch);
-      const checksumResponse = await this.deps.fetchFn(
-        descriptor.checksumUrl,
-        withOptionalSignal(signal),
-      );
-      if (!checksumResponse.ok) {
-        throw new RuntimeDownloadFailedError("Failed to fetch runtime checksum for verify");
+    const managedPath = this.deps.locator.managedInstallPath();
+
+    if (isDevSkipRuntimeVerify(this.env)) {
+      const fileStat = await stat(managedPath).catch(() => null);
+      if (!fileStat?.isFile()) {
+        throw new RuntimeDownloadFailedError("Runtime binary is not installed");
       }
-      this.expectedSha256 = parseChecksumFile(await checksumResponse.text());
+      return;
     }
-    await this.verifyFile(this.deps.locator.managedInstallPath(), this.expectedSha256!);
+
+    let expected = this.expectedSha256;
+    if (!expected) {
+      expected = await this.loadExpectedChecksum(managedPath, signal);
+      this.expectedSha256 = expected;
+    }
+    await this.verifyFile(managedPath, expected);
   }
 
   async verifyFile(path: string, expectedSha256: string): Promise<void> {
@@ -125,7 +154,6 @@ export class RuntimeDownloader {
       throw new RuntimeDownloadFailedError("Runtime binary is not installed");
     }
     const hash = createHash("sha256");
-    const { createReadStream } = await import("node:fs");
     await new Promise<void>((resolve, reject) => {
       const read = createReadStream(path);
       read.on("data", (chunk) => {
@@ -140,6 +168,35 @@ export class RuntimeDownloader {
       throw new RuntimeChecksumMismatchError();
     }
   }
+
+  private async loadExpectedChecksum(managedPath: string, signal?: AbortSignal): Promise<string> {
+    const sidecarPath = `${managedPath}.sha256`;
+    const sidecar = await readFile(sidecarPath, "utf8").catch(() => null);
+    if (sidecar !== null) {
+      return parseChecksumFile(sidecar);
+    }
+
+    const descriptor = resolveReleaseDescriptor(this.deps.platform, this.deps.arch);
+    try {
+      const checksumResponse = await this.deps.fetchFn(
+        descriptor.checksumUrl,
+        withOptionalSignal(signal),
+      );
+      if (!checksumResponse.ok) {
+        throw new RuntimeDownloadFailedError(
+          `Failed to fetch runtime checksum for verify (HTTP ${checksumResponse.status})`,
+        );
+      }
+      return parseChecksumFile(await checksumResponse.text());
+    } catch (error) {
+      if (isAbortError(error) || error instanceof RuntimeDownloadFailedError) {
+        throw error;
+      }
+      throw new RuntimeDownloadFailedError(
+        `Failed to fetch runtime checksum for verify: ${errorMessage(error)}`,
+      );
+    }
+  }
 }
 
 export function parseChecksumFile(text: string): string {
@@ -149,6 +206,11 @@ export function parseChecksumFile(text: string): string {
     throw new RuntimeDownloadFailedError("Invalid runtime checksum file");
   }
   return token.toLowerCase();
+}
+
+export function isDevSkipRuntimeVerify(env: NodeJS.ProcessEnv = process.env): boolean {
+  const value = env.PROMETHEUS_DEV_SKIP_RUNTIME_VERIFY?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
 }
 
 async function safeUnlink(path: string): Promise<void> {
@@ -167,4 +229,8 @@ function throwIfAborted(signal?: AbortSignal): void {
 
 function withOptionalSignal(signal?: AbortSignal): RequestInit {
   return signal ? { signal } : {};
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

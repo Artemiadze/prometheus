@@ -3,6 +3,7 @@ import type { SearchScope } from "../../domain/value-objects/SearchScope";
 import type { VaultId } from "../../domain/value-objects/VaultId";
 import type {
   ChatAnswerDto,
+  ChatStreamHandlers,
   HealthInfo,
   JobInfo,
   LlmModelInfo,
@@ -47,6 +48,13 @@ export interface RagGateway {
     scope: SearchScope,
     signal?: AbortSignal,
   ): Promise<ChatAnswerDto>;
+  chatStream(
+    vaultId: VaultId,
+    question: string,
+    scope: SearchScope,
+    handlers: ChatStreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<void>;
   reindex(
     vaultId: VaultId,
     documents: readonly ReindexDocumentInput[],

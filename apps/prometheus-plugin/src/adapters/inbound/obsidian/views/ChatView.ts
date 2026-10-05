@@ -51,7 +51,7 @@ export class ChatView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.onActivate?.();
-    const container = this.containerEl.children[1] as HTMLElement;
+    const container = this.contentEl;
     container.empty();
     container.addClass("prometheus-chat-view");
 
@@ -93,7 +93,8 @@ export class ChatView extends ItemView {
     });
 
     this.actionButtonEl.addEventListener("click", () => {
-      if (this.store.getState().status === "sending") {
+      const status = this.store.getState().status;
+      if (status === "sending" || status === "streaming") {
         this.store.cancel();
         return;
       }
@@ -114,12 +115,13 @@ export class ChatView extends ItemView {
     this.messageComponents.clear();
     this.messageRoots.clear();
     this.prevRenderKeys = [];
-    this.containerEl.empty();
+    this.contentEl.empty();
   }
 
   private async submitFromInput(): Promise<void> {
     const textarea = this.textareaEl;
-    if (!textarea || this.store.getState().status === "sending") {
+    const status = this.store.getState().status;
+    if (!textarea || status === "sending" || status === "streaming") {
       return;
     }
     const text = textarea.value;
@@ -185,10 +187,10 @@ export class ChatView extends ItemView {
     if (!textarea || !button) {
       return;
     }
-    const sending = state.status === "sending";
-    textarea.disabled = sending;
-    button.toggleClass("mod-warning", sending);
-    button.setText(sending ? "Cancel" : "Send");
+    const busy = state.status === "sending" || state.status === "streaming";
+    textarea.disabled = busy;
+    button.toggleClass("mod-warning", busy);
+    button.setText(busy ? "Cancel" : "Send");
   }
 
   private renderMessages(state: ChatViewState): void {
@@ -274,6 +276,10 @@ export class ChatView extends ItemView {
 
     if (message.state === "pending") {
       body.setText("Thinking…");
+      return;
+    }
+    if (message.state === "streaming") {
+      body.setText(message.text.length > 0 ? message.text : "Thinking…");
       return;
     }
     if (message.state === "cancelled") {

@@ -90,6 +90,7 @@ export default class PrometheusPlugin extends Plugin {
       runtimeGateway: runtime.runtimeGateway,
       settings,
       startRuntime: runtime.startRuntime,
+      stopRuntime: runtime.stopRuntime,
       jobRegistry: indexing.jobRegistry,
       indexing,
     });

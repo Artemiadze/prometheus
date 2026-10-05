@@ -1,5 +1,6 @@
 import type {
   ChatAnswerDto,
+  ChatStreamHandlers,
   HealthInfo,
   JobInfo,
   LlmModelInfo,
@@ -160,6 +161,24 @@ export class FakeRagGateway implements RagGateway {
     }
     throwIfAborted(signal);
     return this.chatAnswer;
+  }
+
+  async chatStream(
+    _vaultId: VaultId,
+    _question: string,
+    _scope: SearchScope,
+    handlers: ChatStreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    throwIfAborted(signal);
+    this.chatCalls += 1;
+    if (this.chatDelayMs > 0) {
+      await delay(this.chatDelayMs, signal);
+    }
+    throwIfAborted(signal);
+    handlers.onToken(this.chatAnswer.answer, this.chatAnswer.answer);
+    handlers.onSources(this.chatAnswer.sources, this.chatAnswer.insufficientContext);
+    handlers.onDone();
   }
 
   async reindex(

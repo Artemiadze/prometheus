@@ -8,9 +8,11 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from adapters.outbound.sqlite.errors import wrap_driver_errors
+from application.dto.chunk_fingerprint import ChunkFingerprint
 from application.dto.document_state import DocumentState
 from domain.entities.chunk import Chunk
 from domain.entities.document import Document
+from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 
@@ -36,6 +38,26 @@ class SqliteDocumentRepository:
             (document_id.value,),
         ).fetchone()
         return None if row is None else _state_from_row(row)
+
+    @wrap_driver_errors
+    def list_chunk_fingerprints(self, document_id: DocumentId) -> Sequence[ChunkFingerprint]:
+        rows = self._connection.execute(
+            """
+            SELECT chunk_id, chunk_index, content_hash
+            FROM chunks
+            WHERE document_id = ?
+            ORDER BY chunk_index
+            """,
+            (document_id.value,),
+        ).fetchall()
+        return tuple(
+            ChunkFingerprint(
+                chunk_id=ChunkId(row["chunk_id"]),
+                chunk_index=int(row["chunk_index"]),
+                content_hash=row["content_hash"],
+            )
+            for row in rows
+        )
 
     @wrap_driver_errors
     def list_states(self) -> Sequence[DocumentState]:

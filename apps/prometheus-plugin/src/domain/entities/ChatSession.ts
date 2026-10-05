@@ -33,4 +33,13 @@ export class ChatSession {
     next[index] = message;
     return new ChatSession(this.id, next);
   }
+
+  /** Removes a trailing in-flight assistant placeholder (e.g. after runtime startup failure). */
+  dropTrailingPending(): ChatSession {
+    const last = this._messages[this._messages.length - 1];
+    if (last?.kind !== "assistant" || last.state !== "pending") {
+      return this;
+    }
+    return new ChatSession(this.id, this._messages.slice(0, -1));
+  }
 }

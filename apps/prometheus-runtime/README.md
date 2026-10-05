@@ -27,3 +27,19 @@ uv run prometheus-runtime serve --session-token "$PROMETHEUS_SESSION_TOKEN"
   model download; the guard is skipped in that setup mode.
 - **Local providers only:** `embedding_provider` is `fastembed`; `llm_host` must
   be an HTTP loopback Ollama URL.
+
+## Ollama on CPU (host tuning)
+
+Runtime sends `keep_alive: 30m` on each chat request so the model stays loaded
+between questions. On the **Ollama host** (systemd drop-in or shell env), these
+settings reduce memory traffic without changing model weights:
+
+```bash
+OLLAMA_FLASH_ATTENTION=1
+OLLAMA_KV_CACHE_TYPE=q8_0
+OLLAMA_NUM_PARALLEL=1
+```
+
+Defaults tuned for laptop CPU: `top_k=6`, `llm_context_size=8192`,
+`embedding_threads=4`. The Obsidian plugin passes `PROMETHEUS_LLM_CONTEXT_SIZE`
+from **Settings → LLM context size** when starting the managed runtime.

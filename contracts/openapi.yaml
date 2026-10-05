@@ -1267,6 +1267,9 @@
                       "$ref": "#/components/schemas/ChatStreamDoneEvent"
                     },
                     {
+                      "$ref": "#/components/schemas/ChatStreamHeartbeatEvent"
+                    },
+                    {
                       "$ref": "#/components/schemas/ChatStreamErrorEvent"
                     }
                   ]

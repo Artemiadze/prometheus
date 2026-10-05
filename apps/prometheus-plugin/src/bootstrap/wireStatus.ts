@@ -9,6 +9,7 @@ import { GetSystemStatus } from "../application/use-cases/GetSystemStatus";
 import { InstallRuntime } from "../application/use-cases/InstallRuntime";
 import { SelectLlmModel } from "../application/use-cases/SelectLlmModel";
 import type { StartRuntime } from "../application/use-cases/StartRuntime";
+import type { StopRuntime } from "../application/use-cases/StopRuntime";
 import type { WiredIndexing } from "./wireIndexing";
 
 export type WireStatusDeps = {
@@ -16,6 +17,7 @@ export type WireStatusDeps = {
   readonly runtimeGateway: RuntimeGateway;
   readonly settings: SettingsRepository;
   readonly startRuntime: StartRuntime;
+  readonly stopRuntime: StopRuntime;
   readonly jobRegistry: ActiveJobRegistry;
   readonly indexing: WiredIndexing;
   readonly notifier?: Notifier;
@@ -40,6 +42,7 @@ export function wireStatus(deps: WireStatusDeps): WiredStatus {
     getSystemStatus,
     installRuntime,
     startRuntime: deps.startRuntime,
+    stopRuntime: deps.stopRuntime,
     selectLlmModel,
     startInitialSync: deps.indexing.startInitialSync,
     startReindex: deps.indexing.startReindex,

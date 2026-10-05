@@ -2,7 +2,9 @@ import type { ChatMessage } from "../../../../domain/entities/ChatMessage";
 
 export function messageRenderKey(message: ChatMessage): string {
   const suffix =
-    message.kind === "assistant" ? `:${message.insufficientContext}:${message.sources.length}` : "";
+    message.kind === "assistant"
+      ? `:${message.insufficientContext}:${message.sources.length}:${message.text.length}`
+      : "";
   return `${message.id}:${message.state}${suffix}`;
 }
 

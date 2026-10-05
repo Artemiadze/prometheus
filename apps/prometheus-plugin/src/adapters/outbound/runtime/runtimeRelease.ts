@@ -4,6 +4,9 @@ import { isRuntimeVersionCompatible } from "../../../application/services/Runtim
  * Release artifact policy for the managed runtime downloader.
  * Final release host is owned by PRM-77 / PLG-87; this base URL is a placeholder.
  *
+ * Override for local mirrors / private hosts:
+ *   PROMETHEUS_RUNTIME_RELEASE_BASE_URL=http://127.0.0.1:8766/runtime
+ *
  * Assumption: each platform publishes a single executable file (no archive extraction).
  */
 export const RUNTIME_RELEASE_BASE_URL = "https://releases.prometheus.local/runtime";
@@ -19,6 +22,16 @@ export type RuntimeReleaseDescriptor = {
   readonly fileName: string;
   readonly version: string;
 };
+
+export function resolveReleaseBaseUrl(
+  env: NodeJS.ProcessEnv = process.env,
+  fallback: string = RUNTIME_RELEASE_BASE_URL,
+): string {
+  const override = env.PROMETHEUS_RUNTIME_RELEASE_BASE_URL?.trim();
+  return override && override.length > 0
+    ? override.replace(/\/$/, "")
+    : fallback.replace(/\/$/, "");
+}
 
 export function detectReleaseTarget(platform: NodeJS.Platform, arch: string): ReleaseTarget {
   if (platform === "win32") {
@@ -50,7 +63,7 @@ export function releaseFileName(target: ReleaseTarget): string {
 export function resolveReleaseDescriptor(
   platform: NodeJS.Platform,
   arch: string,
-  baseUrl: string = RUNTIME_RELEASE_BASE_URL,
+  baseUrl: string = resolveReleaseBaseUrl(),
   version: string = RUNTIME_RELEASE_VERSION,
 ): RuntimeReleaseDescriptor {
   if (!isRuntimeVersionCompatible(version)) {

@@ -87,7 +87,14 @@ def test_upgrade_from_schema_v1_preserves_documents_and_chunks(tmp_path: Path) -
         INSERT INTO jobs (job_id, status, progress, error, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        ("job-01", "running", 0.5, None, "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"),
+        (
+            "job-01",
+            "running",
+            0.5,
+            None,
+            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:00+00:00",
+        ),
     )
     connection.execute("COMMIT")
 
@@ -145,7 +152,10 @@ def test_embedding_model_change_marks_index_rebuild_required() -> None:
         index_metadata_store=metadata,
         index_statistics=FakeIndexStatisticsReader(
             IndexStatistics(
-                document_count=1, chunk_count=1, last_indexed_at=None, index_size_bytes=10
+                document_count=1,
+                chunk_count=1,
+                last_indexed_at=None,
+                index_size_bytes=10,
             )
         ),
         active_fingerprint=active,

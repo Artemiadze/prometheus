@@ -47,7 +47,9 @@ def test_statistics_reflect_saved_documents_and_last_indexed_at(tmp_path: Path) 
     database.close()
 
 
-def test_index_size_includes_the_qdrant_directory_without_querying_it(tmp_path: Path) -> None:
+def test_index_size_includes_the_qdrant_directory_without_querying_it(
+    tmp_path: Path,
+) -> None:
     database = MetadataDatabase(tmp_path)
     qdrant_dir = tmp_path / "qdrant"
     qdrant_dir.mkdir()

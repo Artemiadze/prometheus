@@ -17,7 +17,13 @@ from domain.entities.document import Document
 from domain.errors import ConfigurationError
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeChunker, FakeEmbedder, FakeLanguageModel, FakeMarkdownParser, FakeTokenCounter
+from fakes import (
+    FakeChunker,
+    FakeEmbedder,
+    FakeLanguageModel,
+    FakeMarkdownParser,
+    FakeTokenCounter,
+)
 
 pytestmark = pytest.mark.e2e
 

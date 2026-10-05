@@ -43,7 +43,10 @@ from application.ports.token_counter import TokenCounter
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vault_settings_store import VaultSettingsStore
 from application.ports.vector_index import VectorIndex
+from application.services.answer_cache import AnswerCache
+from application.services.compute_gate import ComputeGate
 from application.services.document_indexing_queue import SerializedDocumentIndexing
+from application.services.index_generation import IndexGeneration
 from application.services.retrieval import RetrievalService
 from application.use_cases.answer_question import AnswerQuestion
 from application.use_cases.get_runtime_status import GetRuntimeStatus
@@ -161,6 +164,7 @@ class Container:
             base_url=self.settings.llm_host,
             model=self.settings.llm_model,
             timeout_seconds=self.settings.llm_timeout_seconds,
+            keep_alive=self.settings.llm_keep_alive,
         )
 
     def _build_markdown_parser(self) -> MarkdownParser:
@@ -252,6 +256,9 @@ class Container:
             "answer_question",
             "reindex_vault",
             "runtime_status",
+            "compute_gate",
+            "index_generation",
+            "answer_cache",
         ):
             self.__dict__.pop(name, None)
 
@@ -358,12 +365,25 @@ class Container:
         return self._metadata_database.vault_settings
 
     @cached_property
+    def compute_gate(self) -> ComputeGate:
+        return ComputeGate()
+
+    @cached_property
+    def index_generation(self) -> IndexGeneration:
+        return IndexGeneration()
+
+    @cached_property
+    def answer_cache(self) -> AnswerCache:
+        return AnswerCache()
+
+    @cached_property
     def remove_document(self) -> RemoveDocument:
         return RemoveDocument(
             document_repository=self.document_repository,
             vector_index=self.vector_index,
             lexical_index=self.lexical_index,
             unit_of_work=self.unit_of_work,
+            index_generation=self.index_generation,
         )
 
     @cached_property
@@ -409,6 +429,8 @@ class Container:
             max_document_chars=self.settings.max_document_chars,
             max_chunks_per_document=self.settings.max_chunks_per_document,
             vault_settings_store=self.vault_settings_store,
+            compute_gate=self.compute_gate,
+            index_generation=self.index_generation,
         )
 
     @cached_property
@@ -466,6 +488,10 @@ class Container:
             context_size=self.settings.llm_context_size,
             response_token_reserve=self.settings.llm_output_reserve,
             temperature=self.settings.llm_temperature,
+            llm_model=self.settings.llm_model,
+            compute_gate=self.compute_gate,
+            answer_cache=self.answer_cache,
+            index_generation=self.index_generation,
         )
 
     @cached_property

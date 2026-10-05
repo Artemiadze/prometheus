@@ -139,6 +139,27 @@ class QdrantLocalVectorIndex:
     def _write_metadata(self) -> None:
         write_index_metadata(self._metadata_path, self._expected_metadata)
 
+    def retrieve_vectors(self, chunk_ids: Sequence[ChunkId]) -> Mapping[str, Sequence[float]]:
+        if not chunk_ids:
+            return {}
+        point_ids = [str(uuid5(_POINT_NAMESPACE, chunk_id.value)) for chunk_id in chunk_ids]
+        records = self._require_client().retrieve(
+            collection_name=COLLECTION_NAME,
+            ids=point_ids,
+            with_vectors=True,
+        )
+        vectors: dict[str, Sequence[float]] = {}
+        for record in records:
+            if record.vector is None:
+                continue
+            payload = record.payload or {}
+            chunk_id = payload.get("chunk_id")
+            if isinstance(chunk_id, str) and isinstance(record.vector, list):
+                vectors[chunk_id] = [
+                    float(value) for value in record.vector if isinstance(value, (int, float))
+                ]
+        return vectors
+
     def upsert(
         self,
         document: Document,

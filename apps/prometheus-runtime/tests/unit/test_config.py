@@ -24,11 +24,11 @@ def test_defaults_match_product_settings() -> None:
     assert settings.host == "127.0.0.1"
     assert settings.port == 8765
     assert settings.embedding_batch_size == 64
-    assert settings.embedding_threads is None
+    assert settings.embedding_threads == 4
     assert not settings.embedding_allow_download
     assert settings.chunk_size == 700
     assert settings.chunk_overlap == 80
-    assert settings.top_k == 10
+    assert settings.top_k == 6
     assert settings.retrieval_mode == "dense"
     assert settings.hybrid_rrf_k == 60
     assert settings.hybrid_dense_weight == 1.0
@@ -43,8 +43,8 @@ def test_defaults_match_product_settings() -> None:
     assert settings.llm_model == "qwen3:4b"
     assert settings.llm_temperature == 0.1
     assert settings.llm_context_size == 8192
-    assert settings.llm_output_reserve == 1024
-    assert settings.llm_timeout_seconds == 120
+    assert settings.llm_output_reserve == 4096
+    assert settings.llm_timeout_seconds == 600
 
 
 def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None:

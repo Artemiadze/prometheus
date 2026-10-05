@@ -6,8 +6,29 @@ export type PlatformPathsInput = {
   readonly homedir: string;
 };
 
+/**
+ * Prefer the real user home when Obsidian runs as a Snap.
+ * Snap often sets HOME to ~/snap/obsidian/current while binaries are installed
+ * under the real ~/.local/share/prometheus.
+ */
+export function resolveEffectiveHomedir(input: PlatformPathsInput): string {
+  const { env, homedir } = input;
+  const snapRealHome = env.SNAP_REAL_HOME?.trim();
+  if (snapRealHome && snapRealHome.length > 0) {
+    return snapRealHome;
+  }
+  // Fallback: if HOME looks like a snap user data dir, strip to the real home.
+  const snapMarker = "/snap/obsidian/";
+  const idx = homedir.indexOf(snapMarker);
+  if (idx > 0) {
+    return homedir.slice(0, idx);
+  }
+  return homedir;
+}
+
 export function resolveDataRoot(input: PlatformPathsInput): string {
-  const { platform, env, homedir } = input;
+  const { platform, env } = input;
+  const homedir = resolveEffectiveHomedir(input);
   if (platform === "win32") {
     const localAppData = env.LOCALAPPDATA;
     if (!localAppData) {
@@ -18,8 +39,10 @@ export function resolveDataRoot(input: PlatformPathsInput): string {
   if (platform === "darwin") {
     return join(homedir, "Library", "Application Support", "Prometheus");
   }
+  // Prefer real-home XDG over snap-scoped XDG_DATA_HOME when Snap remaps HOME.
   const xdg = env.XDG_DATA_HOME;
-  if (xdg) {
+  const snapRealHome = env.SNAP_REAL_HOME?.trim();
+  if (xdg && !(snapRealHome && xdg.includes("/snap/obsidian/"))) {
     return join(xdg, "prometheus");
   }
   return join(homedir, ".local", "share", "prometheus");

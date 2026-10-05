@@ -60,6 +60,10 @@ class ChatStreamDoneEvent(ApiSchema):
     type: Literal["done"] = "done"
 
 
+class ChatStreamHeartbeatEvent(ApiSchema):
+    type: Literal["heartbeat"] = "heartbeat"
+
+
 class ChatStreamErrorEvent(ApiSchema):
     type: Literal["error"] = "error"
     code: str

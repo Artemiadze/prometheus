@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StatusStore } from "../../../../../src/adapters/inbound/obsidian/status/StatusStore";
 import type { SystemStatus } from "../../../../../src/application/dto/system";
@@ -8,7 +8,13 @@ import {
   ManagedRuntimeState,
   OllamaState,
 } from "../../../../../src/domain/entities/RuntimeStatus";
-import { FakeClock } from "../../../../fakes/FakeClock";
+
+const stoppedRuntime = {
+  execute: async () => ({
+    runtime: ManagedRuntimeState.stopped(),
+    stopped: true,
+  }),
+};
 
 function makeStatus(runtime = ManagedRuntimeState.running("0.1.0")): SystemStatus {
   return {
@@ -30,19 +36,20 @@ function makeStatus(runtime = ManagedRuntimeState.running("0.1.0")): SystemStatu
 }
 
 describe("StatusStore", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("derives recommended actions from polled status", async () => {
-    const clock = new FakeClock();
     let current = makeStatus(ManagedRuntimeState.missing());
     const store = new StatusStore({
       getSystemStatus: {
         execute: async () => current,
-        poll: async (onUpdate, signal, intervalMs = 1000) => {
-          onUpdate(current);
-          while (!signal?.aborted) {
-            await clock.sleep(intervalMs, signal);
-            onUpdate(current);
-          }
-        },
+        poll: vi.fn(),
       },
       installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
       startRuntime: {
@@ -54,6 +61,7 @@ describe("StatusStore", () => {
           spawned: true,
         }),
       },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({
@@ -76,25 +84,24 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
+    store.setActiveUiViews(1);
     store.startPolling();
     await Promise.resolve();
     expect(store.getState().runtimeAction).toBe("download");
 
     current = makeStatus(ManagedRuntimeState.running("0.1.0"));
-    clock.advance(1000);
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(store.getState().runtimeAction).toBe("none");
 
     store.dispose();
   });
 
   it("does not poll until startPolling", async () => {
-    const poll = vi.fn(async () => undefined);
+    const execute = vi.fn(async () => makeStatus());
     const store = new StatusStore({
       getSystemStatus: {
-        execute: async () => makeStatus(),
-        poll,
+        execute,
+        poll: vi.fn(),
       },
       installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
       startRuntime: {
@@ -106,6 +113,7 @@ describe("StatusStore", () => {
           spawned: true,
         }),
       },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
@@ -124,18 +132,18 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
-    await Promise.resolve();
     expect(store.isPolling()).toBe(false);
-    expect(poll).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
 
+    store.setActiveUiViews(1);
     store.startPolling();
     expect(store.isPolling()).toBe(true);
-    expect(poll).toHaveBeenCalledOnce();
+    await Promise.resolve();
+    expect(execute).toHaveBeenCalledOnce();
     store.dispose();
   });
 
   it("installRuntime dispatches download then start", async () => {
-    const clock = new FakeClock();
     const install = vi.fn(
       async (onState?: (s: ReturnType<typeof ManagedRuntimeState.downloading>) => void) => {
         onState?.(ManagedRuntimeState.downloading(50));
@@ -152,15 +160,11 @@ describe("StatusStore", () => {
     const store = new StatusStore({
       getSystemStatus: {
         execute: async () => makeStatus(ManagedRuntimeState.missing()),
-        poll: async (onUpdate, signal, intervalMs = 1000) => {
-          onUpdate(makeStatus(ManagedRuntimeState.missing()));
-          while (!signal?.aborted) {
-            await clock.sleep(intervalMs, signal);
-          }
-        },
+        poll: vi.fn(),
       },
       installRuntime: { execute: install },
       startRuntime: { execute: start },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
@@ -186,18 +190,14 @@ describe("StatusStore", () => {
   });
 
   it("dispose aborts the poll loop", async () => {
-    const clock = new FakeClock();
     let polls = 0;
     const store = new StatusStore({
       getSystemStatus: {
-        execute: async () => makeStatus(),
-        poll: async (onUpdate, signal, intervalMs = 1000) => {
-          while (!signal?.aborted) {
-            polls += 1;
-            onUpdate(makeStatus());
-            await clock.sleep(intervalMs, signal);
-          }
+        execute: async () => {
+          polls += 1;
+          return makeStatus();
         },
+        poll: vi.fn(),
       },
       installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
       startRuntime: {
@@ -209,6 +209,7 @@ describe("StatusStore", () => {
           spawned: true,
         }),
       },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
@@ -227,12 +228,60 @@ describe("StatusStore", () => {
       pollIntervalMs: 1000,
     });
 
+    store.setActiveUiViews(1);
     store.startPolling();
     await Promise.resolve();
     const before = polls;
     store.dispose();
-    clock.advance(5000);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(5000);
     expect(polls).toBe(before);
+  });
+
+  it("selectModel stops then starts runtime when the LLM model changes", async () => {
+    const stop = vi.fn(async () => ({
+      runtime: ManagedRuntimeState.stopped(),
+      stopped: true,
+    }));
+    const start = vi.fn(async () => ({
+      kind: "ready" as const,
+      runtime: ManagedRuntimeState.running("0.1.0"),
+      connection: { baseUrl: "http://127.0.0.1:1", sessionToken: "t" },
+      ownership: "owned" as const,
+      spawned: true,
+    }));
+    const store = new StatusStore({
+      getSystemStatus: {
+        execute: async () => makeStatus(),
+        poll: vi.fn(),
+      },
+      installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
+      startRuntime: { execute: start },
+      stopRuntime: { execute: stop },
+      selectLlmModel: {
+        list: async () => [],
+        select: async (name) => ({
+          models: [],
+          selected: name,
+          requiresRuntimeRestart: true,
+        }),
+      },
+      startInitialSync: async () => ({
+        job: { jobId: "j", status: "completed", progress: 1, error: null },
+        failures: [],
+      }),
+      startReindex: async () => ({
+        kind: "started" as const,
+        job: { jobId: "j", status: "completed", progress: 1, error: null },
+        reindexRequired: false,
+        reindexReason: null,
+      }),
+      cancelActive: async () => null,
+      pollIntervalMs: 1000,
+    });
+
+    await store.selectModel("qwen3:4b-instruct-2507-q4_K_M");
+    expect(stop).toHaveBeenCalledOnce();
+    expect(start).toHaveBeenCalledOnce();
+    store.dispose();
   });
 });

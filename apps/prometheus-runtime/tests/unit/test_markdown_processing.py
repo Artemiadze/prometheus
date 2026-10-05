@@ -3,9 +3,15 @@
 from datetime import UTC, datetime
 
 from adapters.outbound.markdown.chunker import HeadingAwareChunker
-from adapters.outbound.markdown.normalize import normalized_content_hash, split_frontmatter
+from adapters.outbound.markdown.normalize import (
+    normalized_content_hash,
+    split_frontmatter,
+)
 from adapters.outbound.markdown.parser import ObsidianMarkdownParser
-from adapters.outbound.markdown.token_counter import CachingTokenCounter, HeuristicTokenCounter
+from adapters.outbound.markdown.token_counter import (
+    CachingTokenCounter,
+    HeuristicTokenCounter,
+)
 from application.dto.parsed_document import BlockKind, ParsedDocument
 from domain.entities.document import Document
 from domain.value_objects.chunk_id import ChunkId

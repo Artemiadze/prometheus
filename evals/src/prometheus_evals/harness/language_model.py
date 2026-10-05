@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 
 from application.dto.llm import LlmGeneration, LocalLlmModel
 
@@ -20,42 +21,39 @@ class ExtractiveEvalLanguageModel:
 
     def __init__(self, model_name: str = "eval-extractive-v1") -> None:
         self._model_name = model_name
-        self.calls: list[str] = []
+        self.calls: list[tuple[str, str]] = []
 
     async def generate(
         self,
-        prompt: str,
+        system: str,
+        user: str,
         *,
         temperature: float,
         context_size: int,
         max_output_tokens: int,
+        response_schema: Mapping[str, object] | None = None,
     ) -> LlmGeneration:
-        del temperature, context_size, max_output_tokens
-        self.calls.append(prompt)
-        if _NO_CONTEXT in prompt:
-            return LlmGeneration(_REFUSAL, self._model_name)
-        fragments = [part.strip() for part in _FRAGMENT.findall(prompt) if part.strip()]
-        if not fragments:
-            return LlmGeneration(_REFUSAL, self._model_name)
-        best = max(fragments, key=len)
-        sentence = best.split(".")[0].strip()
-        if not sentence:
-            sentence = best[:200].strip()
-        return LlmGeneration(sentence, self._model_name)
+        del temperature, context_size, max_output_tokens, response_schema
+        self.calls.append((system, user))
+        return LlmGeneration(_structured_answer(user), self._model_name)
 
     async def stream(
         self,
-        prompt: str,
+        system: str,
+        user: str,
         *,
         temperature: float,
         context_size: int,
         max_output_tokens: int,
+        response_schema: Mapping[str, object] | None = None,
     ) -> AsyncIterator[str]:
         generation = await self.generate(
-            prompt,
+            system,
+            user,
             temperature=temperature,
             context_size=context_size,
             max_output_tokens=max_output_tokens,
+            response_schema=response_schema,
         )
         yield generation.text
 
@@ -64,3 +62,16 @@ class ExtractiveEvalLanguageModel:
 
     async def is_available(self) -> bool:
         return True
+
+
+def _structured_answer(user: str) -> str:
+    if _NO_CONTEXT in user:
+        return json.dumps({"answer": _REFUSAL, "sources": []}, ensure_ascii=False)
+    fragments = [part.strip() for part in _FRAGMENT.findall(user) if part.strip()]
+    if not fragments:
+        return json.dumps({"answer": _REFUSAL, "sources": []}, ensure_ascii=False)
+    best = max(fragments, key=len)
+    sentence = best.split(".")[0].strip()
+    if not sentence:
+        sentence = best[:200].strip()
+    return json.dumps({"answer": sentence, "sources": [1]}, ensure_ascii=False)

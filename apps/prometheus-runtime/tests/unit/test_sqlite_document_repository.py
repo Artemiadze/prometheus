@@ -88,7 +88,10 @@ def test_list_states_orders_by_relative_path(tmp_path: Path) -> None:
 
     states = repository.list_states()
 
-    assert [state.relative_path.value for state in states] == ["Notes/A.md", "Notes/B.md"]
+    assert [state.relative_path.value for state in states] == [
+        "Notes/A.md",
+        "Notes/B.md",
+    ]
 
 
 def test_reindexing_replaces_chunk_rows_without_duplicates(tmp_path: Path) -> None:

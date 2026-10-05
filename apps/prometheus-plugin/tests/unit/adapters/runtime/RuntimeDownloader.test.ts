@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_PLUGIN_SETTINGS } from "../../../../src/application/dto/settings";
@@ -119,5 +119,55 @@ describe("RuntimeDownloader", () => {
     await expect(downloader.download(() => undefined)).rejects.toBeInstanceOf(
       RuntimeDownloadFailedError,
     );
+  });
+
+  it("verifies from a local .sha256 sidecar without network", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prom-runtime-"));
+    const payload = Buffer.from("runtime-binary-bytes");
+    const digest = createHash("sha256").update(payload).digest("hex");
+    const locator = new RuntimeLocator({
+      getSettings: async () => DEFAULT_PLUGIN_SETTINGS,
+      platformPaths: { platform: "linux", env: {}, homedir: dir },
+      access: async () => undefined,
+    });
+    await mkdir(dirname(locator.managedInstallPath()), { recursive: true });
+    await writeFile(locator.managedInstallPath(), payload);
+    await writeFile(`${locator.managedInstallPath()}.sha256`, `${digest}  prometheus-runtime\n`);
+
+    const downloader = new RuntimeDownloader({
+      locator,
+      getSettings: async () => DEFAULT_PLUGIN_SETTINGS,
+      fetchFn: async () => {
+        throw new Error("network should not be used");
+      },
+      platform: "linux",
+      arch: "x64",
+    });
+    await downloader.verifyInstalledBinary();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("skips verify when PROMETHEUS_DEV_SKIP_RUNTIME_VERIFY is set", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prom-runtime-"));
+    const locator = new RuntimeLocator({
+      getSettings: async () => DEFAULT_PLUGIN_SETTINGS,
+      platformPaths: { platform: "linux", env: {}, homedir: dir },
+      access: async () => undefined,
+    });
+    await mkdir(dirname(locator.managedInstallPath()), { recursive: true });
+    await writeFile(locator.managedInstallPath(), Buffer.from("x"));
+
+    const downloader = new RuntimeDownloader({
+      locator,
+      getSettings: async () => DEFAULT_PLUGIN_SETTINGS,
+      fetchFn: async () => {
+        throw new Error("network should not be used");
+      },
+      platform: "linux",
+      arch: "x64",
+      env: { PROMETHEUS_DEV_SKIP_RUNTIME_VERIFY: "true" },
+    });
+    await downloader.verifyInstalledBinary();
+    await rm(dir, { recursive: true, force: true });
   });
 });

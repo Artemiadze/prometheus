@@ -19,6 +19,7 @@ export type RuntimeProcessStartInput = {
   readonly port: number;
   readonly dataDir: string;
   readonly sessionToken: string;
+  readonly env?: NodeJS.ProcessEnv | undefined;
   readonly signal?: AbortSignal | undefined;
 };
 
@@ -122,6 +123,7 @@ export class RuntimeProcess {
     const child = this.spawnProcess(input.binaryPath, argv.slice(1), {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
+      env: input.env ?? process.env,
     });
     this.child = child;
 

@@ -159,6 +159,7 @@ describe("ChatStore", () => {
       "hello world",
       scoped,
       expect.anything(),
+      expect.anything(),
     );
   });
 
@@ -191,6 +192,7 @@ describe("ChatStore", () => {
       "hello world",
       SearchScope.currentNote(note),
       expect.anything(),
+      expect.anything(),
     );
     expect(store.getState().scopeOverrideLabel).toBeNull();
 
@@ -199,6 +201,7 @@ describe("ChatStore", () => {
       expect.anything(),
       "second question",
       defaultScope,
+      expect.anything(),
       expect.anything(),
     );
   });

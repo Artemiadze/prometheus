@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
+from application.dto.chunk_fingerprint import ChunkFingerprint
 from application.dto.document_state import DocumentState
 from domain.entities.chunk import Chunk
 from domain.entities.document import Document
@@ -22,6 +23,8 @@ class DocumentRepository(Protocol):
     """
 
     def get_state(self, document_id: DocumentId) -> DocumentState | None: ...
+
+    def list_chunk_fingerprints(self, document_id: DocumentId) -> Sequence[ChunkFingerprint]: ...
 
     def list_states(self) -> Sequence[DocumentState]: ...
 

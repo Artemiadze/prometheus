@@ -6,16 +6,17 @@ from collections.abc import Mapping, Sequence
 
 from application.dto.grounded_prompt import GroundedPrompt
 from application.ports.token_counter import TokenCounter
+from application.services.answer_language import (
+    build_system_instruction,
+    detect_language,
+)
 from domain.entities.chunk import Chunk
 from domain.errors import InvariantViolationError
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.source_reference import SourceReference
 
-_INSTRUCTION = """Answer using only the provided context.
-If the information required to answer the question is not present in the context,
-say that there is not enough information in the user's notes.
-Do not use outside knowledge."""
+_CHAT_ROLE_OVERHEAD = 8
 
 
 def build_grounded_prompt(
@@ -39,11 +40,13 @@ def build_grounded_prompt(
     if context_size <= 0 or response_token_reserve <= 0 or response_token_reserve >= context_size:
         raise ValueError("invalid LLM token budget")
 
+    language = detect_language(question)
+    system = build_system_instruction(language)
     prompt_budget = context_size - response_token_reserve
     included: list[Chunk] = []
     sources: list[SourceReference] = []
-    prompt = _render_prompt(question, (), (), no_context=True)
-    token_count = token_counter.count(prompt)
+    user = _render_user(question, (), (), no_context=True)
+    token_count = _count_chat_prompt(token_counter, system, user)
     if token_count > prompt_budget:
         raise ValueError("prompt overhead exceeds LLM token budget")
 
@@ -60,29 +63,34 @@ def build_grounded_prompt(
         )
         candidate_chunks = (*included, chunk)
         candidate_sources = (*sources, source)
-        candidate = _render_prompt(
+        candidate_user = _render_user(
             question,
             candidate_chunks,
             candidate_sources,
             no_context=False,
         )
-        candidate_count = token_counter.count(candidate)
+        candidate_count = _count_chat_prompt(token_counter, system, candidate_user)
         if candidate_count > prompt_budget:
             continue
         included.append(chunk)
         sources.append(source)
-        prompt = candidate
+        user = candidate_user
         token_count = candidate_count
 
     return GroundedPrompt(
-        text=prompt,
+        system=system,
+        user=user,
         included_chunks=tuple(included),
         sources=tuple(sources),
         token_count=token_count,
     )
 
 
-def _render_prompt(
+def _count_chat_prompt(token_counter: TokenCounter, system: str, user: str) -> int:
+    return token_counter.count(system) + token_counter.count(user) + _CHAT_ROLE_OVERHEAD
+
+
+def _render_user(
     question: str,
     chunks: Sequence[Chunk],
     sources: Sequence[SourceReference],
@@ -99,7 +107,7 @@ def _render_prompt(
                 start=1,
             )
         )
-    return f"{_INSTRUCTION}\n\nContext:\n{context}\n\nQuestion:\n{question.strip()}\n\nAnswer:"
+    return f"Context:\n{context}\n\nQuestion:\n{question.strip()}"
 
 
 def _render_fragment(index: int, chunk: Chunk, source: SourceReference) -> str:

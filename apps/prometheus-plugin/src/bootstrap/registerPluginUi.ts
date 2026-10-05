@@ -70,6 +70,19 @@ export function registerPluginUi(deps: RegisterPluginUiDeps): RegisteredPluginUi
     void activateStatusView(app);
   });
 
+  const syncActiveUiViews = (): void => {
+    let count = 0;
+    app.workspace.iterateAllLeaves((leaf) => {
+      const type = leaf.view.getViewType();
+      if (type === CHAT_VIEW_TYPE || type === SEARCH_VIEW_TYPE || type === STATUS_VIEW_TYPE) {
+        count += 1;
+      }
+    });
+    deps.statusStore.setActiveUiViews(count);
+  };
+  syncActiveUiViews();
+  plugin.registerEvent(app.workspace.on("layout-change", syncActiveUiViews));
+
   const statusBarItem = plugin.addStatusBarItem();
   statusBarItem.addClass("prometheus-statusbar-item");
   statusBarItem.setText("Prometheus");

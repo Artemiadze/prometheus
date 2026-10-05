@@ -97,7 +97,9 @@ def test_default_embedder_is_wired_without_loading_model(tmp_path: Path) -> None
     assert embedder.dimension == 1024
 
 
-def test_default_language_model_is_wired_without_network_request(tmp_path: Path) -> None:
+def test_default_language_model_is_wired_without_network_request(
+    tmp_path: Path,
+) -> None:
     container = Container(RuntimeSettings(data_dir=tmp_path), ensure_layout(tmp_path))
 
     language_model = container.language_model
@@ -120,7 +122,9 @@ def test_default_vector_index_is_scoped_to_configured_vault(tmp_path: Path) -> N
     vector_index.close()
 
 
-def test_default_document_repository_is_scoped_to_configured_vault(tmp_path: Path) -> None:
+def test_default_document_repository_is_scoped_to_configured_vault(
+    tmp_path: Path,
+) -> None:
     container = Container(
         RuntimeSettings(data_dir=tmp_path),
         ensure_layout(tmp_path),
@@ -165,7 +169,9 @@ def test_unconfigured_metadata_adapters_have_an_explicit_error(tmp_path: Path) -
         _ = container.unit_of_work
 
 
-def test_active_index_fingerprint_excludes_llm_and_top_k_settings(tmp_path: Path) -> None:
+def test_active_index_fingerprint_excludes_llm_and_top_k_settings(
+    tmp_path: Path,
+) -> None:
     layout = ensure_layout(tmp_path)
     baseline = Container(RuntimeSettings(data_dir=tmp_path), layout).active_index_fingerprint
     changed = Container(

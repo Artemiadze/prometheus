@@ -18,7 +18,13 @@ from bootstrap.container import Container
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
-from fakes import FakeChunker, FakeEmbedder, FakeJobStore, FakeMarkdownParser, FakeProgressReporter
+from fakes import (
+    FakeChunker,
+    FakeEmbedder,
+    FakeJobStore,
+    FakeMarkdownParser,
+    FakeProgressReporter,
+)
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 VAULT = VaultId("vault-rebuild")
@@ -110,7 +116,40 @@ def test_cancelled_rebuild_leaves_active_index_intact(tmp_path: Path) -> None:
     container.close()
 
 
-def test_failed_rebuild_discards_staging_and_keeps_active_searchable(tmp_path: Path) -> None:
+def test_reindex_skips_oversized_document_and_indexes_the_rest(tmp_path: Path) -> None:
+    jobs = FakeJobStore()
+    container = Container(
+        RuntimeSettings(data_dir=tmp_path, max_document_chars=40),
+        ensure_layout(tmp_path),
+        vault_id=VAULT,
+        embedder_factory=FakeEmbedder,
+        markdown_parser_factory=FakeMarkdownParser,
+        chunker_factory=FakeChunker,
+        job_store_factory=lambda: jobs,
+        progress_reporter_factory=FakeProgressReporter,
+    )
+
+    result = asyncio.run(
+        container.reindex_vault.execute(
+            (
+                _document("document-big", "x" * 200),
+                _document("document-ok", "small searchable bravo"),
+            ),
+            cancellation=_NeverCancelled(),
+        )
+    )
+
+    assert not result.cancelled
+    assert result.job.status.value == "completed"
+    assert result.processed_documents == 2
+    found = asyncio.run(container.search_notes.execute("bravo", limit=5))
+    assert [hit.text for hit in found] == ["small searchable bravo"]
+    container.close()
+
+
+def test_failed_rebuild_discards_staging_and_keeps_active_searchable(
+    tmp_path: Path,
+) -> None:
     import pytest
 
     from application.errors import VaultMismatchError

@@ -251,7 +251,9 @@ export class SettingsController {
         this.settings = { ...this.settings, llmModel: result.selected };
       }
       if (result.requiresRuntimeRestart) {
-        this.deps.notifier.info("Model updated. Restart the runtime if the change does not apply.");
+        await this.deps.stopRuntime.execute(signal);
+        await this.deps.startRuntime.execute(signal);
+        this.deps.onActivated?.();
       }
     });
   }
@@ -281,6 +283,15 @@ export class SettingsController {
       return;
     }
     await this.patchSettings({ llmContextSize: value });
+  }
+
+  async setIndexingDebounceMs(value: number): Promise<void> {
+    if (!Number.isInteger(value) || value < 200) {
+      this.deps.notifier.warning("Indexing debounce must be at least 200 ms.");
+      return;
+    }
+    await this.patchSettings({ indexingDebounceMs: value });
+    this.deps.autoIndexing.updateDebounce({ debounceMs: value });
   }
 
   async setNetworkAccess(mode: NetworkAccessMode): Promise<void> {
@@ -441,7 +452,7 @@ function fallbackSettings(): PluginSettings {
     networkAccess: "updates_only",
     vaultId: null,
     noteOpenMode: "reuse_active",
-    indexingDebounceMs: 750,
+    indexingDebounceMs: 5000,
     maxConcurrentSyncs: 2,
     searchScopeMode: "entire_vault",
     applySearchScopeToChat: false,
@@ -449,7 +460,7 @@ function fallbackSettings(): PluginSettings {
     chunkSizeTokens: 700,
     chunkOverlapTokens: 80,
     llmTemperature: 0.2,
-    llmContextSize: 4096,
+    llmContextSize: 8192,
     verboseLogging: false,
     runtimeAutostart: false,
   };

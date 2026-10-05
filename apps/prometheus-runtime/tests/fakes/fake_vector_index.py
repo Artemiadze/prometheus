@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from application.dto.index_status import IndexStatus
 from domain.entities.chunk import Chunk
 from domain.entities.document import Document
 from domain.entities.search_hit import SearchHit, sort_by_score
+from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
 from domain.value_objects.search_scope import ScopeMode, SearchScope
@@ -43,6 +44,15 @@ class FakeVectorIndex:
             tuple(tuple(vector) for vector in vectors),
         )
         self._document_paths[document.id] = document.relative_path
+
+    def retrieve_vectors(self, chunk_ids: Sequence[ChunkId]) -> Mapping[str, Sequence[float]]:
+        wanted = {chunk_id.value for chunk_id in chunk_ids}
+        vectors: dict[str, Sequence[float]] = {}
+        for chunks, stored_vectors in self._documents.values():
+            for chunk, vector in zip(chunks, stored_vectors, strict=True):
+                if chunk.id.value in wanted:
+                    vectors[chunk.id.value] = vector
+        return vectors
 
     def delete_by_document(self, document_id: DocumentId) -> None:
         self._documents.pop(document_id, None)

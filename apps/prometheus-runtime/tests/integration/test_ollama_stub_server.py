@@ -11,16 +11,26 @@ import pytest
 from httpx._content import AsyncIteratorByteStream
 
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
-from adapters.outbound.ollama.errors import LlmModelNotFoundError, OllamaUnavailableError
+from adapters.outbound.ollama.errors import (
+    LlmModelNotFoundError,
+    OllamaUnavailableError,
+)
 
 pytestmark = pytest.mark.integration
 
 _Handler = Callable[[httpx.Request], Coroutine[None, None, httpx.Response]]
+_SYSTEM = "System rules"
+_USER = "User question"
 
 
 def _run[T](handler: _Handler, operation: Callable[[OllamaLanguageModel], Awaitable[T]]) -> T:
+    async def routed(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            return httpx.Response(200, json={"capabilities": ["completion", "thinking"]})
+        return await handler(request)
+
     async def run() -> T:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(routed)) as client:
             adapter = OllamaLanguageModel(
                 base_url="http://127.0.0.1:11434",
                 model="qwen3:4b",
@@ -46,19 +56,25 @@ def test_stub_lists_models_without_requiring_real_ollama() -> None:
 
 def test_stub_generate_returns_typed_generation() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/api/generate"
+        assert request.url.path == "/api/chat"
         payload = json.loads(request.content)
         assert payload["model"] == "qwen3:4b"
         assert payload["stream"] is False
+        assert payload["messages"][-1]["content"] == _USER
         return httpx.Response(
             200,
-            json={"response": "stubbed answer", "model": "qwen3:4b", "done": True},
+            json={
+                "model": "qwen3:4b",
+                "message": {"role": "assistant", "content": "stubbed answer"},
+                "done": True,
+            },
         )
 
     generation = _run(
         handler,
         lambda adapter: adapter.generate(
-            "prompt",
+            _SYSTEM,
+            _USER,
             temperature=0.1,
             context_size=2048,
             max_output_tokens=128,
@@ -74,7 +90,7 @@ def test_stub_stream_returns_incremental_tokens() -> None:
         assert payload["stream"] is True
 
         async def body() -> AsyncIterator[bytes]:
-            yield b'{"response":"stub","done":false}\n'
+            yield b'{"message":{"role":"assistant","content":"stub"},"done":false}\n'
             yield b'{"done":true}\n'
 
         return httpx.Response(200, stream=AsyncIteratorByteStream(body()))
@@ -82,7 +98,8 @@ def test_stub_stream_returns_incremental_tokens() -> None:
     async def collect(adapter: OllamaLanguageModel) -> str:
         parts: list[str] = []
         async for piece in adapter.stream(
-            "prompt",
+            _SYSTEM,
+            _USER,
             temperature=0.1,
             context_size=2048,
             max_output_tokens=128,
@@ -101,7 +118,8 @@ def test_stub_model_not_found_and_unavailable() -> None:
         _run(
             not_found,
             lambda adapter: adapter.generate(
-                "prompt",
+                _SYSTEM,
+                _USER,
                 temperature=0.1,
                 context_size=2048,
                 max_output_tokens=128,

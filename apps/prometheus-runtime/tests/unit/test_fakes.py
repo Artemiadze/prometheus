@@ -189,15 +189,16 @@ def test_fake_language_model_echoes_context_without_network() -> None:
 
     generation = asyncio.run(
         model.generate(
-            "Question: What is in the Vault?\nContext: Vault evidence",
+            "System rules",
+            "Context:\n[1] Source: Notes/One.md\nVault evidence\n\n"
+            "Question:\nWhat is in the Vault?",
             temperature=0.1,
             context_size=2048,
             max_output_tokens=256,
         )
     )
 
-    assert "What is in the Vault?" in generation.text
-    assert "Vault evidence" in generation.text
+    assert generation.text == '{"answer": "Vault evidence", "sources": [1]}'
     assert asyncio.run(model.is_available())
     assert asyncio.run(model.list_models()) == (LocalLlmModel("fake-model", 0),)
 

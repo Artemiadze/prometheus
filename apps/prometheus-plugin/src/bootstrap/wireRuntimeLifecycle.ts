@@ -1,5 +1,5 @@
 import { HttpRagGateway, RuntimeHttpClient } from "../adapters/outbound/rag-api";
-import { ManagedRuntimeGateway, type FetchFn } from "../adapters/outbound/runtime";
+import { ManagedRuntimeGateway, nodeHttpFetch, type FetchFn } from "../adapters/outbound/runtime";
 import { SystemClock } from "../adapters/outbound/system/SystemClock";
 import type { ManagedRuntimeState } from "../domain/entities/RuntimeStatus";
 import type { RuntimeStopReason } from "../domain/entities/RuntimeStatus";
@@ -38,10 +38,12 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
   const sessions = new RuntimeSessionRegistry();
   const abortController = new AbortController();
   const supervisorHolder: { supervisor: RuntimeSupervisor | null } = { supervisor: null };
+  // Prefer Node HTTP: Chromium fetch can fail on loopback (CORS / private-network).
+  const fetchFn = deps.fetchFn ?? nodeHttpFetch;
 
   const runtimeGateway = new ManagedRuntimeGateway({
     settings: deps.settings,
-    ...(deps.fetchFn ? { fetchFn: deps.fetchFn } : {}),
+    fetchFn,
     onProcessExit: (reason: RuntimeStopReason) => {
       supervisorHolder.supervisor?.handleProcessExit(reason, abortController.signal);
     },
@@ -50,7 +52,7 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
   const httpClient = new RuntimeHttpClient({
     sessions,
     getHealthBaseUrl: () => sessions.get()?.connection.baseUrl ?? "http://127.0.0.1:8765",
-    ...(deps.fetchFn ? { fetchFn: deps.fetchFn } : {}),
+    fetchFn,
     onUnauthorized: () => {
       sessions.clear();
     },
@@ -68,6 +70,7 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
     deps.logger,
   );
 
+  let healthReportedRunning = false;
   const monitor = new RuntimeHealthMonitor(rag, sessions, clock);
   monitor.start(
     {
@@ -75,9 +78,13 @@ export function wireRuntimeLifecycle(deps: WireRuntimeLifecycleDeps): WiredRunti
         deps.onRuntimeStateChange?.(state);
         if (state.kind === "running") {
           runtimeGateway.markRunning(state.version);
-          supervisorHolder.supervisor?.notifyStarted();
-          deps.logger?.event("runtime.started", { version: state.version });
+          if (!healthReportedRunning) {
+            healthReportedRunning = true;
+            supervisorHolder.supervisor?.notifyStarted();
+            deps.logger?.event("runtime.health_ok", { version: state.version });
+          }
         } else if (state.kind === "stopped") {
+          healthReportedRunning = false;
           deps.logger?.event("runtime.stopped", { reason: state.reason });
         }
       },

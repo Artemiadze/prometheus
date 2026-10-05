@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from adapters.outbound.fastembed.errors import RerankerBatchError, RerankerModelUnavailableError
+from adapters.outbound.fastembed.errors import (
+    RerankerBatchError,
+    RerankerModelUnavailableError,
+)
 from adapters.outbound.fastembed.reranker import FastEmbedReranker
 from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import compute_content_hash

@@ -498,8 +498,15 @@ DELETE /v1/jobs/{jobId}
 - идемпотентность document upsert;
 - совместимость версий plugin и runtime;
 - streaming ответа чата через NDJSON (`POST .../chat/stream`: события
-  `token`, `sources`, `done`, `error`; разрыв HTTP-соединения отменяет генерацию
-  в Ollama между токенами);
+  `token`, `sources`, `done`, `error`, а также `heartbeat` каждые 10 с, пока
+  модель молчит — обработка промпта или скрытое thinking; плагин считает
+  таймаут стрима временем простоя между строками; разрыв HTTP-соединения
+  отменяет генерацию в Ollama между токенами);
+- снижение фоновой нагрузки на CPU: `ComputeGate` (чат в foreground, индексация
+  в background), кеш ответов по `(query, scope, model, index_generation)`,
+  reuse эмбеддингов по `content_hash` чанка, кеш `/status` (размер индекса и
+  probe Ollama 30 с), адаптивный poll плагина (1 с при открытых view, 15 с в
+  idle), `keep_alive` в запросах Ollama;
 - длительная индексация через фоновые jobs с progress и cancellation.
 
 Runtime не должен самостоятельно обходить файловую систему Vault. Документы

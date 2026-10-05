@@ -11,9 +11,10 @@ from domain.value_objects.source_reference import SourceReference
 
 @dataclass(frozen=True, slots=True)
 class GroundedPrompt:
-    """Prompt text tied to only the chunks and sources sent to the LLM."""
+    """System and user messages tied to the chunks and sources sent to the LLM."""
 
-    text: str
+    system: str
+    user: str
     included_chunks: tuple[Chunk, ...]
     sources: tuple[SourceReference, ...]
     token_count: int
@@ -23,5 +24,5 @@ class GroundedPrompt:
         sources = tuple(dict.fromkeys(self.sources))
         object.__setattr__(self, "included_chunks", chunks)
         object.__setattr__(self, "sources", sources)
-        if not self.text.strip() or self.token_count <= 0:
+        if not self.system.strip() or not self.user.strip() or self.token_count <= 0:
             raise InvariantViolationError()

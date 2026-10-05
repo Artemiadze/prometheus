@@ -44,7 +44,7 @@ export class StatusView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.onActivate?.();
-    const container = this.containerEl.children[1] as HTMLElement;
+    const container = this.contentEl;
     container.empty();
     container.addClass("prometheus-status-view");
 
@@ -68,7 +68,7 @@ export class StatusView extends ItemView {
     this.progressEl = null;
     this.errorEl = null;
     this.modelsEl = null;
-    this.containerEl.empty();
+    this.contentEl.empty();
   }
 
   private render(state: StatusViewState): void {

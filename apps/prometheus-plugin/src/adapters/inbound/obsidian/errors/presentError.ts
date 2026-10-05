@@ -40,9 +40,16 @@ export function presentError(error: unknown): PresentedError {
         ? (error.recommendedAction as RuntimeRecoveryAction)
         : undefined;
     const entry = resolveEntry(error.code, recommended);
+    const detail =
+      (error.code === "RUNTIME_DOWNLOAD_FAILED" ||
+        error.code === "RUNTIME_START_FAILED" ||
+        error.code === "RUNTIME_NOT_INSTALLED") &&
+      error.message.trim().length > 0
+        ? ` ${error.message.trim()}`
+        : "";
     return {
       code: error.code,
-      message: sanitizeUserMessage(formatPresentedMessage(entry)),
+      message: sanitizeUserMessage(`${formatPresentedMessage(entry)}${detail}`),
       action: entry.action,
       requestId: null,
     };

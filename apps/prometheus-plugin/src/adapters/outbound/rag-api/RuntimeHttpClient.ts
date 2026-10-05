@@ -1,5 +1,6 @@
 import packageMetadata from "../../../../package.json";
 
+import { nodeHttpNdjson } from "../runtime/nodeHttpFetch";
 import type { RuntimeSessionRegistry } from "../../../application/services/RuntimeSessionRegistry";
 import {
   isAbortError,
@@ -30,10 +31,27 @@ export type RuntimeHttpRequest<T> = {
   readonly body?: unknown;
   readonly signal?: AbortSignal | undefined;
   readonly protected?: boolean;
+  /** Override the client default request timeout for this call. */
+  readonly timeoutMs?: number;
   readonly decode: RuntimeResponseDecoder<T>;
 };
 
+export type RuntimeHttpNdjsonRequest = {
+  readonly method?: "POST";
+  readonly body?: unknown;
+  readonly signal?: AbortSignal | undefined;
+  readonly protected?: boolean;
+  /** Idle timeout: restarts on every received line, so long streams stay alive. */
+  readonly timeoutMs?: number;
+  readonly onLine: (line: string) => void;
+};
+
 const DEFAULT_TIMEOUT_MS = 15_000;
+/**
+ * Local LLM chat on CPU/iGPU routinely exceeds the short default timeout.
+ * For streams this is idle time; the runtime sends heartbeats while the model is silent.
+ */
+export const CHAT_REQUEST_TIMEOUT_MS = 120_000;
 
 /**
  * Fetch transport for the loopback runtime API.
@@ -55,6 +73,98 @@ export class RuntimeHttpClient {
   currentConnectionKey(): string | null {
     const session = this.options.sessions.get();
     return session ? `${session.connection.baseUrl}#${this.options.sessions.getRevision()}` : null;
+  }
+
+  async streamNdjson(path: string, request: RuntimeHttpNdjsonRequest): Promise<void> {
+    const isProtected = request.protected ?? true;
+    const session = this.options.sessions.get();
+    if (isProtected && !session) {
+      throw new RuntimeSessionRequiredError();
+    }
+
+    const baseUrl = session?.connection.baseUrl ?? this.options.getHealthBaseUrl();
+    const url = buildRuntimeUrl(baseUrl, path);
+    const requestId = isProtected ? this.requestIdFactory() : null;
+    const headers: Record<string, string> = { Accept: "application/x-ndjson" };
+    if (request.body !== undefined) {
+      headers["Content-Type"] = "application/json";
+    }
+    if (isProtected && session && requestId) {
+      headers.Authorization = `Bearer ${session.connection.sessionToken}`;
+      headers["X-Request-ID"] = requestId;
+      headers["X-Prometheus-Plugin-Version"] = this.pluginVersion;
+    }
+
+    const controller = new AbortController();
+    let timedOut = false;
+    const onCallerAbort = (): void => {
+      controller.abort();
+    };
+    if (request.signal?.aborted) {
+      throw abortError();
+    }
+    request.signal?.addEventListener("abort", onCallerAbort, { once: true });
+    const timeoutMs = request.timeoutMs ?? this.timeoutMs;
+    const armTimer = (): ReturnType<typeof setTimeout> =>
+      setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+    let timer = armTimer();
+
+    try {
+      const init: RequestInit = {
+        method: request.method ?? "POST",
+        headers,
+        signal: controller.signal,
+      };
+      if (request.body !== undefined) {
+        init.body = JSON.stringify(request.body);
+      }
+      const response = await nodeHttpNdjson(url, {
+        ...init,
+        onLine: (line) => {
+          clearTimeout(timer);
+          timer = armTimer();
+          request.onLine(line);
+        },
+      });
+      if (response.status === 401) {
+        this.options.sessions.clear();
+        await safelyNotifyUnauthorized(this.options.onUnauthorized);
+      }
+      if (response.status < 200 || response.status >= 300) {
+        throw new RuntimeUnavailableError();
+      }
+    } catch (error) {
+      if (request.signal?.aborted) {
+        throw abortError();
+      }
+      if (timedOut) {
+        throw new RuntimeRequestTimeoutError(timeoutMs);
+      }
+      if (isPrometheusPluginError(error)) {
+        throw error;
+      }
+      if (isAbortError(error)) {
+        throw error;
+      }
+      const httpError = error as Error & { status?: number; body?: Buffer };
+      if (typeof httpError.status === "number" && httpError.body) {
+        const text = httpError.body.toString("utf8");
+        let payload: unknown = null;
+        try {
+          payload = text.length > 0 ? (JSON.parse(text) as unknown) : null;
+        } catch {
+          throw new RuntimeContractError(requestId);
+        }
+        throw mapRuntimeApiError(payload, httpError.status, requestId);
+      }
+      throw new RuntimeUnavailableError();
+    } finally {
+      clearTimeout(timer);
+      request.signal?.removeEventListener("abort", onCallerAbort);
+    }
   }
 
   async request<T>(path: string, request: RuntimeHttpRequest<T>): Promise<T> {
@@ -86,10 +196,11 @@ export class RuntimeHttpClient {
       throw abortError();
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
+    const timeoutMs = request.timeoutMs ?? this.timeoutMs;
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, this.timeoutMs);
+    }, timeoutMs);
 
     try {
       const init: RequestInit = {
@@ -117,7 +228,7 @@ export class RuntimeHttpClient {
         throw abortError();
       }
       if (timedOut) {
-        throw new RuntimeRequestTimeoutError(this.timeoutMs);
+        throw new RuntimeRequestTimeoutError(timeoutMs);
       }
       if (isPrometheusPluginError(error)) {
         throw error;

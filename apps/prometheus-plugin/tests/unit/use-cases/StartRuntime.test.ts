@@ -10,15 +10,20 @@ import { FakeRuntimeGateway } from "../../fakes/FakeRuntimeGateway";
 import { FakeSettingsRepository } from "../../fakes/FakeSettingsRepository";
 
 describe("StartRuntime", () => {
-  it("skips spawn when health is already available", async () => {
+  it("skips spawn when health is already available and a session is registered", async () => {
     const runtime = new FakeRuntimeGateway();
     runtime.setLocateResult("managed", "0.1.0");
     const rag = new FakeRagGateway();
+    const sessions = new RuntimeSessionRegistry();
+    sessions.set({
+      connection: { baseUrl: "http://127.0.0.1:8765", sessionToken: "existing-token" },
+      ownership: "external",
+    });
     const useCase = new StartRuntime(
       runtime,
       rag,
       new FakeSettingsRepository(),
-      new RuntimeSessionRegistry(),
+      sessions,
       new FakeClock(),
     );
 
@@ -27,8 +32,31 @@ describe("StartRuntime", () => {
     if (result.kind === "ready") {
       expect(result.spawned).toBe(false);
       expect(result.ownership).toBe("external");
+      expect(result.connection.baseUrl).toBe("http://127.0.0.1:8765");
     }
     expect(runtime.startCalls).toBe(0);
+  });
+
+  it("spawns when health responds without a registered session", async () => {
+    const runtime = new FakeRuntimeGateway();
+    runtime.setLocateResult("managed", "0.1.0");
+    const rag = new FakeRagGateway();
+    const sessions = new RuntimeSessionRegistry();
+    const useCase = new StartRuntime(
+      runtime,
+      rag,
+      new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS }),
+      sessions,
+      new FakeClock(),
+    );
+
+    const result = await useCase.execute();
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      expect(result.spawned).toBe(true);
+      expect(result.connection.baseUrl).not.toContain(":0");
+    }
+    expect(runtime.startCalls).toBe(1);
   });
 
   it("returns missing without throwing when binary is absent", async () => {
