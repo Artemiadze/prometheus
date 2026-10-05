@@ -76,8 +76,8 @@ In Obsidian: **Settings → Community plugins → enable Prometheus**
 ```bash
 # first-time embedding model download into runtime data dir
 export PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD=true
-# default LLM (must match an installed Ollama model)
-export PROMETHEUS_LLM_MODEL=qwen3:4b
+# optional dev override; normal use selects the LLM in Settings / Status
+# export PROMETHEUS_LLM_MODEL=qwen3:4b
 # only for local debug: skip checksum verify (do not use in release)
 # export PROMETHEUS_DEV_SKIP_RUNTIME_VERIFY=true
 # optional local/private release mirror base (Node HTTP, not Chromium fetch)

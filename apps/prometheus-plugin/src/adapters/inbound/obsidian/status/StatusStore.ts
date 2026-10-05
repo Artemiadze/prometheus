@@ -19,6 +19,7 @@ import {
 import type { GetSystemStatus } from "../../../../application/use-cases/GetSystemStatus";
 import type { InstallRuntime } from "../../../../application/use-cases/InstallRuntime";
 import type { StartRuntime } from "../../../../application/use-cases/StartRuntime";
+import type { StopRuntime } from "../../../../application/use-cases/StopRuntime";
 import type { SelectLlmModel } from "../../../../application/use-cases/SelectLlmModel";
 import { presentError } from "../errors/presentError";
 import { estimateIndexingProgress, type IndexingProgressEstimate } from "./indexingProgress";
@@ -38,6 +39,7 @@ export type StatusStoreDeps = {
   readonly getSystemStatus: Pick<GetSystemStatus, "execute" | "poll">;
   readonly installRuntime: Pick<InstallRuntime, "execute">;
   readonly startRuntime: Pick<StartRuntime, "execute">;
+  readonly stopRuntime: Pick<StopRuntime, "execute">;
   readonly selectLlmModel: Pick<SelectLlmModel, "list" | "select">;
   readonly startInitialSync: (
     signal?: AbortSignal,
@@ -165,16 +167,7 @@ export class StatusStore {
 
   async restartRuntime(): Promise<void> {
     await this.runAction(async (signal) => {
-      const result = await this.deps.startRuntime.execute(signal);
-      if (result.kind === "missing") {
-        throw new RuntimeNotInstalledError();
-      }
-      if (result.kind === "incompatible" && result.runtime.kind === "incompatible") {
-        throw new RuntimeVersionIncompatibleError(
-          result.runtime.installedVersion,
-          result.runtime.requiredRange,
-        );
-      }
+      await this.restartManagedRuntime(signal);
       await this.refresh(signal);
     });
   }
@@ -225,10 +218,27 @@ export class StatusStore {
 
   async selectModel(modelName: string): Promise<void> {
     await this.runAction(async (signal) => {
-      await this.deps.selectLlmModel.select(modelName, signal);
+      const result = await this.deps.selectLlmModel.select(modelName, signal);
       this.models = await this.deps.selectLlmModel.list(signal);
+      if (result.requiresRuntimeRestart) {
+        await this.restartManagedRuntime(signal);
+      }
       await this.refresh(signal);
     });
+  }
+
+  private async restartManagedRuntime(signal: AbortSignal): Promise<void> {
+    await this.deps.stopRuntime.execute(signal);
+    const result = await this.deps.startRuntime.execute(signal);
+    if (result.kind === "missing") {
+      throw new RuntimeNotInstalledError();
+    }
+    if (result.kind === "incompatible" && result.runtime.kind === "incompatible") {
+      throw new RuntimeVersionIncompatibleError(
+        result.runtime.installedVersion,
+        result.runtime.requiredRange,
+      );
+    }
   }
 
   dispose(): void {

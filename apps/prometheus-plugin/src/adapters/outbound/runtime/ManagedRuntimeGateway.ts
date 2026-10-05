@@ -156,6 +156,8 @@ export class ManagedRuntimeGateway implements RuntimeGateway {
     const pluginSettings = await this.settings.get();
     const spawnEnv = await buildRuntimeSpawnEnv(dataDir, process.env, {
       llmContextSize: pluginSettings.llmContextSize,
+      llmModel: pluginSettings.llmModel,
+      ollamaAddress: pluginSettings.ollamaAddress,
     });
     if (spawnEnv.PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD === "true") {
       this.diagnostics.append(

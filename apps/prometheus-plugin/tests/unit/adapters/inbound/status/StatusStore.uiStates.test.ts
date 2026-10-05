@@ -46,6 +46,12 @@ function baseDeps(overrides: Partial<StatusStoreDeps> = {}): StatusStoreDeps {
         spawned: true,
       }),
     },
+    stopRuntime: {
+      execute: async () => ({
+        runtime: ManagedRuntimeState.stopped(),
+        stopped: true,
+      }),
+    },
     selectLlmModel: {
       list: async () => [{ name: "qwen3:4b", sizeBytes: 1, quantization: "Q4", installed: true }],
       select: async (name: string) => ({

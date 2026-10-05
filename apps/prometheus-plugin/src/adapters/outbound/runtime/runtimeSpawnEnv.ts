@@ -10,7 +10,18 @@ import { join } from "node:path";
  */
 export type RuntimeSpawnTuning = {
   readonly llmContextSize?: number;
+  readonly llmModel?: string;
+  readonly ollamaAddress?: string;
 };
+
+/** Plugin settings store host:port; runtime expects an HTTP base URL. */
+export function formatOllamaHttpBaseUrl(address: string): string {
+  const trimmed = address.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/+$/, "");
+  }
+  return `http://${trimmed}`;
+}
 
 export async function buildRuntimeSpawnEnv(
   dataDir: string,
@@ -22,10 +33,16 @@ export async function buildRuntimeSpawnEnv(
   if (needsDownload) {
     env.PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD = "true";
   }
-  if (!env.PROMETHEUS_LLM_HOST) {
+  const ollamaAddress = tuning?.ollamaAddress?.trim();
+  if (ollamaAddress) {
+    env.PROMETHEUS_LLM_HOST = formatOllamaHttpBaseUrl(ollamaAddress);
+  } else if (!env.PROMETHEUS_LLM_HOST) {
     env.PROMETHEUS_LLM_HOST = "http://127.0.0.1:11434";
   }
-  if (!env.PROMETHEUS_LLM_MODEL) {
+  const llmModel = tuning?.llmModel?.trim();
+  if (llmModel) {
+    env.PROMETHEUS_LLM_MODEL = llmModel;
+  } else if (!env.PROMETHEUS_LLM_MODEL) {
     env.PROMETHEUS_LLM_MODEL = "qwen3:4b";
   }
   if (!env.PROMETHEUS_TOP_K) {
@@ -41,12 +58,41 @@ export async function buildRuntimeSpawnEnv(
   ) {
     env.PROMETHEUS_LLM_CONTEXT_SIZE = String(tuning.llmContextSize);
   }
+  ensureOutputReserveFitsContext(env);
   const tmpDir = join(dataDir, "tmp");
   await mkdir(tmpDir, { recursive: true });
   env.TMPDIR = tmpDir;
   env.TMP = tmpDir;
   env.TEMP = tmpDir;
   return env;
+}
+
+/** Mirrors prometheus-runtime defaults (bootstrap/config.py). */
+const RUNTIME_DEFAULT_CONTEXT_SIZE = 8192;
+const RUNTIME_DEFAULT_OUTPUT_RESERVE = 4096;
+
+/**
+ * The runtime refuses to start unless `llm_output_reserve < llm_context_size`.
+ * A context size chosen in plugin settings (e.g. 4096) can collide with the
+ * runtime's default 4096-token reserve, so clamp the reserve to half the context.
+ */
+function ensureOutputReserveFitsContext(env: NodeJS.ProcessEnv): void {
+  const context = parsePositiveInt(env.PROMETHEUS_LLM_CONTEXT_SIZE) ?? RUNTIME_DEFAULT_CONTEXT_SIZE;
+  const reserve =
+    parsePositiveInt(env.PROMETHEUS_LLM_OUTPUT_RESERVE) ?? RUNTIME_DEFAULT_OUTPUT_RESERVE;
+  if (reserve >= context) {
+    env.PROMETHEUS_LLM_OUTPUT_RESERVE = String(
+      Math.max(1, Math.min(RUNTIME_DEFAULT_OUTPUT_RESERVE, Math.floor(context / 2))),
+    );
+  }
+}
+
+function parsePositiveInt(value: string | undefined): number | null {
+  if (value === undefined) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export async function embeddingCacheNeedsDownload(dataDir: string): Promise<boolean> {

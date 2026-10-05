@@ -9,6 +9,13 @@ import {
   OllamaState,
 } from "../../../../../src/domain/entities/RuntimeStatus";
 
+const stoppedRuntime = {
+  execute: async () => ({
+    runtime: ManagedRuntimeState.stopped(),
+    stopped: true,
+  }),
+};
+
 function makeStatus(runtime = ManagedRuntimeState.running("0.1.0")): SystemStatus {
   return {
     runtime: createRuntimeStatus({
@@ -54,6 +61,7 @@ describe("StatusStore", () => {
           spawned: true,
         }),
       },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({
@@ -105,6 +113,7 @@ describe("StatusStore", () => {
           spawned: true,
         }),
       },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
@@ -155,6 +164,7 @@ describe("StatusStore", () => {
       },
       installRuntime: { execute: install },
       startRuntime: { execute: start },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
@@ -199,6 +209,7 @@ describe("StatusStore", () => {
           spawned: true,
         }),
       },
+      stopRuntime: stoppedRuntime,
       selectLlmModel: {
         list: async () => [],
         select: async (name) => ({ models: [], selected: name, requiresRuntimeRestart: false }),
@@ -224,5 +235,53 @@ describe("StatusStore", () => {
     store.dispose();
     await vi.advanceTimersByTimeAsync(5000);
     expect(polls).toBe(before);
+  });
+
+  it("selectModel stops then starts runtime when the LLM model changes", async () => {
+    const stop = vi.fn(async () => ({
+      runtime: ManagedRuntimeState.stopped(),
+      stopped: true,
+    }));
+    const start = vi.fn(async () => ({
+      kind: "ready" as const,
+      runtime: ManagedRuntimeState.running("0.1.0"),
+      connection: { baseUrl: "http://127.0.0.1:1", sessionToken: "t" },
+      ownership: "owned" as const,
+      spawned: true,
+    }));
+    const store = new StatusStore({
+      getSystemStatus: {
+        execute: async () => makeStatus(),
+        poll: vi.fn(),
+      },
+      installRuntime: { execute: async () => ManagedRuntimeState.verifying() },
+      startRuntime: { execute: start },
+      stopRuntime: { execute: stop },
+      selectLlmModel: {
+        list: async () => [],
+        select: async (name) => ({
+          models: [],
+          selected: name,
+          requiresRuntimeRestart: true,
+        }),
+      },
+      startInitialSync: async () => ({
+        job: { jobId: "j", status: "completed", progress: 1, error: null },
+        failures: [],
+      }),
+      startReindex: async () => ({
+        kind: "started" as const,
+        job: { jobId: "j", status: "completed", progress: 1, error: null },
+        reindexRequired: false,
+        reindexReason: null,
+      }),
+      cancelActive: async () => null,
+      pollIntervalMs: 1000,
+    });
+
+    await store.selectModel("qwen3:4b-instruct-2507-q4_K_M");
+    expect(stop).toHaveBeenCalledOnce();
+    expect(start).toHaveBeenCalledOnce();
+    store.dispose();
   });
 });

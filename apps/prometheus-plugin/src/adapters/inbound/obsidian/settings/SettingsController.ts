@@ -251,7 +251,9 @@ export class SettingsController {
         this.settings = { ...this.settings, llmModel: result.selected };
       }
       if (result.requiresRuntimeRestart) {
-        this.deps.notifier.info("Model updated. Restart the runtime if the change does not apply.");
+        await this.deps.stopRuntime.execute(signal);
+        await this.deps.startRuntime.execute(signal);
+        this.deps.onActivated?.();
       }
     });
   }
