@@ -44,7 +44,7 @@ def test_defaults_match_product_settings() -> None:
     assert settings.llm_temperature == 0.1
     assert settings.llm_context_size == 12288
     assert settings.llm_output_reserve == 4096
-    assert settings.llm_timeout_seconds == 120
+    assert settings.llm_timeout_seconds == 600
 
 
 def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None:

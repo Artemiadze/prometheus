@@ -190,7 +190,8 @@ def test_fake_language_model_echoes_context_without_network() -> None:
     generation = asyncio.run(
         model.generate(
             "System rules",
-            "Context:\n[1] Source: Notes/One.md\nVault evidence\n\nQuestion:\nWhat is in the Vault?",
+            "Context:\n[1] Source: Notes/One.md\nVault evidence\n\n"
+            "Question:\nWhat is in the Vault?",
             temperature=0.1,
             context_size=2048,
             max_output_tokens=256,

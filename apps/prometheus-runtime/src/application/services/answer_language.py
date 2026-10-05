@@ -42,5 +42,5 @@ Output JSON with "answer" and "sources" (enforced by the response format):
 
 def insufficient_message(language: AnswerLanguage | None) -> str:
     if language == "ru":
-        return "В заметках недостаточно информации, чтобы ответить на этот вопрос."
+        return "В заметках недостаточно информации, чтобы ответить на этот вопрос."  # noqa: RUF001
     return "The notes do not contain enough information to answer this question."

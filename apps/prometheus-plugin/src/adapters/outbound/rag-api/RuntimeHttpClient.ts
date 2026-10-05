@@ -41,12 +41,16 @@ export type RuntimeHttpNdjsonRequest = {
   readonly body?: unknown;
   readonly signal?: AbortSignal | undefined;
   readonly protected?: boolean;
+  /** Idle timeout: restarts on every received line, so long streams stay alive. */
   readonly timeoutMs?: number;
   readonly onLine: (line: string) => void;
 };
 
 const DEFAULT_TIMEOUT_MS = 15_000;
-/** Local LLM chat on CPU/iGPU routinely exceeds the short default timeout. */
+/**
+ * Local LLM chat on CPU/iGPU routinely exceeds the short default timeout.
+ * For streams this is idle time; the runtime sends heartbeats while the model is silent.
+ */
 export const CHAT_REQUEST_TIMEOUT_MS = 120_000;
 
 /**
@@ -101,10 +105,12 @@ export class RuntimeHttpClient {
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
     const timeoutMs = request.timeoutMs ?? this.timeoutMs;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeoutMs);
+    const armTimer = (): ReturnType<typeof setTimeout> =>
+      setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+    let timer = armTimer();
 
     try {
       const init: RequestInit = {
@@ -117,7 +123,11 @@ export class RuntimeHttpClient {
       }
       const response = await nodeHttpNdjson(url, {
         ...init,
-        onLine: request.onLine,
+        onLine: (line) => {
+          clearTimeout(timer);
+          timer = armTimer();
+          request.onLine(line);
+        },
       });
       if (response.status === 401) {
         this.options.sessions.clear();

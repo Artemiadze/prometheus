@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from adapters.inbound.http.app import create_app
+from adapters.inbound.http.routes import chat as chat_routes
 from adapters.outbound.ollama.errors import OllamaUnavailableError
 from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
 from application.dto.indexing import IndexDocumentResult, RemoveDocumentResult
@@ -202,6 +203,36 @@ def test_chat_stream_returns_ndjson_token_sources_done_sequence() -> None:
         "insufficient_context": False,
     }
     assert events[2] == {"type": "done"}
+
+
+def test_chat_stream_sends_heartbeats_while_model_is_silent(monkeypatch: Any) -> None:
+    monkeypatch.setattr(chat_routes, "HEARTBEAT_INTERVAL_SECONDS", 0.01)
+
+    class _SlowStream:
+        async def stream(
+            self, *_: object, **__: object
+        ) -> AsyncIterator[AnswerTokenEvent | AnswerCompletedEvent]:
+            await asyncio.sleep(0.1)
+            yield AnswerTokenEvent("late")
+            yield AnswerCompletedEvent(sources=(), insufficient_context=False)
+
+        async def execute(self, *_: object, **__: object) -> GroundedAnswer:
+            raise AssertionError("execute should not run")
+
+    client = _client()
+    cast(Any, client.app).state.vault_registry.runtime.answer_question = _SlowStream()
+    with client.stream(
+        "POST",
+        f"/v1/vaults/{VAULT}/chat/stream",
+        json={"query": "question"},
+        headers=_headers(),
+    ) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    types = [event["type"] for event in events]
+    assert types[0] == "heartbeat"
+    assert types[-3:] == ["token", "sources", "done"]
+    assert events[-3] == {"type": "token", "text": "late"}
 
 
 def test_chat_stream_emits_error_event_when_llm_fails_mid_stream() -> None:

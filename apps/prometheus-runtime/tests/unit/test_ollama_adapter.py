@@ -327,12 +327,17 @@ def test_model_capabilities_are_requested_once() -> None:
     assert show_calls == 1
 
 
+_THINKING_CHUNK = (
+    b'{"message":{"role":"assistant","content":"","thinking":"private reasoning"},"done":false}\n'
+)
+
+
 def test_stream_ignores_separate_thinking_field() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         assert json.loads(request.content)["think"] is True
 
         async def body() -> AsyncIterator[bytes]:
-            yield b'{"message":{"role":"assistant","content":"","thinking":"private reasoning"},"done":false}\n'
+            yield _THINKING_CHUNK
             yield b'{"message":{"role":"assistant","content":"sqlite3"},"done":false}\n'
             yield b'{"done":true,"done_reason":"stop"}\n'
 
@@ -366,7 +371,7 @@ def test_generate_reports_output_budget_spent_on_thinking() -> None:
 def test_stream_reports_output_budget_spent_on_thinking() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         async def body() -> AsyncIterator[bytes]:
-            yield b'{"message":{"role":"assistant","content":"","thinking":"private reasoning"},"done":false}\n'
+            yield _THINKING_CHUNK
             yield b'{"done":true,"done_reason":"length"}\n'
 
         return httpx.Response(200, stream=AsyncIteratorByteStream(body()))

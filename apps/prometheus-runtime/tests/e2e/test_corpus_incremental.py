@@ -76,7 +76,9 @@ def test_corpus_index_search_answer_and_incremental_update(tmp_path: Path) -> No
         with pytest.raises(ConfigurationError, match="target localhost"):
             socket.create_connection(("8.8.8.8", 53))
 
-        updated_content = "# Alpha Note\n\nUnique token: alphaincrementalmarker\n\nUpdated alpha body."
+        updated_content = (
+            "# Alpha Note\n\nUnique token: alphaincrementalmarker\n\nUpdated alpha body."
+        )
         updated = Document.create(
             id=alpha.id,
             vault_id=vault_id,

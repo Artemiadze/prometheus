@@ -197,7 +197,9 @@ function requestNdjson(
     };
 
     const req = transport(options, (res) => {
-      void consumeNdjsonResponse(res).then(resolve, reject);
+      void consumeNdjsonResponse(res)
+        .then(resolve, reject)
+        .finally(() => signal?.removeEventListener("abort", onAbort));
     });
 
     const onAbort = (): void => {
@@ -215,11 +217,11 @@ function requestNdjson(
     async function consumeNdjsonResponse(
       res: IncomingMessage,
     ): Promise<{ readonly status: number; readonly statusText: string }> {
-      signal?.removeEventListener("abort", onAbort);
       const status = res.statusCode ?? 0;
       const statusText = res.statusMessage ?? "";
       const location = res.headers.location;
       if (status >= 300 && status < 400 && location && redirectLeft > 0) {
+        signal?.removeEventListener("abort", onAbort);
         res.resume();
         const next = new URL(location, url);
         return requestNdjson(next, method, headers, signal, body, onLine, redirectLeft - 1);

@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from application.dto.answer_stream import AnswerCompletedEvent, AnswerTokenEvent
-from application.errors import GroundedAnswerGenerationError
 from application.dto.grounded_prompt import GroundedPrompt
+from application.errors import GroundedAnswerGenerationError
 from application.ports.language_model import LanguageModel
 from application.ports.token_counter import TokenCounter
 from application.services.answer_contract import (

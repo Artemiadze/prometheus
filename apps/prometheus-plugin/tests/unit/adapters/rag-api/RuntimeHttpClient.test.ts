@@ -1,3 +1,6 @@
+import { createServer, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RuntimeHttpClient } from "../../../../src/adapters/outbound/rag-api/RuntimeHttpClient";
@@ -185,6 +188,56 @@ describe("RuntimeHttpClient", () => {
     expect((cancelError as DOMException).name).toBe("AbortError");
   });
 
+  it("treats the stream timeout as idle time between NDJSON lines", async () => {
+    const server = await startServer((response) => {
+      response.writeHead(200, { "Content-Type": "application/x-ndjson" });
+      let sent = 0;
+      const interval = setInterval(() => {
+        sent += 1;
+        response.write(`{"type":"heartbeat","n":${sent}}\n`);
+        if (sent === 5) {
+          clearInterval(interval);
+          response.end();
+        }
+      }, 30);
+    });
+    try {
+      const client = new RuntimeHttpClient({
+        sessions: activeSessions("secret", server.baseUrl),
+        getHealthBaseUrl: () => server.baseUrl,
+      });
+      const lines: string[] = [];
+      await client.streamNdjson("/stream", {
+        timeoutMs: 100,
+        onLine: (line) => lines.push(line),
+      });
+      expect(lines).toHaveLength(5);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("times out a stream that stays silent", async () => {
+    const server = await startServer((response) => {
+      response.writeHead(200, { "Content-Type": "application/x-ndjson" });
+      response.write('{"type":"heartbeat"}\n');
+    });
+    try {
+      const client = new RuntimeHttpClient({
+        sessions: activeSessions("secret", server.baseUrl),
+        getHealthBaseUrl: () => server.baseUrl,
+      });
+      const lines: string[] = [];
+      const error = await client
+        .streamNdjson("/stream", { timeoutMs: 50, onLine: (line) => lines.push(line) })
+        .catch((caught: unknown) => caught);
+      expect(lines).toHaveLength(1);
+      expect(error).toBeInstanceOf(RuntimeRequestTimeoutError);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("rejects non-loopback base URLs before fetch", async () => {
     const fetchFn = vi.fn<typeof fetch>();
     const client = new RuntimeHttpClient({
@@ -199,16 +252,32 @@ describe("RuntimeHttpClient", () => {
   });
 });
 
-function activeSessions(token: string): RuntimeSessionRegistry {
+function activeSessions(token: string, baseUrl = "http://127.0.0.1:8765"): RuntimeSessionRegistry {
   const sessions = new RuntimeSessionRegistry();
   sessions.set({
     ownership: "owned",
     connection: {
-      baseUrl: "http://127.0.0.1:8765",
+      baseUrl,
       sessionToken: token,
     },
   });
   return sessions;
+}
+
+async function startServer(
+  handler: (response: ServerResponse) => void,
+): Promise<{ readonly baseUrl: string; readonly close: () => Promise<void> }> {
+  const server = createServer((_request, response) => handler(response));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
 }
 
 function jsonResponse(payload: unknown, status = 200): Response {
