@@ -64,6 +64,7 @@ If Obsidian is installed via Snap, the plugin resolves the real home via
 ```bash
 mkdir -p "$HOME/Documents/MyVault/.obsidian/plugins/prometheus"
 export TEST_VAULT="$HOME/Documents/MyVault/.obsidian/plugins/prometheus"
+# or export TEST_VAULT="$HOME/work/notes/.obsidian/plugins/prometheus"
 make plugin-build
 ```
 

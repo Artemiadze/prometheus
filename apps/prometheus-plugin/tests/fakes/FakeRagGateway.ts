@@ -38,6 +38,7 @@ export class FakeRagGateway implements RagGateway {
   chatCalls = 0;
   upsertCalls = 0;
   deleteCalls = 0;
+  lastDeletedDocumentIds: string[] = [];
   reindexCalls = 0;
   syncCompleteCalls = 0;
   holdJobsPending = false;
@@ -116,6 +117,7 @@ export class FakeRagGateway implements RagGateway {
   ): Promise<void> {
     throwIfAborted(signal);
     this.deleteCalls += 1;
+    this.lastDeletedDocumentIds.push(documentId.value);
     const vaultDocs = this.ensureVault(vaultId);
     vaultDocs.delete(documentId.value);
     this.serviceStatus = {
