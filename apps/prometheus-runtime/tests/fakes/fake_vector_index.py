@@ -54,6 +54,23 @@ class FakeVectorIndex:
                     vectors[chunk.id.value] = vector
         return vectors
 
+    def delete_by_ids(self, chunk_ids: Sequence[ChunkId]) -> None:
+        if not chunk_ids:
+            return
+        wanted = {chunk_id.value for chunk_id in chunk_ids}
+        for document_id, (chunks, vectors) in list(self._documents.items()):
+            kept = [
+                (chunk, vector)
+                for chunk, vector in zip(chunks, vectors, strict=True)
+                if chunk.id.value not in wanted
+            ]
+            if not kept:
+                self._documents.pop(document_id, None)
+                self._document_paths.pop(document_id, None)
+                continue
+            kept_chunks, kept_vectors = zip(*kept, strict=True)
+            self._documents[document_id] = (tuple(kept_chunks), tuple(kept_vectors))
+
     def delete_by_document(self, document_id: DocumentId) -> None:
         self._documents.pop(document_id, None)
         self._document_paths.pop(document_id, None)

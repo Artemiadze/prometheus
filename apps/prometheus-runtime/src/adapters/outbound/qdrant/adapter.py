@@ -166,8 +166,9 @@ class QdrantLocalVectorIndex:
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],
     ) -> None:
+        """Insert or update the given points. Callers must delete stale chunk ids first."""
+
         self._validate_upsert(document, chunks, vectors)
-        self.delete_by_document(document.id)
         points = [
             models.PointStruct(
                 id=str(uuid5(_POINT_NAMESPACE, chunk.id.value)),
@@ -200,7 +201,23 @@ class QdrantLocalVectorIndex:
         if any(len(vector) != dimension for vector in vectors):
             raise ValueError("vector dimension does not match the collection")
 
+    def delete_by_ids(self, chunk_ids: Sequence[ChunkId]) -> None:
+        """Delete points by known chunk ids (O(k) in local Qdrant, no payload scan)."""
+
+        if not chunk_ids:
+            return
+        point_ids: list[int | str | UUID] = [
+            str(uuid5(_POINT_NAMESPACE, chunk_id.value)) for chunk_id in chunk_ids
+        ]
+        self._require_client().delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=models.PointIdsList(points=point_ids),
+            wait=True,
+        )
+
     def delete_by_document(self, document_id: DocumentId) -> None:
+        """Fallback delete by payload filter; prefer ``delete_by_ids`` when ids are known."""
+
         self._require_client().delete(
             collection_name=COLLECTION_NAME,
             points_selector=models.Filter(

@@ -122,6 +122,9 @@ class _GuardingIndex:
             raise VaultMismatchError()
         self._inner.upsert(document, chunks, vectors)
 
+    def delete_by_ids(self, chunk_ids: Sequence[ChunkId]) -> None:
+        self._inner.delete_by_ids(chunk_ids)
+
     def delete_by_document(self, document_id: DocumentId) -> None:
         self._inner.delete_by_document(document_id)
 

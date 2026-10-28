@@ -479,6 +479,80 @@ def test_reindex_promote_replaces_active_index() -> None:
     assert workspace.last_session._promoted
 
 
+def test_reindex_reuses_active_embeddings_when_model_unchanged() -> None:
+    index, _, _, embedder, documents, vectors, metadata = _indexing_setup()
+    document = _document()
+    asyncio.run(index.execute(document))
+    assert embedder.document_calls == 1
+    jobs = FakeJobStore()
+    workspace = FakeIndexRebuildWorkspace(
+        vault_id=VAULT_ID,
+        active_documents=documents,
+        active_vectors=vectors,
+        active_metadata=metadata,
+        embedder=embedder,
+        parser=FakeMarkdownParser(),
+        chunker=FakeChunker(),
+        fingerprint=_fingerprint(embedder),
+    )
+    reindex = ReindexVault(
+        vault_id=VAULT_ID,
+        rebuild_workspace=workspace,
+        active_fingerprint=_fingerprint(embedder),
+        job_store=jobs,
+        progress_reporter=FakeProgressReporter(),
+        embedding_batch_size=64,
+    )
+
+    result = asyncio.run(reindex.execute((document,), cancellation=_NeverCancelled()))
+
+    assert not result.cancelled
+    assert embedder.document_calls == 1
+    assert documents.get_state(document.id) is not None
+
+
+def test_reindex_batches_embeddings_across_documents() -> None:
+    embedder = FakeEmbedder()
+    documents = FakeDocumentRepository()
+    vectors = FakeVectorIndex()
+    metadata = FakeIndexMetadataStore(_fingerprint(embedder))
+    workspace = FakeIndexRebuildWorkspace(
+        vault_id=VAULT_ID,
+        active_documents=documents,
+        active_vectors=vectors,
+        active_metadata=metadata,
+        embedder=embedder,
+        parser=FakeMarkdownParser(),
+        chunker=FakeChunker(),
+        fingerprint=_fingerprint(embedder),
+    )
+    reindex = ReindexVault(
+        vault_id=VAULT_ID,
+        rebuild_workspace=workspace,
+        active_fingerprint=_fingerprint(embedder),
+        job_store=FakeJobStore(),
+        progress_reporter=FakeProgressReporter(),
+        embedding_batch_size=2,
+    )
+    batch = tuple(
+        Document.create(
+            id=DocumentId(f"document-{index:02d}"),
+            vault_id=VAULT_ID,
+            relative_path=f"Notes/{index}.md",
+            content=f"unique content {index}",
+            revision=1,
+            modified_at=NOW,
+        )
+        for index in range(5)
+    )
+
+    result = asyncio.run(reindex.execute(batch, cancellation=_NeverCancelled()))
+
+    assert not result.cancelled
+    # 5 single-chunk docs with batch_size=2 → 3 embed_documents calls (2+2+1).
+    assert embedder.document_calls == 3
+
+
 class _NeverCancelled:
     def is_cancelled(self) -> bool:
         return False

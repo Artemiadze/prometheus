@@ -7,9 +7,11 @@ from adapters.outbound.markdown.token_counter import (
     FastEmbedTokenizerCounter,
     HeuristicTokenCounter,
 )
+from application.ports.token_counter import EncodedSpan
 
 __all__ = [
     "CachingTokenCounter",
+    "EncodedSpan",
     "FastEmbedTokenizerCounter",
     "HeadingAwareChunker",
     "HeuristicTokenCounter",

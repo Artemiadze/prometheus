@@ -31,9 +31,11 @@ class HeadingAwareChunker:
             if isinstance(token_counter, CachingTokenCounter)
             else CachingTokenCounter(token_counter)
         )
+        self._sep_tokens = self._tokens.count("\n\n")
 
     def chunk(self, parsed_document: ParsedDocument) -> Sequence[Chunk]:
         self._tokens.clear_cache()
+        self._sep_tokens = self._tokens.count("\n\n")
         chunks: list[Chunk] = []
         chunk_index = 0
         for section in parsed_document.sections:
@@ -83,15 +85,25 @@ class HeadingAwareChunker:
         self,
         pieces: list[tuple[str, CharRange]],
     ) -> list[list[tuple[str, CharRange]]]:
+        """Pack blocks using per-piece token counts (no re-encode of the growing join)."""
+
         groups: list[list[tuple[str, CharRange]]] = []
         current: list[tuple[str, CharRange]] = []
+        current_tokens = 0
         for piece in pieces:
-            candidate = "\n\n".join(text for text, _ in [*current, piece])
-            if current and self._tokens.count(candidate) > self._max_tokens:
-                groups.append(current)
-                current = [piece]
-            else:
+            piece_tokens = self._tokens.count(piece[0])
+            if current:
+                projected = current_tokens + self._sep_tokens + piece_tokens
+                if projected > self._max_tokens:
+                    groups.append(current)
+                    current = [piece]
+                    current_tokens = piece_tokens
+                    continue
                 current.append(piece)
+                current_tokens = projected
+            else:
+                current = [piece]
+                current_tokens = piece_tokens
         if current:
             groups.append(current)
         return groups
@@ -119,21 +131,29 @@ class HeadingAwareChunker:
     ) -> list[tuple[str, CharRange]]:
         chunks: list[tuple[str, CharRange]] = []
         current_parts: list[str] = []
+        current_tokens = 0
         current_start = absolute_start
         cursor = absolute_start
         for unit in units:
-            candidate = "\n\n".join([*current_parts, unit]) if current_parts else unit
-            if current_parts and self._tokens.count(candidate) > self._max_tokens:
-                text = "\n\n".join(current_parts)
-                chunks.append((text, CharRange(current_start, cursor)))
+            unit_tokens = self._tokens.count(unit)
+            if current_parts:
+                projected = current_tokens + self._sep_tokens + unit_tokens
+                if projected > self._max_tokens:
+                    text = "\n\n".join(current_parts)
+                    chunks.append((text, CharRange(current_start, cursor)))
+                    current_parts = [unit]
+                    current_tokens = unit_tokens
+                    current_start = cursor
+                    cursor = current_start + len(unit)
+                    continue
+                current_parts.append(unit)
+                current_tokens = projected
+                cursor = current_start + len("\n\n".join(current_parts))
+            else:
                 current_parts = [unit]
+                current_tokens = unit_tokens
                 current_start = cursor
                 cursor = current_start + len(unit)
-                continue
-            if not current_parts:
-                current_start = cursor
-            current_parts.append(unit)
-            cursor = current_start + len("\n\n".join(current_parts))
         if current_parts:
             text = "\n\n".join(current_parts)
             chunks.append((text, CharRange(current_start, current_start + len(text))))
@@ -160,44 +180,36 @@ class HeadingAwareChunker:
         *,
         allow_code_marker: bool,
     ) -> list[tuple[str, CharRange]]:
+        """Split using a single encode_with_offsets pass and token-index windows."""
+
+        span = self._tokens.encode_with_offsets(text)
+        if span.token_count == 0:
+            return [(text, CharRange(absolute_start, absolute_start + len(text)))] if text else []
+        if span.token_count <= self._max_tokens:
+            return [(text, CharRange(absolute_start, absolute_start + len(text)))]
+
         marker = code_split_marker() if allow_code_marker else ""
         chunks: list[tuple[str, CharRange]] = []
-        start = 0
-        while start < len(text):
-            end = self._find_token_window_end(text, start)
-            if end <= start:
-                end = min(start + 1, len(text))
-            piece = text[start:end]
-            if marker and start > 0:
+        token_i = 0
+        while token_i < span.token_count:
+            end_token = min(token_i + self._max_tokens, span.token_count)
+            char_start = span.offsets[token_i][0]
+            char_end = span.window_char_end(token_i, self._max_tokens)
+            if char_end <= char_start:
+                char_end = min(char_start + 1, len(text))
+            piece = text[char_start:char_end]
+            if marker and token_i > 0:
                 piece = f"{marker}{piece}"
-            if marker and end < len(text):
+            if marker and end_token < span.token_count:
                 piece = f"{piece}{marker}"
-            chunks.append((piece, CharRange(absolute_start + start, absolute_start + end)))
-            if end >= len(text):
+            chunks.append(
+                (piece, CharRange(absolute_start + char_start, absolute_start + char_end))
+            )
+            if end_token >= span.token_count:
                 break
-            start = self._overlap_start(text, end)
+            next_i = end_token - self._overlap if self._overlap > 0 else end_token
+            token_i = max(token_i + 1, next_i)
         return chunks
-
-    def _find_token_window_end(self, text: str, start: int) -> int:
-        if self._tokens.count(text[start:]) <= self._max_tokens:
-            return len(text)
-        low = start + 1
-        high = len(text)
-        while low < high:
-            mid = (low + high + 1) // 2
-            if self._tokens.count(text[start:mid]) <= self._max_tokens:
-                low = mid
-            else:
-                high = mid - 1
-        return low
-
-    def _overlap_start(self, text: str, end: int) -> int:
-        if self._overlap <= 0:
-            return end
-        start = max(0, end - 1)
-        while start > 0 and self._tokens.count(text[start:end]) < self._overlap:
-            start -= 1
-        return start
 
     def _apply_overlap(
         self,
@@ -208,7 +220,8 @@ class HeadingAwareChunker:
         merged: list[tuple[str, CharRange]] = [chunks[0]]
         for text, char_range in chunks[1:]:
             prev_text, prev_range = merged[-1]
-            tail_start = self._overlap_start(prev_text, len(prev_text))
+            span = self._tokens.encode_with_offsets(prev_text)
+            tail_start = span.overlap_char_start(self._overlap)
             prefix = prev_text[tail_start:]
             combined = f"{prefix}{text}" if prefix else text
             if prefix and self._tokens.count(combined) <= self._max_tokens:

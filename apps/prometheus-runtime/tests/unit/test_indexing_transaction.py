@@ -117,6 +117,75 @@ def test_replace_document_index_compensates_when_manifest_commit_fails() -> None
     assert unit_of_work.rolled_back
 
 
+def test_replace_document_index_deletes_only_stale_previous_chunk_ids() -> None:
+    vector_index = FakeVectorIndex()
+    repository = FakeDocumentRepository()
+    document = _document()
+    kept = _chunk(document, "kept")
+    stale = Chunk(
+        id=ChunkId.from_parts(document.id, ("Section",), 1, 1),
+        document_id=document.id,
+        text="stale",
+        heading_path=("Section",),
+        chunk_index=1,
+        char_range=CharRange(0, 5),
+        token_count=1,
+        content_hash=compute_content_hash("stale"),
+        heading_line=0,
+        heading_occurrence=1,
+    )
+    replace_document_index(
+        document=document,
+        chunks=(kept, stale),
+        vectors=((1.0, 0.0), (0.0, 1.0)),
+        indexed_at=datetime(2026, 1, 2, tzinfo=UTC),
+        vector_index=vector_index,
+        document_repository=repository,
+        unit_of_work=FakeUnitOfWork(),
+    )
+
+    replace_document_index(
+        document=document,
+        chunks=(kept,),
+        vectors=((1.0, 0.0),),
+        indexed_at=datetime(2026, 1, 3, tzinfo=UTC),
+        vector_index=vector_index,
+        document_repository=repository,
+        unit_of_work=FakeUnitOfWork(),
+        previous_chunk_ids=(kept.id, stale.id),
+    )
+
+    hits = vector_index.search((1.0, 0.0), limit=10)
+    assert [hit.chunk for hit in hits] == [kept]
+
+
+def test_replace_document_index_skips_delete_for_new_documents() -> None:
+    class TrackingVectorIndex(FakeVectorIndex):
+        def __init__(self) -> None:
+            super().__init__()
+            self.delete_by_ids_calls: list[tuple[ChunkId, ...]] = []
+
+        def delete_by_ids(self, chunk_ids: Sequence[ChunkId]) -> None:
+            self.delete_by_ids_calls.append(tuple(chunk_ids))
+            super().delete_by_ids(chunk_ids)
+
+    vector_index = TrackingVectorIndex()
+    document = _document()
+    chunk = _chunk(document)
+    replace_document_index(
+        document=document,
+        chunks=(chunk,),
+        vectors=((1.0, 0.0),),
+        indexed_at=datetime(2026, 1, 2, tzinfo=UTC),
+        vector_index=vector_index,
+        document_repository=FakeDocumentRepository(),
+        unit_of_work=FakeUnitOfWork(),
+        previous_chunk_ids=(),
+    )
+
+    assert vector_index.delete_by_ids_calls == []
+
+
 def test_replace_document_index_leaves_manifest_untouched_when_vectors_fail() -> None:
     vector_index = _FailingVectorIndex()
     repository = FakeDocumentRepository()
@@ -160,6 +229,7 @@ def test_remove_document_index_deletes_vectors_then_manifest() -> None:
         vector_index=vector_index,
         document_repository=repository,
         unit_of_work=unit_of_work,
+        chunk_ids=(chunk.id,),
     )
 
     assert vector_index.search((1.0, 0.0), limit=10) == ()
