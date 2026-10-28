@@ -341,7 +341,14 @@
 .prometheus-chat-message__thinking {
   font-size: var(--font-ui-small);
   color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
   animation: prometheus-chat-pulse 1.4s ease-in-out infinite;
+}
+
+.prometheus-chat-message__insufficient-text {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 @keyframes prometheus-chat-pulse {

@@ -1,11 +1,17 @@
 /**
  * Escapes raw HTML tags outside fenced and inline code so MarkdownRenderer
- * never receives unescaped HTML from the model.
+ * never receives unescaped HTML from the model, and turns single newlines into
+ * markdown hard breaks so line breaks from the model stay visible.
  */
 export function sanitizeAssistantMarkdown(text: string): string {
-  const segments = splitCodeSegments(text);
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const segments = splitCodeSegments(normalized);
   return segments
-    .map((segment) => (segment.kind === "code" ? segment.value : escapeHtmlTags(segment.value)))
+    .map((segment) =>
+      segment.kind === "code"
+        ? segment.value
+        : preserveSingleNewlines(escapeHtmlTags(segment.value)),
+    )
     .join("");
 }
 
@@ -33,4 +39,9 @@ function escapeHtmlTags(text: string): string {
   return text.replace(/<\/?[a-zA-Z][^>]*>/g, (tag) =>
     tag.replace(/</g, "&lt;").replace(/>/g, "&gt;"),
   );
+}
+
+/** Markdown hard break: two trailing spaces before a lone newline (not a blank line). */
+function preserveSingleNewlines(text: string): string {
+  return text.replace(/([^\n])\n(?!\n)/g, "$1  \n");
 }
