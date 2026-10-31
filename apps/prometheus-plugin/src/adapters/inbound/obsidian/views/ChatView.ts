@@ -41,6 +41,9 @@ export class ChatView extends ItemView {
   private errorEl: HTMLElement | null = null;
   private scopeBadgeEl: HTMLElement | null = null;
   private scopePillEl: HTMLButtonElement | null = null;
+  private scopeMenu: Menu | null = null;
+  /** Prevents reopen when the same click both closes the scope menu and hits the trigger. */
+  private suppressScopeOpenUntilMs = 0;
   private modelPicker: ModelPicker | null = null;
   private readonly messageComponents = new Map<string, Component>();
   private readonly messageRoots = new Map<string, HTMLElement>();
@@ -117,6 +120,13 @@ export class ChatView extends ItemView {
     setIcon(scopeChevron, "chevron-down");
     this.scopePillEl.addEventListener("click", (event) => {
       event.preventDefault();
+      if (performance.now() < this.suppressScopeOpenUntilMs) {
+        return;
+      }
+      if (this.scopeMenu !== null) {
+        this.scopeMenu.hide();
+        return;
+      }
       this.openScopeMenu(this.scopePillEl!);
     });
 
@@ -159,6 +169,8 @@ export class ChatView extends ItemView {
   override async onClose(): Promise<void> {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.scopeMenu?.hide();
+    this.scopeMenu = null;
     this.modelPicker?.dispose();
     this.modelPicker = null;
     for (const component of this.messageComponents.values()) {
@@ -195,6 +207,13 @@ export class ChatView extends ItemView {
         });
       });
     }
+    menu.onHide(() => {
+      if (this.scopeMenu === menu) {
+        this.scopeMenu = null;
+      }
+      this.suppressScopeOpenUntilMs = performance.now() + 200;
+    });
+    this.scopeMenu = menu;
     const rect = anchor.getBoundingClientRect();
     menu.showAtPosition({ x: rect.left, y: rect.bottom, width: rect.width });
   }

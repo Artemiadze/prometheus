@@ -12,6 +12,10 @@ export class ModelPicker {
   private rootEl: HTMLButtonElement | null = null;
   private labelEl: HTMLElement | null = null;
   private unsubscribe: (() => void) | null = null;
+  private activeMenu: Menu | null = null;
+  private menuToken = 0;
+  /** Prevents reopen when the same click both closes the menu and hits the trigger. */
+  private suppressOpenUntilMs = 0;
 
   constructor(options: ModelPickerOptions) {
     this.statusStore = options.statusStore;
@@ -30,6 +34,13 @@ export class ModelPicker {
 
     button.addEventListener("click", (event) => {
       event.preventDefault();
+      if (performance.now() < this.suppressOpenUntilMs) {
+        return;
+      }
+      if (this.activeMenu !== null) {
+        this.activeMenu.hide();
+        return;
+      }
       void this.openMenu(button);
     });
 
@@ -39,6 +50,9 @@ export class ModelPicker {
   }
 
   dispose(): void {
+    this.menuToken += 1;
+    this.activeMenu?.hide();
+    this.activeMenu = null;
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.rootEl?.remove();
@@ -73,7 +87,12 @@ export class ModelPicker {
   }
 
   private async openMenu(anchor: HTMLElement): Promise<void> {
+    const token = ++this.menuToken;
     await this.statusStore.refreshModels();
+    if (token !== this.menuToken || this.rootEl !== anchor) {
+      return;
+    }
+
     const state = this.statusStore.getState();
     const selectedName = state.status?.runtime.selectedModel?.name ?? null;
     const installed = state.models.filter((model) => model.installed);
@@ -98,6 +117,13 @@ export class ModelPicker {
         });
       }
     }
+    menu.onHide(() => {
+      if (this.activeMenu === menu) {
+        this.activeMenu = null;
+      }
+      this.suppressOpenUntilMs = performance.now() + 200;
+    });
+    this.activeMenu = menu;
     const rect = anchor.getBoundingClientRect();
     menu.showAtPosition({ x: rect.left, y: rect.bottom, width: rect.width });
   }
