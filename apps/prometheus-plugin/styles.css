@@ -328,6 +328,22 @@
   word-break: break-word;
 }
 
+.prometheus-chat-message__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: var(--size-2-2);
+}
+
+.prometheus-chat-message__activity-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  margin-top: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
 .prometheus-chat-message--assistant {
   padding: 0 var(--size-2-2);
 }
@@ -373,9 +389,11 @@
 }
 
 .prometheus-chat-message__activity {
-  margin-top: var(--size-4-2);
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
 }
 
 .prometheus-chat-message__activity-summary {
@@ -414,20 +432,42 @@
   height: 14px;
 }
 
-.prometheus-chat-message__copy {
+.prometheus-chat-message__copy,
+.prometheus-chat-message__copy:hover,
+.prometheus-chat-message__copy:focus,
+.prometheus-chat-message__copy:active {
   margin-left: auto;
-  background: transparent;
+  flex: 0 0 auto;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
   border: none;
+  outline: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: var(--size-2-1);
-  opacity: 0;
+  padding: 0;
+  opacity: 1;
   display: flex;
   align-items: center;
+  border-radius: 0;
 }
 
-.prometheus-chat-message--assistant:hover .prometheus-chat-message__copy {
-  opacity: 1;
+.prometheus-chat-message--user .prometheus-chat-message__copy,
+.prometheus-chat-message--user .prometheus-chat-message__copy:hover,
+.prometheus-chat-message--user .prometheus-chat-message__copy:focus,
+.prometheus-chat-message--user .prometheus-chat-message__copy:active {
+  color: var(--text-muted);
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.prometheus-chat-message__activity-bar .prometheus-chat-message__copy,
+.prometheus-chat-message__activity-bar .prometheus-chat-message__copy:hover,
+.prometheus-chat-message__activity-bar .prometheus-chat-message__copy:focus,
+.prometheus-chat-message__activity-bar .prometheus-chat-message__copy:active {
+  color: inherit;
+  background-color: transparent;
+  box-shadow: none;
 }
 
 .prometheus-chat-message__copy svg {

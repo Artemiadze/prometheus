@@ -433,6 +433,10 @@ export class ChatView extends ItemView {
 
     if (message.kind === "user") {
       root.createDiv({ cls: "prometheus-chat-message__body", text: message.text });
+      if (message.state === "complete") {
+        const actions = root.createDiv({ cls: "prometheus-chat-message__actions" });
+        this.attachCopyMessageButton(actions, message.text);
+      }
       return;
     }
 
@@ -477,7 +481,8 @@ export class ChatView extends ItemView {
     const durationMs = state.durationsMs[message.id];
     const durationPart = durationMs !== undefined ? ` · ${formatDuration(durationMs)}` : "";
 
-    const details = root.createEl("details", { cls: "prometheus-chat-message__activity" });
+    const bar = root.createDiv({ cls: "prometheus-chat-message__activity-bar" });
+    const details = bar.createEl("details", { cls: "prometheus-chat-message__activity" });
     const summary = details.createEl("summary", {
       cls: "prometheus-chat-message__activity-summary",
     });
@@ -498,6 +503,7 @@ export class ChatView extends ItemView {
         this.renderSourceItem(list, source);
       }
     }
+    this.attachCopyMessageButton(bar, message.text);
   }
 
   private renderFooter(root: HTMLElement, message: ChatMessage, state: ChatViewState): void {
@@ -515,13 +521,16 @@ export class ChatView extends ItemView {
       cls: "prometheus-chat-message__footer-text",
       text: `Worked for ${formatDuration(durationMs)}`,
     });
-    const copyBtn = footer.createEl("button", {
+  }
+
+  private attachCopyMessageButton(parent: HTMLElement, text: string): void {
+    const copyBtn = parent.createEl("button", {
       cls: "prometheus-chat-message__copy",
-      attr: { type: "button", "aria-label": "Copy response" },
+      attr: { type: "button", "aria-label": "Copy message" },
     });
     setIcon(copyBtn, "copy");
     copyBtn.addEventListener("click", () => {
-      void navigator.clipboard.writeText(message.text);
+      void navigator.clipboard.writeText(text);
     });
   }
 

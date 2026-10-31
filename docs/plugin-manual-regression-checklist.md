@@ -35,6 +35,7 @@ Run on **Windows**, **Linux**, and **macOS**. Record results in the release task
 - [ ] Scope pill (Auto / Vault / Current note / Current folder) affects retrieval
 - [ ] Short question shows validation error (too short)
 - [ ] Valid question streams / returns an answer with sources
+- [ ] Copy message on user question and assistant answer copies the message text
 - [ ] Insufficient-context answer shows the hint, not a hard failure
 - [ ] Opening a source navigates to the note (and heading when present)
 - [ ] Cancel mid-request returns to idle without a stuck spinner
