@@ -8,6 +8,7 @@ import type { SettingsRepository } from "../application/ports/SettingsRepository
 import { AskQuestion } from "../application/use-cases/AskQuestion";
 import { OpenSourceNote } from "../application/use-cases/OpenSourceNote";
 import type { StartRuntime } from "../application/use-cases/StartRuntime";
+import type { ChatScopeMode } from "../adapters/inbound/obsidian/chat/ChatStore";
 import type { SearchScope } from "../domain/value-objects/SearchScope";
 import { createEnsureRuntime } from "./ensureRuntime";
 
@@ -18,7 +19,7 @@ export type WireChatDeps = {
   readonly startRuntime: StartRuntime;
   readonly notifier: Notifier;
   readonly vault?: ObsidianVaultGateway;
-  readonly resolveScope?: () => Promise<SearchScope>;
+  readonly resolveScope?: (mode: ChatScopeMode) => Promise<SearchScope>;
   readonly onActivated?: () => void;
 };
 

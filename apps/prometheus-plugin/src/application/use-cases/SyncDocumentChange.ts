@@ -10,6 +10,8 @@ import {
   isIgnoredPath,
   requireVaultId,
 } from "../services/settingsHelpers";
+import { DocumentId } from "../../domain/value-objects/DocumentId";
+import type { NotePath } from "../../domain/value-objects/NotePath";
 
 export type SyncDocumentChangeOptions = {
   readonly force?: boolean;
@@ -78,26 +80,25 @@ export class SyncDocumentChange {
             break;
           }
           case "delete": {
-            const record = this.syncState.removeByPath(event.path);
-            if (!record) {
-              break;
-            }
-            await this.rag.deleteDocument(vaultId, record.documentId, signal);
+            const documentId = this.resolveDeleteId(event.path);
+            this.syncState.removeByPath(event.path);
+            await this.rag.deleteDocument(vaultId, documentId, signal);
             break;
           }
           case "rename": {
+            const previousRecord = this.syncState.removeByPath(event.previousPath);
+            const previousId =
+              previousRecord?.documentId ?? DocumentId.fromNotePath(event.previousPath);
+            await this.rag.deleteDocument(vaultId, previousId, signal);
+
             if (isIgnoredPath(event.path.value, ignored)) {
-              const previous = this.syncState.removeByPath(event.previousPath);
-              if (previous) {
-                await this.rag.deleteDocument(vaultId, previous.documentId, signal);
-              }
               break;
             }
-            const previous = this.syncState.removeByPath(event.previousPath);
-            const documentId = previous?.documentId ?? this.syncState.resolveOrCreate(event.path);
+
+            const documentId = DocumentId.fromNotePath(event.path);
             const file = await this.vault.readFile(event.path, signal);
             const contentHash = computeContentHash(file.content);
-            const revision = previous?.revision ?? this.syncState.nextRevision(event.path);
+            const revision = this.syncState.nextRevision(event.path);
             await this.rag.upsertDocument(
               vaultId,
               documentId,
@@ -118,9 +119,15 @@ export class SyncDocumentChange {
             break;
           }
         }
-      } catch {
-        this.notifier.warning(`Failed to sync ${event.path.value}. Check Diagnostics.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "unknown error";
+        this.notifier.warning(`Failed to sync ${event.path.value}: ${message}`);
       }
     }
+  }
+
+  private resolveDeleteId(path: NotePath): DocumentId {
+    const record = this.syncState.getByPath(path);
+    return record?.documentId ?? DocumentId.fromNotePath(path);
   }
 }

@@ -30,12 +30,17 @@ class RemoveDocument:
         state = self._documents.get_state(document_id)
         if state is None:
             return RemoveDocumentResult(document_id, removed=False, removed_chunks=0)
+        chunk_ids = tuple(
+            fingerprint.chunk_id
+            for fingerprint in self._documents.list_chunk_fingerprints(document_id)
+        )
         remove_document_index(
             document_id=document_id,
             vector_index=self._vectors,
             document_repository=self._documents,
             unit_of_work=self._unit_of_work,
             lexical_index=self._lexical,
+            chunk_ids=chunk_ids,
         )
         if self._index_generation is not None:
             self._index_generation.bump()

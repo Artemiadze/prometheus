@@ -203,6 +203,9 @@ class Container:
             metadata: IndexMetadataStore,
             unit_of_work: UnitOfWork,
             lexical_index: LexicalIndex,
+            *,
+            reuse_document_repository: DocumentRepository | None = None,
+            reuse_vector_index: VectorIndex | None = None,
         ) -> IndexDocument:
             return build_staging_index_document(
                 vault_id=vault_id,
@@ -217,6 +220,9 @@ class Container:
                 active_fingerprint=self.active_index_fingerprint,
                 max_document_chars=self.settings.max_document_chars,
                 max_chunks_per_document=self.settings.max_chunks_per_document,
+                reuse_document_repository=reuse_document_repository,
+                reuse_vector_index=reuse_vector_index,
+                compute_gate=self.compute_gate,
             )
 
         return FilesystemIndexRebuildWorkspace(
@@ -225,6 +231,9 @@ class Container:
             embedding_fingerprint=self.embedder.fingerprint,
             build_index_document=build,
             release_active_storage=self.release_vault_storage,
+            active_document_repository=self.document_repository,
+            active_vector_index=self.vector_index,
+            active_index_metadata=self.index_metadata_store,
         )
 
     def release_vault_storage(self) -> None:
@@ -509,6 +518,7 @@ class Container:
             job_store=self.job_store,
             progress_reporter=self.progress_reporter,
             progress_interval=self.settings.job_progress_interval,
+            embedding_batch_size=self.settings.embedding_batch_size,
         )
 
     @cached_property

@@ -183,6 +183,89 @@ def test_chunks_do_not_reuse_chunk_index_within_section() -> None:
     assert all(chunk.token_count <= 50 for chunk in section_chunks)
 
 
+def test_encoded_span_window_and_overlap_helpers() -> None:
+    from application.ports.token_counter import EncodedSpan
+
+    span = EncodedSpan(((0, 2), (3, 5), (6, 8), (9, 11)))
+    assert span.token_count == 4
+    assert span.window_char_end(0, 2) == 5
+    assert span.window_char_end(2, 10) == 11
+    assert span.overlap_char_start(2) == 6
+    assert span.overlap_char_start(10) == 0
+
+
+def test_heuristic_encode_with_offsets_matches_words() -> None:
+    counter = HeuristicTokenCounter()
+    span = counter.encode_with_offsets("alpha beta gamma")
+    assert span.token_count == counter.count("alpha beta gamma")
+    assert span.offsets[0] == (0, 5)
+    assert span.offsets[-1][1] == 16
+
+
+def test_fastembed_counter_uses_offsets_when_tokenizer_present() -> None:
+    from adapters.outbound.markdown.token_counter import FastEmbedTokenizerCounter
+
+    class _Encoding:
+        def __init__(self) -> None:
+            self.ids = [1, 2, 3]
+            self.offsets = [(0, 3), (4, 7), (8, 11)]
+
+    class _Tokenizer:
+        def encode(self, text: str, *, add_special_tokens: bool) -> _Encoding:
+            assert add_special_tokens is False
+            return _Encoding()
+
+    counter = FastEmbedTokenizerCounter(
+        model_id="fake",
+        cache_dir=__import__("pathlib").Path("."),
+        tokenizer_loader=lambda _path: _Tokenizer(),
+    )
+    span = counter.encode_with_offsets("foo bar baz")
+    assert span.offsets == ((0, 3), (4, 7), (8, 11))
+    assert counter.count("foo bar baz") == 3
+
+
+def test_long_split_uses_few_encode_passes() -> None:
+    from fakes.fake_token_counter import FakeTokenCounter
+
+    long_body = "word " * 400
+    content = f"# Section\n\n{long_body}"
+    parsed = ObsidianMarkdownParser().parse(_document(content))
+    counter = FakeTokenCounter()
+    caching = CachingTokenCounter(counter)
+    chunker = HeadingAwareChunker(
+        max_tokens=50,
+        overlap_tokens=5,
+        token_counter=caching,
+    )
+    chunks = chunker.chunk(parsed)
+    assert len(chunks) > 1
+    # Offset-based splitting should encode each oversized piece once (plus overlap
+    # encodes on adjacent joins), not once per character of the overlap window.
+    assert caching.encode_calls < 40
+
+
+def test_token_window_split_covers_source_with_overlap() -> None:
+    from fakes.fake_token_counter import FakeTokenCounter
+
+    body = " ".join(f"tok{i}" for i in range(120))
+    content = f"# Section\n\n{body}"
+    parsed = ObsidianMarkdownParser().parse(_document(content))
+    chunker = HeadingAwareChunker(
+        max_tokens=20,
+        overlap_tokens=4,
+        token_counter=FakeTokenCounter(),
+    )
+    chunks = chunker.chunk(parsed)
+    section_chunks = [chunk for chunk in chunks if chunk.heading_path == ("Section",)]
+    assert len(section_chunks) > 1
+    assert all(chunk.token_count <= 20 for chunk in section_chunks)
+    joined = " ".join(chunk.text for chunk in section_chunks)
+    assert "tok0" in section_chunks[0].text
+    assert "tok119" in section_chunks[-1].text
+    assert "tok50" in joined
+
+
 def test_stable_chunk_id_from_parts() -> None:
     document_id = DocumentId("document-01")
     expected = ChunkId.from_parts(document_id, ("Heading",), 1, 0)

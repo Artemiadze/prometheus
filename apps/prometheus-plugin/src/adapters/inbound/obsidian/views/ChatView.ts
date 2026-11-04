@@ -1,40 +1,62 @@
-import { Component, ItemView, MarkdownRenderer, type WorkspaceLeaf } from "obsidian";
+import { Component, ItemView, MarkdownRenderer, Menu, setIcon, type WorkspaceLeaf } from "obsidian";
 
 import type { ChatMessage } from "../../../../domain/entities/ChatMessage";
 import type { SourceReference } from "../../../../domain/entities/SourceReference";
-import type { ChatStore, ChatViewState } from "../chat/ChatStore";
+import type { ChatScopeMode, ChatStore, ChatViewState } from "../chat/ChatStore";
 import { resolveComposerKey } from "../chat/composerKeys";
+import { formatDuration } from "../chat/formatDuration";
+import { layoutCodeCopyButtons } from "../chat/layoutCodeCopyButtons";
+import { ModelPicker } from "../chat/ModelPicker";
 import { messageRenderKey, planMessageRender } from "../chat/planMessageRender";
 import { sanitizeAssistantMarkdown } from "../chat/sanitizeAssistantMarkdown";
 import { visibleSources } from "../chat/visibleSources";
+import type { StatusStore } from "../status/StatusStore";
 
 export const CHAT_VIEW_TYPE = "prometheus-chat";
 
 const INSUFFICIENT_HINT = "Try rephrasing the question or check the indexing status.";
+const EMPTY_HINT = "Ask a question about your notes";
 
 export type ChatViewOptions = {
   readonly store: ChatStore;
+  readonly statusStore: StatusStore;
   readonly onActivate?: () => void;
+};
+
+const SCOPE_LABELS: Record<ChatScopeMode, string> = {
+  auto: "Auto",
+  entire_vault: "Vault",
+  current_note: "Current note",
+  current_folder: "Current folder",
 };
 
 export class ChatView extends ItemView {
   private readonly store: ChatStore;
   private readonly onActivate: (() => void) | null;
   private unsubscribe: (() => void) | null = null;
+  private tabsEl: HTMLElement | null = null;
   private messagesEl: HTMLElement | null = null;
+  private emptyHintEl: HTMLElement | null = null;
   private textareaEl: HTMLTextAreaElement | null = null;
-  private actionButtonEl: HTMLButtonElement | null = null;
+  private sendButtonEl: HTMLButtonElement | null = null;
   private errorEl: HTMLElement | null = null;
   private scopeBadgeEl: HTMLElement | null = null;
+  private scopePillEl: HTMLButtonElement | null = null;
+  private scopeMenu: Menu | null = null;
+  /** Prevents reopen when the same click both closes the scope menu and hits the trigger. */
+  private suppressScopeOpenUntilMs = 0;
+  private modelPicker: ModelPicker | null = null;
   private readonly messageComponents = new Map<string, Component>();
   private readonly messageRoots = new Map<string, HTMLElement>();
   private prevRenderKeys: string[] = [];
+  private prevActiveTabId: string | null = null;
   private focusedScopeBadge = false;
 
   constructor(leaf: WorkspaceLeaf, options: ChatViewOptions) {
     super(leaf);
     this.store = options.store;
     this.onActivate = options.onActivate ?? null;
+    this.modelPicker = new ModelPicker({ statusStore: options.statusStore });
   }
 
   override getViewType(): string {
@@ -55,30 +77,65 @@ export class ChatView extends ItemView {
     container.empty();
     container.addClass("prometheus-chat-view");
 
-    const header = container.createDiv({ cls: "prometheus-chat-view__header" });
-    header.createEl("h2", { text: "Chat", cls: "prometheus-chat-view__title" });
-    const clearButton = header.createEl("button", {
-      text: "Clear",
-      cls: "prometheus-chat-view__clear",
-    });
-    clearButton.addEventListener("click", () => {
-      this.store.clear();
-    });
+    this.tabsEl = container.createDiv({ cls: "prometheus-chat-tabs" });
 
     this.errorEl = container.createDiv({ cls: "prometheus-chat-view__error" });
     this.messagesEl = container.createDiv({ cls: "prometheus-chat-view__messages" });
+    this.emptyHintEl = this.messagesEl.createDiv({
+      cls: "prometheus-chat-view__empty-hint",
+      text: EMPTY_HINT,
+    });
 
     this.scopeBadgeEl = container.createDiv({ cls: "prometheus-chat-view__scope-badge" });
     this.scopeBadgeEl.hide();
 
-    const inputRow = container.createDiv({ cls: "prometheus-chat-view__input" });
-    this.textareaEl = inputRow.createEl("textarea", {
-      attr: { placeholder: "Ask your notes…", rows: "3" },
+    const composer = container.createDiv({ cls: "prometheus-chat-composer" });
+    this.textareaEl = composer.createEl("textarea", {
+      cls: "prometheus-chat-composer__input",
+      attr: {
+        placeholder: "Ask anything · + to add note context",
+        rows: "1",
+      },
     });
-    this.actionButtonEl = inputRow.createEl("button", {
-      cls: "prometheus-chat-view__submit",
-      text: "Send",
+    const toolbar = composer.createDiv({ cls: "prometheus-chat-composer__toolbar" });
+    const addContextBtn = toolbar.createEl("button", {
+      cls: "prometheus-chat-composer__icon-btn",
+      attr: { type: "button", "aria-label": "Add current note as context" },
     });
+    setIcon(addContextBtn, "plus");
+    addContextBtn.addEventListener("click", () => {
+      void this.addCurrentNoteContext();
+    });
+
+    const pickerHost = toolbar.createDiv({ cls: "prometheus-chat-composer__picker-host" });
+    this.modelPicker?.mount(pickerHost);
+
+    toolbar.createDiv({ cls: "prometheus-chat-composer__spacer" });
+
+    this.scopePillEl = toolbar.createEl("button", {
+      cls: "prometheus-chat-pill prometheus-chat-pill--scope",
+      attr: { type: "button" },
+    });
+    this.scopePillEl.createSpan({ cls: "prometheus-chat-pill__label" });
+    const scopeChevron = this.scopePillEl.createSpan({ cls: "prometheus-chat-pill__chevron" });
+    setIcon(scopeChevron, "chevron-down");
+    this.scopePillEl.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (performance.now() < this.suppressScopeOpenUntilMs) {
+        return;
+      }
+      if (this.scopeMenu !== null) {
+        this.scopeMenu.hide();
+        return;
+      }
+      this.openScopeMenu(this.scopePillEl!);
+    });
+
+    this.sendButtonEl = toolbar.createEl("button", {
+      cls: "prometheus-chat-composer__send",
+      attr: { type: "button", "aria-label": "Send" },
+    });
+    setIcon(this.sendButtonEl, "arrow-up");
 
     this.textareaEl.addEventListener("keydown", (event) => {
       const action = resolveComposerKey({
@@ -92,7 +149,11 @@ export class ChatView extends ItemView {
       }
     });
 
-    this.actionButtonEl.addEventListener("click", () => {
+    this.textareaEl.addEventListener("input", () => {
+      this.autoGrowTextarea();
+    });
+
+    this.sendButtonEl.addEventListener("click", () => {
       const status = this.store.getState().status;
       if (status === "sending" || status === "streaming") {
         this.store.cancel();
@@ -109,13 +170,62 @@ export class ChatView extends ItemView {
   override async onClose(): Promise<void> {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.scopeMenu?.hide();
+    this.scopeMenu = null;
+    this.modelPicker?.dispose();
+    this.modelPicker = null;
     for (const component of this.messageComponents.values()) {
       component.unload();
     }
     this.messageComponents.clear();
     this.messageRoots.clear();
     this.prevRenderKeys = [];
+    this.prevActiveTabId = null;
     this.contentEl.empty();
+  }
+
+  private async addCurrentNoteContext(): Promise<void> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) {
+      return;
+    }
+    const { NotePath } = await import("../../../../domain/value-objects/NotePath");
+    this.store.focusNote(NotePath.create(file.path));
+  }
+
+  private openScopeMenu(anchor: HTMLElement): void {
+    const state = this.store.getState();
+    const menu = new Menu();
+    const modes: ChatScopeMode[] = ["auto", "entire_vault", "current_note", "current_folder"];
+    for (const mode of modes) {
+      menu.addItem((item) => {
+        item.setTitle(SCOPE_LABELS[mode]);
+        if (state.scopeMode === mode) {
+          item.setIcon("check");
+        }
+        item.onClick(() => {
+          this.store.setScopeMode(mode);
+        });
+      });
+    }
+    menu.onHide(() => {
+      if (this.scopeMenu === menu) {
+        this.scopeMenu = null;
+      }
+      this.suppressScopeOpenUntilMs = performance.now() + 200;
+    });
+    this.scopeMenu = menu;
+    const rect = anchor.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left, y: rect.bottom, width: rect.width });
+  }
+
+  private autoGrowTextarea(): void {
+    const textarea = this.textareaEl;
+    if (!textarea) {
+      return;
+    }
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
   }
 
   private async submitFromInput(): Promise<void> {
@@ -126,14 +236,76 @@ export class ChatView extends ItemView {
     }
     const text = textarea.value;
     textarea.value = "";
+    this.autoGrowTextarea();
     await this.store.send(text);
   }
 
   private render(state: ChatViewState): void {
+    this.renderTabs(state);
     this.renderError(state);
+    if (this.prevActiveTabId !== null && this.prevActiveTabId !== state.activeTabId) {
+      this.resetMessageDom();
+    }
+    this.prevActiveTabId = state.activeTabId;
     this.renderMessages(state);
     this.renderScopeBadge(state);
     this.renderComposer(state);
+  }
+
+  private resetMessageDom(): void {
+    for (const component of this.messageComponents.values()) {
+      component.unload();
+    }
+    this.messageComponents.clear();
+    this.messageRoots.clear();
+    this.prevRenderKeys = [];
+    this.messagesEl?.empty();
+    if (this.messagesEl) {
+      this.emptyHintEl = this.messagesEl.createDiv({
+        cls: "prometheus-chat-view__empty-hint",
+        text: EMPTY_HINT,
+      });
+    }
+  }
+
+  private renderTabs(state: ChatViewState): void {
+    const tabsEl = this.tabsEl;
+    if (!tabsEl) {
+      return;
+    }
+    tabsEl.empty();
+    for (const tab of state.tabs) {
+      const tabEl = tabsEl.createDiv({
+        cls: "prometheus-chat-tabs__tab",
+      });
+      tabEl.toggleClass("is-active", tab.id === state.activeTabId);
+      tabEl.toggleClass("is-busy", tab.busy);
+      const titleBtn = tabEl.createEl("button", {
+        cls: "prometheus-chat-tabs__title",
+        text: tab.title,
+        attr: { type: "button" },
+      });
+      titleBtn.addEventListener("click", () => {
+        this.store.switchTab(tab.id);
+      });
+      const closeBtn = tabEl.createEl("button", {
+        cls: "prometheus-chat-tabs__close",
+        attr: { type: "button", "aria-label": "Close chat" },
+      });
+      setIcon(closeBtn, "x");
+      closeBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.store.closeTab(tab.id);
+      });
+    }
+    const newTabBtn = tabsEl.createEl("button", {
+      cls: "prometheus-chat-tabs__new",
+      attr: { type: "button", "aria-label": "New chat" },
+    });
+    setIcon(newTabBtn, "plus");
+    newTabBtn.addEventListener("click", () => {
+      this.store.newTab();
+    });
   }
 
   private renderScopeBadge(state: ChatViewState): void {
@@ -183,22 +355,33 @@ export class ChatView extends ItemView {
 
   private renderComposer(state: ChatViewState): void {
     const textarea = this.textareaEl;
-    const button = this.actionButtonEl;
+    const button = this.sendButtonEl;
+    const scopePill = this.scopePillEl;
     if (!textarea || !button) {
       return;
     }
     const busy = state.status === "sending" || state.status === "streaming";
     textarea.disabled = busy;
-    button.toggleClass("mod-warning", busy);
-    button.setText(busy ? "Cancel" : "Send");
+    button.toggleClass("is-busy", busy);
+    button.empty();
+    setIcon(button, busy ? "square" : "arrow-up");
+    button.setAttr("aria-label", busy ? "Stop" : "Send");
+
+    if (scopePill) {
+      const label = scopePill.querySelector(".prometheus-chat-pill__label");
+      label?.setText(SCOPE_LABELS[state.scopeMode]);
+    }
   }
 
   private renderMessages(state: ChatViewState): void {
     const messagesEl = this.messagesEl;
+    const emptyHint = this.emptyHintEl;
     if (!messagesEl) {
       return;
     }
     const messages = state.session.messages;
+    emptyHint?.toggleClass("is-hidden", messages.length > 0);
+
     const keys = messages.map(messageRenderKey);
     const changedKeys = new Set(planMessageRender(this.prevRenderKeys, messages));
 
@@ -225,20 +408,22 @@ export class ChatView extends ItemView {
         }
         root = messagesEl.createDiv({ cls: this.messageClass(message) });
         this.messageRoots.set(key, root);
-        void this.renderMessageContent(message, root, key);
+        void this.renderMessageContent(message, root, key, state);
       } else if (root) {
         root.className = this.messageClass(message);
       }
     });
 
+    const hintOffset = emptyHint ? 1 : 0;
     keys.forEach((key, index) => {
       const root = this.messageRoots.get(key);
       if (!root) {
         return;
       }
-      const current = messagesEl.children[index];
-      if (current !== root) {
-        messagesEl.insertBefore(root, current ?? null);
+      const targetIndex = index + hintOffset;
+      const currentAtIndex = messagesEl.children[targetIndex];
+      if (currentAtIndex !== root) {
+        messagesEl.insertBefore(root, currentAtIndex ?? null);
       }
     });
 
@@ -259,6 +444,7 @@ export class ChatView extends ItemView {
     message: ChatMessage,
     root: HTMLElement,
     key: string,
+    state: ChatViewState,
   ): Promise<void> {
     root.empty();
     const component = new Component();
@@ -266,20 +452,19 @@ export class ChatView extends ItemView {
     component.load();
 
     if (message.kind === "user") {
-      root.createDiv({ cls: "prometheus-chat-message__label", text: "You" });
       root.createDiv({ cls: "prometheus-chat-message__body", text: message.text });
+      if (message.state === "complete") {
+        const actions = root.createDiv({ cls: "prometheus-chat-message__actions" });
+        this.attachCopyMessageButton(actions, message.text);
+      }
       return;
     }
 
-    root.createDiv({ cls: "prometheus-chat-message__label", text: "Assistant" });
     const body = root.createDiv({ cls: "prometheus-chat-message__body" });
 
-    if (message.state === "pending") {
-      body.setText("Thinking…");
-      return;
-    }
-    if (message.state === "streaming") {
-      body.setText(message.text.length > 0 ? message.text : "Thinking…");
+    if (message.state === "pending" || message.state === "streaming") {
+      const thinking = body.createDiv({ cls: "prometheus-chat-message__thinking" });
+      thinking.createSpan({ text: message.text.length > 0 ? message.text : "Thinking…" });
       return;
     }
     if (message.state === "cancelled") {
@@ -296,21 +481,104 @@ export class ChatView extends ItemView {
         cls: "prometheus-chat-message__insufficient-hint",
         text: INSUFFICIENT_HINT,
       });
+      this.renderActivity(root, message, state);
+      this.renderFooter(root, message, state);
       return;
     }
 
     const markdown = sanitizeAssistantMarkdown(message.text);
     await MarkdownRenderer.render(this.app, markdown, body, "", component);
+    layoutCodeCopyButtons(body);
+    // Obsidian may attach copy controls just after render.
+    requestAnimationFrame(() => {
+      if (this.messageRoots.get(key) === root) {
+        layoutCodeCopyButtons(body);
+      }
+    });
 
+    this.renderActivity(root, message, state);
+    this.renderFooter(root, message, state);
+  }
+
+  private renderActivity(root: HTMLElement, message: ChatMessage, state: ChatViewState): void {
+    if (message.kind !== "assistant" || message.state !== "complete") {
+      return;
+    }
     const sources = visibleSources(message);
+    const durationMs = state.durationsMs[message.id];
+    const durationPart = durationMs !== undefined ? ` · ${formatDuration(durationMs)}` : "";
+
+    const bar = root.createDiv({ cls: "prometheus-chat-message__activity-bar" });
+    const details = bar.createEl("details", { cls: "prometheus-chat-message__activity" });
+    const summary = details.createEl("summary", {
+      cls: "prometheus-chat-message__activity-summary",
+    });
+    const icon = summary.createSpan({ cls: "prometheus-chat-message__activity-icon" });
+    setIcon(icon, "book-open");
+    if (message.insufficientContext || sources.length === 0) {
+      summary.createSpan({
+        text: `No relevant notes found${durationPart}`,
+      });
+    } else {
+      summary.createSpan({
+        text: `Searched notes · ${sources.length} source${sources.length === 1 ? "" : "s"}${durationPart}`,
+      });
+    }
     if (sources.length > 0) {
-      const sourcesBlock = root.createDiv({ cls: "prometheus-chat-message__sources" });
-      sourcesBlock.createDiv({ cls: "prometheus-chat-message__sources-title", text: "Sources" });
-      const list = sourcesBlock.createEl("ul", { cls: "prometheus-chat-message__sources-list" });
+      const list = details.createEl("ul", { cls: "prometheus-chat-message__sources-list" });
       for (const source of sources) {
         this.renderSourceItem(list, source);
       }
     }
+    this.attachCopyMessageButton(bar, message.text);
+  }
+
+  private renderFooter(root: HTMLElement, message: ChatMessage, state: ChatViewState): void {
+    if (message.kind !== "assistant" || message.state !== "complete") {
+      return;
+    }
+    const durationMs = state.durationsMs[message.id];
+    if (durationMs === undefined) {
+      return;
+    }
+    const footer = root.createDiv({ cls: "prometheus-chat-message__footer" });
+    const icon = footer.createSpan({ cls: "prometheus-chat-message__footer-icon" });
+    setIcon(icon, "loader");
+    footer.createSpan({
+      cls: "prometheus-chat-message__footer-text",
+      text: `Worked for ${formatDuration(durationMs)}`,
+    });
+  }
+
+  private attachCopyMessageButton(parent: HTMLElement, text: string): void {
+    const copyBtn = parent.createEl("button", {
+      cls: "prometheus-chat-message__copy",
+      attr: { type: "button", "aria-label": "Copy message" },
+    });
+    setIcon(copyBtn, "copy");
+    let resetTimer: number | null = null;
+    const showCopied = (): void => {
+      if (resetTimer !== null) {
+        window.clearTimeout(resetTimer);
+      }
+      setIcon(copyBtn, "check");
+      copyBtn.addClass("is-copied");
+      copyBtn.setAttr("aria-label", "Copied");
+      resetTimer = window.setTimeout(() => {
+        resetTimer = null;
+        setIcon(copyBtn, "copy");
+        copyBtn.removeClass("is-copied");
+        copyBtn.setAttr("aria-label", "Copy message");
+      }, 3000);
+    };
+    copyBtn.addEventListener("click", () => {
+      void navigator.clipboard
+        .writeText(text)
+        .then(showCopied)
+        .catch(() => {
+          /* keep copy icon when clipboard write fails */
+        });
+    });
   }
 
   private renderSourceItem(list: HTMLElement, source: SourceReference): void {

@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 from application.dto.index_fingerprint import IndexFingerprint
-from application.dto.indexing import IndexDocumentResult
 from application.use_cases.reindex_vault import ReindexVault, _should_report_progress
 from domain.entities.document import Document
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.vault_id import VaultId
+from fakes.fake_chunker import FakeChunker
+from fakes.fake_document_repository import FakeDocumentRepository
 from fakes.fake_embedder import FakeEmbedder
 from fakes.fake_index_metadata_store import FakeIndexMetadataStore
+from fakes.fake_index_rebuild import FakeIndexRebuildWorkspace
 from fakes.fake_job_store import FakeJobStore
+from fakes.fake_markdown_parser import FakeMarkdownParser
 from fakes.fake_progress_reporter import FakeProgressReporter
-from fakes.fake_unit_of_work import FakeUnitOfWork
 from fakes.fake_vector_index import FakeVectorIndex
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
@@ -30,14 +31,6 @@ def test_should_report_on_interval_and_last_document() -> None:
 
 
 def test_reindex_reports_progress_every_n_documents() -> None:
-    class CountingIndex:
-        def __init__(self) -> None:
-            self.calls = 0
-
-        async def execute(self, document: Document, *, force: bool = False) -> IndexDocumentResult:
-            self.calls += 1
-            return IndexDocumentResult(document.id, 1, 0)
-
     documents = tuple(
         Document.create(
             id=DocumentId(f"document-{index:02d}"),
@@ -52,35 +45,32 @@ def test_reindex_reports_progress_every_n_documents() -> None:
     jobs = FakeJobStore()
     reporter = FakeProgressReporter()
     embedder = FakeEmbedder()
-    index = CountingIndex()
-    metadata = FakeIndexMetadataStore()
-
-    class Workspace:
-        def begin(self) -> object:
-            return SimpleNamespace(
-                index_document=index,
-                document_repository=SimpleNamespace(),
-                vector_index=FakeVectorIndex(),
-                index_metadata_store=metadata,
-                unit_of_work=FakeUnitOfWork(),
-                promote=lambda: None,
-                discard=lambda: None,
-            )
-
+    fingerprint = IndexFingerprint(
+        embedding=embedder.fingerprint,
+        parser_version=1,
+        chunker_version=1,
+        payload_schema_version=2,
+        chunk_size=700,
+        chunk_overlap=80,
+    )
+    workspace = FakeIndexRebuildWorkspace(
+        vault_id=VAULT,
+        active_documents=FakeDocumentRepository(),
+        active_vectors=FakeVectorIndex(),
+        active_metadata=FakeIndexMetadataStore(fingerprint),
+        embedder=embedder,
+        parser=FakeMarkdownParser(),
+        chunker=FakeChunker(),
+        fingerprint=fingerprint,
+    )
     use_case = ReindexVault(
         vault_id=VAULT,
-        rebuild_workspace=Workspace(),  # type: ignore[arg-type]
-        active_fingerprint=IndexFingerprint(
-            embedding=embedder.fingerprint,
-            parser_version=1,
-            chunker_version=1,
-            payload_schema_version=2,
-            chunk_size=700,
-            chunk_overlap=80,
-        ),
+        rebuild_workspace=workspace,
+        active_fingerprint=fingerprint,
         job_store=jobs,
         progress_reporter=reporter,
         progress_interval=10,
+        embedding_batch_size=8,
     )
 
     class Token:

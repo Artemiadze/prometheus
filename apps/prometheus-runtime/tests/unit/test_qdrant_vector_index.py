@@ -150,9 +150,35 @@ def test_reindex_replaces_all_old_document_chunks(tmp_path: Path) -> None:
         ((1.0, 0.0, 0.0), (0.9, 0.1, 0.0)),
     )
 
+    # Upsert no longer scans/deletes by document; callers remove stale ids first.
+    index.delete_by_ids((old_first.id, old_second.id))
     index.upsert(document, (replacement,), ((0.0, 1.0, 0.0),))
 
     assert [hit.chunk for hit in index.search((1.0, 0.0, 0.0), 10)] == [replacement]
+
+
+def test_delete_by_ids_removes_only_listed_chunks(tmp_path: Path) -> None:
+    index, _ = _memory_index(tmp_path)
+    document = _document("document-01", "Notes/One.md")
+    first = _chunk(document, 0, "first")
+    second = _chunk(document, 1, "second")
+    index.upsert(document, (first, second), ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))
+
+    index.delete_by_ids((first.id,))
+
+    hits = index.search((0.0, 1.0, 0.0), 10)
+    assert [hit.chunk for hit in hits] == [second]
+
+
+def test_delete_by_ids_is_noop_for_empty_list(tmp_path: Path) -> None:
+    index, _ = _memory_index(tmp_path)
+    document = _document("document-01", "Notes/One.md")
+    chunk = _chunk(document, 0, "keep")
+    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+
+    index.delete_by_ids(())
+
+    assert [hit.chunk for hit in index.search((1.0, 0.0, 0.0), 10)] == [chunk]
 
 
 def test_delete_by_document_removes_only_that_document(tmp_path: Path) -> None:

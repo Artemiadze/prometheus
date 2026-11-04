@@ -11,7 +11,13 @@ from domain.value_objects.document_id import DocumentId
 
 
 class SerializedDocumentIndexing:
-    """Ensure one in-flight index per document; skip stale revisions."""
+    """Ensure one in-flight index per document; skip stale revisions.
+
+    Per-document bookkeeping lives only while requests for that id are in flight.
+    When the last request finishes, revision/pending/lock state is cleared so a
+    later upsert (e.g. delete → recreate with revision 1) is not skipped.
+    Between requests, ``IndexDocument`` uses SQLite ``state.revision``.
+    """
 
     def __init__(self, index_document: IndexDocument) -> None:
         self._index = index_document
@@ -19,6 +25,7 @@ class SerializedDocumentIndexing:
         self._latest_revision: dict[DocumentId, int] = {}
         self._pending: dict[DocumentId, Document] = {}
         self._indexed_revision: dict[DocumentId, int] = {}
+        self._inflight: dict[DocumentId, int] = {}
         self._meta_lock = asyncio.Lock()
 
     async def execute(
@@ -28,6 +35,7 @@ class SerializedDocumentIndexing:
         force: bool = False,
     ) -> IndexDocumentResult:
         async with self._meta_lock:
+            self._inflight[document.id] = self._inflight.get(document.id, 0) + 1
             latest = self._latest_revision.get(document.id, -1)
             self._latest_revision[document.id] = max(latest, document.revision)
             pending = self._pending.get(document.id)
@@ -35,26 +43,41 @@ class SerializedDocumentIndexing:
                 self._pending[document.id] = document
             lock = self._locks.setdefault(document.id, asyncio.Lock())
 
-        if document.revision < self._latest_revision[document.id]:
-            return IndexDocumentResult(document.id, 0, 0, skipped=True)
+        try:
+            if document.revision < self._latest_revision[document.id]:
+                return IndexDocumentResult(document.id, 0, 0, skipped=True)
 
-        async with lock:
-            await asyncio.sleep(0)
-            while True:
-                async with self._meta_lock:
-                    target = self._pending[document.id]
-                    latest_revision = self._latest_revision[document.id]
-                    indexed_revision = self._indexed_revision.get(document.id, -1)
-                if document.revision < latest_revision:
-                    return IndexDocumentResult(document.id, 0, 0, skipped=True)
-                if target.revision < latest_revision:
-                    await asyncio.sleep(0)
-                    continue
-                if indexed_revision >= target.revision:
-                    return IndexDocumentResult(document.id, 0, 0, skipped=True)
-                result = await self._index.execute(target, force=force)
-                async with self._meta_lock:
-                    self._indexed_revision[document.id] = target.revision
-                    if self._pending[document.id].revision > target.revision:
+            async with lock:
+                await asyncio.sleep(0)
+                while True:
+                    async with self._meta_lock:
+                        target = self._pending[document.id]
+                        latest_revision = self._latest_revision[document.id]
+                        indexed_revision = self._indexed_revision.get(document.id, -1)
+                    if document.revision < latest_revision:
+                        return IndexDocumentResult(document.id, 0, 0, skipped=True)
+                    if target.revision < latest_revision:
+                        await asyncio.sleep(0)
                         continue
-                return result
+                    if indexed_revision >= target.revision:
+                        return IndexDocumentResult(document.id, 0, 0, skipped=True)
+                    result = await self._index.execute(target, force=force)
+                    async with self._meta_lock:
+                        self._indexed_revision[document.id] = target.revision
+                        if self._pending[document.id].revision > target.revision:
+                            continue
+                    return result
+        finally:
+            await self._release(document.id)
+
+    async def _release(self, document_id: DocumentId) -> None:
+        async with self._meta_lock:
+            count = self._inflight.get(document_id, 1) - 1
+            if count <= 0:
+                self._inflight.pop(document_id, None)
+                self._locks.pop(document_id, None)
+                self._latest_revision.pop(document_id, None)
+                self._pending.pop(document_id, None)
+                self._indexed_revision.pop(document_id, None)
+            else:
+                self._inflight[document_id] = count

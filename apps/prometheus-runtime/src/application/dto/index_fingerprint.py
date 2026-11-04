@@ -11,7 +11,7 @@ from domain.errors import InvariantViolationError
 PARSER_SCHEMA_VERSION = 3
 
 #: Bumped whenever the chunking algorithm changes chunk boundaries.
-CHUNKER_ALGORITHM_VERSION = 3
+CHUNKER_ALGORITHM_VERSION = 4
 
 #: Bumped whenever the Qdrant payload schema changes shape.
 PAYLOAD_SCHEMA_VERSION = 3

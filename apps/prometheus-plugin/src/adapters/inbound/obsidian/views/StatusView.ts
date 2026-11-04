@@ -21,8 +21,6 @@ export class StatusView extends ItemView {
   private actionsEl: HTMLElement | null = null;
   private progressEl: HTMLElement | null = null;
   private errorEl: HTMLElement | null = null;
-  private modelsEl: HTMLElement | null = null;
-
   constructor(leaf: WorkspaceLeaf, options: StatusViewOptions) {
     super(leaf);
     this.store = options.store;
@@ -53,7 +51,6 @@ export class StatusView extends ItemView {
     this.panelEl = container.createDiv({ cls: "prometheus-status-view__panel" });
     this.progressEl = container.createDiv({ cls: "prometheus-status-view__progress-wrap" });
     this.actionsEl = container.createDiv({ cls: "prometheus-status-view__actions" });
-    this.modelsEl = container.createDiv({ cls: "prometheus-status-view__models" });
 
     this.unsubscribe = this.store.subscribe((state) => {
       this.render(state);
@@ -67,7 +64,6 @@ export class StatusView extends ItemView {
     this.actionsEl = null;
     this.progressEl = null;
     this.errorEl = null;
-    this.modelsEl = null;
     this.contentEl.empty();
   }
 
@@ -76,7 +72,6 @@ export class StatusView extends ItemView {
     this.renderRows(state);
     this.renderProgress(state);
     this.renderActions(state);
-    this.renderModels(state);
   }
 
   private renderError(state: StatusViewState): void {
@@ -171,21 +166,6 @@ export class StatusView extends ItemView {
       });
     }
 
-    const modelMissing =
-      state.status?.runtime.selectedModel !== null &&
-      state.status?.runtime.selectedModel !== undefined &&
-      !state.status.runtime.selectedModel.installed;
-    if (modelMissing || state.runtimeAction === "none") {
-      const choose = actionsEl.createEl("button", {
-        text: "Choose model",
-        cls: "prometheus-status-view__action",
-      });
-      choose.disabled = state.actionBusy;
-      choose.addEventListener("click", () => {
-        void this.store.refreshModels();
-      });
-    }
-
     if (this.openDiagnostics) {
       const diagnostics = actionsEl.createEl("button", {
         text: "Diagnostics",
@@ -194,40 +174,6 @@ export class StatusView extends ItemView {
       diagnostics.addEventListener("click", () => {
         this.openDiagnostics?.();
       });
-    }
-  }
-
-  private renderModels(state: StatusViewState): void {
-    const modelsEl = this.modelsEl;
-    if (!modelsEl) {
-      return;
-    }
-    modelsEl.empty();
-    if (state.models.length === 0) {
-      modelsEl.hide();
-      return;
-    }
-    modelsEl.show();
-    modelsEl.createDiv({
-      cls: "prometheus-status-view__models-title",
-      text: "Local models",
-    });
-    for (const model of state.models) {
-      const row = modelsEl.createDiv({ cls: "prometheus-status-view__model-row" });
-      const label = model.installed
-        ? `${model.name}${model.quantization ? ` (${model.quantization})` : ""}`
-        : `${model.name} (not installed)`;
-      row.createSpan({ text: label });
-      if (model.installed) {
-        const select = row.createEl("button", {
-          text: "Select",
-          cls: "prometheus-status-view__action",
-        });
-        select.disabled = state.actionBusy;
-        select.addEventListener("click", () => {
-          void this.store.selectModel(model.name);
-        });
-      }
     }
   }
 }

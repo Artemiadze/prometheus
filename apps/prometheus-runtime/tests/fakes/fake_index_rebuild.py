@@ -37,6 +37,10 @@ class FakeIndexRebuildSession:
     def promote(self) -> None:
         self._active_documents._states.clear()
         self._active_documents._states.update(self.document_repository._states)  # type: ignore[attr-defined]
+        self._active_documents._fingerprints.clear()
+        self._active_documents._fingerprints.update(
+            self.document_repository._fingerprints  # type: ignore[attr-defined]
+        )
         self._active_vectors._documents.clear()
         self._active_vectors._documents.update(self.vector_index._documents)  # type: ignore[attr-defined]
         self._active_vectors._document_paths.clear()
@@ -64,6 +68,7 @@ class FakeIndexRebuildWorkspace:
         fingerprint: IndexFingerprint,
         max_document_chars: int = 2_000_000,
         max_chunks_per_document: int = 10_000,
+        reuse_active_embeddings: bool = True,
     ) -> None:
         self._vault_id = vault_id
         self._active_documents = active_documents
@@ -75,6 +80,7 @@ class FakeIndexRebuildWorkspace:
         self._fingerprint = fingerprint
         self._max_document_chars = max_document_chars
         self._max_chunks_per_document = max_chunks_per_document
+        self._reuse_active_embeddings = reuse_active_embeddings
         self.last_session: FakeIndexRebuildSession | None = None
 
     def begin(self) -> FakeIndexRebuildSession:
@@ -88,6 +94,16 @@ class FakeIndexRebuildWorkspace:
             lexical_index=None,
             unit_of_work=unit_of_work,
         )
+        reuse_documents = None
+        reuse_vectors = None
+        stored = self._active_metadata.load()
+        if (
+            self._reuse_active_embeddings
+            and stored is not None
+            and stored.embedding == self._fingerprint.embedding
+        ):
+            reuse_documents = self._active_documents
+            reuse_vectors = self._active_vectors
         index_document = IndexDocument(
             vault_id=self._vault_id,
             parser=self._parser,
@@ -102,6 +118,8 @@ class FakeIndexRebuildWorkspace:
             rename_document=rename,
             max_document_chars=self._max_document_chars,
             max_chunks_per_document=self._max_chunks_per_document,
+            reuse_document_repository=reuse_documents,
+            reuse_vector_index=reuse_vectors,
         )
         session = FakeIndexRebuildSession(
             index_document=index_document,

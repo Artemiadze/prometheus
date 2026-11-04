@@ -12,7 +12,7 @@ from application.ports.lexical_index import LexicalIndex
 from application.ports.markdown_parser import MarkdownParser
 from application.ports.progress_reporter import ProgressReporter
 from application.ports.reranker import Reranker
-from application.ports.token_counter import TokenCounter
+from application.ports.token_counter import EncodedSpan, TokenCounter
 from application.ports.unit_of_work import UnitOfWork
 from application.ports.vector_index import VectorIndex
 
@@ -21,6 +21,7 @@ __all__ = [
     "Chunker",
     "DocumentRepository",
     "Embedder",
+    "EncodedSpan",
     "IndexMetadataStore",
     "IndexStatisticsReader",
     "JobStore",

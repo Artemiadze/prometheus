@@ -152,6 +152,7 @@ describe("ChatStore", () => {
       ensureRuntime: async () => ({ ok: true }),
       openSource: async () => undefined,
       resolveScope: async () => scoped,
+      newSessionId: () => "session-1",
     });
     await store.send("hello world");
     expect(askQuestion.execute).toHaveBeenCalledWith(
@@ -179,7 +180,7 @@ describe("ChatStore", () => {
       askQuestion,
       ensureRuntime: async () => ({ ok: true }),
       openSource: async () => undefined,
-      resolveScope: async () => defaultScope,
+      resolveScope: async (_mode) => defaultScope,
       newSessionId: () => "session-1",
     });
     const note = NotePath.create("notes/pinned.md");
@@ -223,5 +224,142 @@ describe("ChatStore", () => {
     store.focusNote(NotePath.create("b.md"));
     store.clear();
     expect(store.getState().scopeOverrideLabel).toBeNull();
+  });
+
+  it("creates, switches, and closes tabs while keeping at least one", () => {
+    const store = new ChatStore({
+      askQuestion: { execute: vi.fn() },
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+    });
+    expect(store.getState().tabs).toHaveLength(1);
+    const firstId = store.getState().activeTabId;
+    store.newTab();
+    expect(store.getState().tabs).toHaveLength(2);
+    const secondId = store.getState().activeTabId;
+    expect(secondId).not.toBe(firstId);
+    store.switchTab(firstId);
+    expect(store.getState().activeTabId).toBe(firstId);
+    store.closeTab(firstId);
+    expect(store.getState().tabs).toHaveLength(1);
+    expect(store.getState().activeTabId).toBe(secondId);
+    store.closeTab(secondId);
+    expect(store.getState().tabs).toHaveLength(1);
+  });
+
+  it("sets tab title from the first question", async () => {
+    const askQuestion = {
+      execute: vi.fn(async (): Promise<AskQuestionResult> => ({
+        kind: "ok",
+        session: ChatSession.empty("session-1")
+          .appendMessage(ChatMessage.user("What is sparse attention?"))
+          .appendMessage(ChatMessage.assistant("Answer", { state: "complete" })),
+      })),
+    };
+    const store = new ChatStore({
+      askQuestion,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      newSessionId: () => "session-1",
+    });
+    await store.send("What is sparse attention?");
+    expect(store.getState().tabs[0]?.title).toBe("What is sparse attention?");
+  });
+
+  it("passes scope mode into resolveScope", async () => {
+    const { SearchScope } = await import("../../../../../src/domain/value-objects/SearchScope");
+    const resolveScope = vi.fn(async () => SearchScope.entireVault());
+    const askQuestion = {
+      execute: vi.fn(async (): Promise<AskQuestionResult> => ({
+        kind: "ok",
+        session: ChatSession.empty("session-1")
+          .appendMessage(ChatMessage.user("hello world"))
+          .appendMessage(ChatMessage.assistant("ok", { state: "complete" })),
+      })),
+    };
+    const store = new ChatStore({
+      askQuestion,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      resolveScope,
+    });
+    store.setScopeMode("current_note");
+    await store.send("hello world");
+    expect(resolveScope).toHaveBeenCalledWith("current_note");
+  });
+
+  it("records assistant response duration", async () => {
+    let now = 1_000;
+    const askQuestion = {
+      execute: vi.fn(async (): Promise<AskQuestionResult> => {
+        now += 5_000;
+        const session = ChatSession.empty("session-1")
+          .appendMessage(ChatMessage.user("hello world"))
+          .appendMessage(ChatMessage.assistant("done", { state: "complete", id: "assistant-1" }));
+        return { kind: "ok", session };
+      }),
+    };
+    const store = new ChatStore({
+      askQuestion,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      newSessionId: () => "session-1",
+      now: () => now,
+    });
+    await store.send("hello world");
+    const durations = Object.values(store.getState().durationsMs);
+    expect(durations).toContain(5_000);
+  });
+
+  it("continues streaming updates on a background tab", async () => {
+    let resolveChat = (_value: AskQuestionResult): void => undefined;
+    let onUpdate: ((session: ChatSession) => void) | undefined;
+    const askQuestion = {
+      execute: vi.fn(
+        (
+          _session,
+          _text,
+          _scope,
+          _signal,
+          callbacks?: { onSessionUpdate?: (session: ChatSession) => void },
+        ): Promise<AskQuestionResult> => {
+          onUpdate = callbacks?.onSessionUpdate;
+          return new Promise((resolve) => {
+            resolveChat = resolve;
+          });
+        },
+      ),
+    };
+    const store = new ChatStore({
+      askQuestion,
+      ensureRuntime: async () => ({ ok: true }),
+      openSource: async () => undefined,
+      newSessionId: () => "session-1",
+    });
+    store.newTab();
+    const backgroundTabId = store.getState().activeTabId;
+    const sendPromise = store.send("hello world");
+    await Promise.resolve();
+    const foregroundTabId = store.getState().tabs[0]?.id;
+    if (foregroundTabId) {
+      store.switchTab(foregroundTabId);
+    }
+    expect(store.getState().activeTabId).not.toBe(backgroundTabId);
+
+    const streamingSession = ChatSession.empty("session-1")
+      .appendMessage(ChatMessage.user("hello world"))
+      .appendMessage(ChatMessage.assistant("partial", { state: "streaming", id: "a1" }));
+    onUpdate?.(streamingSession);
+    expect(store.getState().tabs.find((t) => t.id === backgroundTabId)?.busy).toBe(true);
+
+    resolveChat({
+      kind: "ok",
+      session: streamingSession.replaceMessage(
+        "a1",
+        ChatMessage.assistant("done", { state: "complete", id: "a1" }),
+      ),
+    });
+    await sendPromise;
+    expect(store.getState().tabs.find((t) => t.id === backgroundTabId)?.busy).toBe(false);
   });
 });

@@ -10,6 +10,8 @@ import type { SettingsRepository } from "../application/ports/SettingsRepository
 import { OpenSourceNote } from "../application/use-cases/OpenSourceNote";
 import { SearchNotes } from "../application/use-cases/SearchNotes";
 import type { StartRuntime } from "../application/use-cases/StartRuntime";
+import type { ChatScopeMode } from "../adapters/inbound/obsidian/chat/ChatStore";
+import type { SearchScopePreference } from "../application/dto/settings";
 import { SearchScope } from "../domain/value-objects/SearchScope";
 import { createEnsureRuntime } from "./ensureRuntime";
 
@@ -54,8 +56,15 @@ export function wireSearch(deps: WireSearchDeps): WiredSearch {
 export function createChatScopeResolver(deps: {
   readonly settings: SettingsRepository;
   readonly vault: ObsidianVaultGateway;
-}): () => Promise<SearchScope> {
-  return async () => {
+}): (mode: ChatScopeMode) => Promise<SearchScope> {
+  return async (mode) => {
+    if (mode !== "auto") {
+      return resolveScope(
+        chatScopeModeToPreference(mode),
+        deps.vault.getActiveNotePath(),
+        deps.vault.getActiveFolderPath(),
+      );
+    }
     const settings = await deps.settings.get();
     if (!settings.applySearchScopeToChat) {
       return SearchScope.entireVault();
@@ -66,4 +75,8 @@ export function createChatScopeResolver(deps: {
       deps.vault.getActiveFolderPath(),
     );
   };
+}
+
+function chatScopeModeToPreference(mode: Exclude<ChatScopeMode, "auto">): SearchScopePreference {
+  return mode;
 }

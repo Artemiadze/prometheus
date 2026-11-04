@@ -10,7 +10,8 @@ export type DocumentSyncRecord = {
 
 /**
  * In-memory path ↔ DocumentId, hash, and revision ledger for sync/rename.
- * New files use DocumentId.fromNotePath; rename preserves the previous ID.
+ * New files use DocumentId.fromNotePath. Revisions are wall-clock based so they
+ * stay monotonic across plugin restarts without hydrating from the runtime.
  */
 export class DocumentSyncState {
   private readonly byPath = new Map<string, DocumentSyncRecord>();
@@ -53,7 +54,8 @@ export class DocumentSyncState {
 
   nextRevision(path: NotePath): number {
     const existing = this.byPath.get(path.value);
-    return existing ? existing.revision + 1 : 1;
+    const candidate = (existing?.revision ?? 0) + 1;
+    return Math.max(Date.now(), candidate);
   }
 
   entries(): readonly DocumentSyncRecord[] {
