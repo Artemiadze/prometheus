@@ -69,21 +69,22 @@ export class ModelPicker {
     root.toggleClass("is-busy", state.actionBusy);
     root.disabled = state.actionBusy;
 
+    label.setText("model");
     const selected = state.status?.runtime.selectedModel ?? null;
-    if (!selected) {
-      label.setText("Select model");
-      root.removeClass("prometheus-chat-pill--warn");
-      return;
-    }
-    if (!selected.installed) {
-      label.setText(`${selected.name} (not installed)`);
+    if (selected !== null && !selected.installed) {
       root.addClass("prometheus-chat-pill--warn");
+      root.setAttr("aria-label", `${selected.name} (not installed)`);
+      root.setAttr("title", `${selected.name} (not installed)`);
       return;
     }
     root.removeClass("prometheus-chat-pill--warn");
-    const choice = state.models.find((model) => model.name === selected.name);
-    const suffix = choice?.quantization ? ` · ${choice.quantization}` : "";
-    label.setText(`${selected.name}${suffix}`);
+    if (selected !== null) {
+      root.setAttr("aria-label", selected.name);
+      root.setAttr("title", selected.name);
+    } else {
+      root.setAttr("aria-label", "Select model");
+      root.setAttr("title", "Select model");
+    }
   }
 
   private async openMenu(anchor: HTMLElement): Promise<void> {

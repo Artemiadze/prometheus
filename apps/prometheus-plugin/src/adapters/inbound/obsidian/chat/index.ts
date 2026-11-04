@@ -7,6 +7,7 @@ export {
   type ChatViewState,
 } from "./ChatStore";
 export { formatDuration } from "./formatDuration";
+export { layoutCodeCopyButtons } from "./layoutCodeCopyButtons";
 export { ModelPicker } from "./ModelPicker";
 export { resolveComposerKey, type ComposerKeyAction } from "./composerKeys";
 export { messageRenderKey, planMessageRender } from "./planMessageRender";

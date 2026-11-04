@@ -5,6 +5,7 @@ import type { SourceReference } from "../../../../domain/entities/SourceReferenc
 import type { ChatScopeMode, ChatStore, ChatViewState } from "../chat/ChatStore";
 import { resolveComposerKey } from "../chat/composerKeys";
 import { formatDuration } from "../chat/formatDuration";
+import { layoutCodeCopyButtons } from "../chat/layoutCodeCopyButtons";
 import { ModelPicker } from "../chat/ModelPicker";
 import { messageRenderKey, planMessageRender } from "../chat/planMessageRender";
 import { sanitizeAssistantMarkdown } from "../chat/sanitizeAssistantMarkdown";
@@ -487,6 +488,13 @@ export class ChatView extends ItemView {
 
     const markdown = sanitizeAssistantMarkdown(message.text);
     await MarkdownRenderer.render(this.app, markdown, body, "", component);
+    layoutCodeCopyButtons(body);
+    // Obsidian may attach copy controls just after render.
+    requestAnimationFrame(() => {
+      if (this.messageRoots.get(key) === root) {
+        layoutCodeCopyButtons(body);
+      }
+    });
 
     this.renderActivity(root, message, state);
     this.renderFooter(root, message, state);
@@ -548,8 +556,25 @@ export class ChatView extends ItemView {
       attr: { type: "button", "aria-label": "Copy message" },
     });
     setIcon(copyBtn, "copy");
+    let resetTimer: number | null = null;
+    const showCopied = (): void => {
+      if (resetTimer !== null) {
+        window.clearTimeout(resetTimer);
+      }
+      setIcon(copyBtn, "check");
+      copyBtn.addClass("is-copied");
+      copyBtn.setAttr("aria-label", "Copied");
+      resetTimer = window.setTimeout(() => {
+        resetTimer = null;
+        setIcon(copyBtn, "copy");
+        copyBtn.removeClass("is-copied");
+        copyBtn.setAttr("aria-label", "Copy message");
+      }, 3000);
+    };
     copyBtn.addEventListener("click", () => {
-      void navigator.clipboard.writeText(text);
+      void navigator.clipboard.writeText(text).then(showCopied).catch(() => {
+        /* keep copy icon when clipboard write fails */
+      });
     });
   }
 

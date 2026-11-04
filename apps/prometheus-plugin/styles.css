@@ -456,6 +456,74 @@ button.prometheus-chat-pill:disabled {
   font-family: var(--font-monospace);
 }
 
+.prometheus-chat-message__body .prometheus-chat-code {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--size-2-2);
+  width: 100%;
+  margin: var(--size-2-2) 0;
+}
+
+.prometheus-chat-message__body .prometheus-chat-code pre {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  display: block;
+}
+
+.prometheus-chat-message__body .prometheus-chat-code > button,
+.prometheus-chat-message__body .prometheus-chat-code > .copy-code-button {
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+  align-self: center;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  color: var(--text-muted);
+  padding: var(--size-2-1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prometheus-chat-message__body .prometheus-chat-code > button:hover,
+.prometheus-chat-message__body .prometheus-chat-code > .copy-code-button:hover {
+  color: var(--text-normal);
+  background-color: transparent !important;
+}
+
+/* Fallback when Obsidian keeps the copy control inside <pre>. */
+.prometheus-chat-message__body > pre,
+.prometheus-chat-message__body p > pre,
+.prometheus-chat-message__body li > pre {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.prometheus-chat-message__body > pre > code,
+.prometheus-chat-message__body p > pre > code,
+.prometheus-chat-message__body li > pre > code {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prometheus-chat-message__body > pre > .copy-code-button,
+.prometheus-chat-message__body > pre > button,
+.prometheus-chat-message__body p > pre > .copy-code-button,
+.prometheus-chat-message__body li > pre > .copy-code-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  color: var(--text-muted);
+}
+
 .prometheus-chat-message__insufficient-hint {
   margin-top: var(--size-2-2);
   color: var(--text-muted);
@@ -547,6 +615,16 @@ button.prometheus-chat-pill:disabled {
 .prometheus-chat-message__copy svg {
   width: 14px;
   height: 14px;
+}
+
+.prometheus-chat-message__copy.is-copied,
+.prometheus-chat-message__copy.is-copied:hover,
+.prometheus-chat-message__copy.is-copied:focus,
+.prometheus-chat-message--user .prometheus-chat-message__copy.is-copied,
+.prometheus-chat-message--user .prometheus-chat-message__copy.is-copied:hover,
+.prometheus-chat-message__activity-bar .prometheus-chat-message__copy.is-copied,
+.prometheus-chat-message__activity-bar .prometheus-chat-message__copy.is-copied:hover {
+  color: var(--prometheus-accent, #4ade80);
 }
 
 .prometheus-chat-message__source-link {
