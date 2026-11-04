@@ -4,6 +4,9 @@
 .prometheus-search-view,
 .prometheus-status-view,
 .prometheus-settings {
+  --prometheus-accent: #4ade80;
+  --prometheus-accent-soft: rgba(74, 222, 128, 0.22);
+  --prometheus-accent-border: rgba(74, 222, 128, 0.55);
   color: var(--text-normal);
   background-color: var(--background-primary);
   font-family: var(--font-interface);
@@ -73,17 +76,25 @@
 }
 
 .prometheus-chat-tabs__tab.is-active {
-  border-color: var(--interactive-accent);
+  border-color: var(--prometheus-accent-border);
+  background-color: var(--prometheus-accent-soft);
 }
 
 .prometheus-chat-tabs__tab.is-busy .prometheus-chat-tabs__title {
-  color: var(--text-accent);
+  color: var(--text-muted);
 }
 
-.prometheus-chat-tabs__title {
+button.prometheus-chat-tabs__title,
+button.prometheus-chat-tabs__title:hover,
+button.prometheus-chat-tabs__title:focus,
+button.prometheus-chat-tabs__title:active {
   flex: 1 1 auto;
-  background: transparent;
-  border: none;
+  min-width: 0;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none;
   color: var(--text-muted);
   cursor: pointer;
   font-size: var(--font-ui-small);
@@ -94,14 +105,22 @@
   text-align: left;
 }
 
-.prometheus-chat-tabs__tab.is-active .prometheus-chat-tabs__title {
+.prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title,
+.prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title:hover,
+.prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title:focus {
   color: var(--text-normal);
 }
 
-.prometheus-chat-tabs__close {
+button.prometheus-chat-tabs__close,
+button.prometheus-chat-tabs__close:hover,
+button.prometheus-chat-tabs__close:focus,
+button.prometheus-chat-tabs__close:active {
   flex: 0 0 auto;
-  background: transparent;
-  border: none;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none;
   color: var(--text-muted);
   cursor: pointer;
   padding: var(--size-2-1);
@@ -110,15 +129,26 @@
   justify-content: center;
 }
 
+button.prometheus-chat-tabs__close:hover,
+button.prometheus-chat-tabs__close:focus {
+  color: var(--text-normal);
+}
+
 .prometheus-chat-tabs__close svg {
   width: 12px;
   height: 12px;
 }
 
-.prometheus-chat-tabs__new {
+button.prometheus-chat-tabs__new,
+button.prometheus-chat-tabs__new:hover,
+button.prometheus-chat-tabs__new:focus,
+button.prometheus-chat-tabs__new:active {
   flex: 0 0 auto;
-  background: transparent;
-  border: 1px dashed var(--background-modifier-border);
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 1px dashed var(--background-modifier-border) !important;
+  outline: none;
   border-radius: var(--radius-l);
   color: var(--text-muted);
   cursor: pointer;
@@ -126,6 +156,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+button.prometheus-chat-tabs__new:hover,
+button.prometheus-chat-tabs__new:focus {
+  color: var(--text-normal);
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border)) !important;
 }
 
 .prometheus-search-view__input {
@@ -141,6 +177,15 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--input-radius);
   padding: var(--size-4-2);
+  box-shadow: none;
+  outline: none;
+}
+
+.prometheus-search-view__input input:focus,
+.prometheus-search-view__input input:focus-visible {
+  border-color: var(--prometheus-accent-border, rgba(74, 222, 128, 0.55));
+  box-shadow: none;
+  outline: none;
 }
 
 .prometheus-chat-composer {
@@ -155,7 +200,7 @@
 }
 
 .prometheus-chat-composer:focus-within {
-  border-color: var(--interactive-accent);
+  border-color: var(--prometheus-accent-border);
 }
 
 .prometheus-chat-composer__input {
@@ -224,7 +269,7 @@ button.prometheus-chat-composer__send:active {
   height: 28px;
   border-radius: 50%;
   border: none;
-  background-color: #4ade80 !important;
+  background-color: var(--prometheus-accent, #4ade80) !important;
   background-image: none !important;
   box-shadow: none !important;
   color: #0a0a0a !important;
@@ -579,9 +624,9 @@ button.prometheus-chat-pill:disabled {
 }
 
 .prometheus-search-view__scope-btn.is-active {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border-color: var(--interactive-accent);
+  background-color: var(--prometheus-accent-soft, rgba(74, 222, 128, 0.22));
+  color: var(--text-normal);
+  border-color: var(--prometheus-accent-border, rgba(74, 222, 128, 0.55));
 }
 
 .prometheus-search-view__scope-btn:disabled {
@@ -609,7 +654,7 @@ button.prometheus-chat-pill:disabled {
 
 .prometheus-search-view__hit:hover,
 .prometheus-search-view__hit:focus {
-  border-color: var(--interactive-accent);
+  border-color: var(--prometheus-accent-border, rgba(74, 222, 128, 0.55));
   outline: none;
 }
 
@@ -786,7 +831,7 @@ button.prometheus-chat-pill:disabled {
 }
 
 .prometheus-onboarding__step--running {
-  border-color: var(--interactive-accent);
+  border-color: var(--prometheus-accent-border, rgba(74, 222, 128, 0.55));
 }
 
 .prometheus-onboarding__step-message {
