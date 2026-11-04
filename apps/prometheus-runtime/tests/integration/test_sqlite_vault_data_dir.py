@@ -1,4 +1,4 @@
-"""Integration: SQLite + on-disk Qdrant Local under a temporary data_dir (PRM-81)."""
+"""Integration: SQLite metadata + sqlite-vec under a temporary data_dir."""
 
 from __future__ import annotations
 
@@ -8,10 +8,7 @@ from pathlib import Path
 import pytest
 
 from adapters.outbound.filesystem.data_dir import ensure_layout, vault_dir
-from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
-from adapters.outbound.sqlite.connection import open_connection
-from adapters.outbound.sqlite.document_repository import SqliteDocumentRepository
-from adapters.outbound.sqlite.migrations import apply_migrations
+from adapters.outbound.sqlite.database import MetadataDatabase
 from application.dto.embedding import EmbeddingFingerprint
 from domain.entities.chunk import CharRange, Chunk
 from domain.entities.document import Document, compute_content_hash
@@ -51,33 +48,26 @@ def _chunk(document: Document) -> Chunk:
     )
 
 
-def test_sqlite_and_qdrant_persist_under_data_dir_and_cleanup(tmp_path: Path) -> None:
+def test_sqlite_vec_persists_under_data_dir_and_cleanup(tmp_path: Path) -> None:
     layout = ensure_layout(tmp_path)
     vault = vault_dir(layout, "vault-01")
-    db_path = vault / "metadata.sqlite"
-    connection = open_connection(db_path)
-    apply_migrations(connection)
-    repository = SqliteDocumentRepository(connection)
-
+    database = MetadataDatabase(vault)
     document = _document()
     chunk = _chunk(document)
-    repository.save_indexed(document, (chunk,), NOW)
-
-    index = QdrantLocalVectorIndex(
-        vault_dir=vault,
+    index = database.vector_index(
         vault_id=document.vault_id,
         embedding_fingerprint=EmbeddingFingerprint("fastembed", "test/model", 3),
     )
     try:
         index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+        database.documents.save_indexed(document, (chunk,), NOW)
         hits = index.search((1.0, 0.0, 0.0), limit=5)
         assert hits[0].chunk.text == document.content
         index.delete_by_document(document.id)
         assert index.search((1.0, 0.0, 0.0), limit=5) == ()
     finally:
-        index.close()
-        connection.close()
+        database.close()
 
-    assert db_path.is_file()
-    assert (vault / "qdrant").is_dir()
+    assert (vault / "metadata.sqlite").is_file()
+    assert not (vault / "qdrant").exists()
     assert layout.root == tmp_path.resolve()

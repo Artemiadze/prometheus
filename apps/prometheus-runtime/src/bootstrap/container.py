@@ -18,7 +18,6 @@ from adapters.outbound.markdown.chunker import HeadingAwareChunker
 from adapters.outbound.markdown.parser import ObsidianMarkdownParser
 from adapters.outbound.markdown.token_counter import FastEmbedTokenizerCounter
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
-from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.database import MetadataDatabase
 from adapters.outbound.sqlite.jobs_database import JobsDatabase
 from application.dto.index_fingerprint import (
@@ -153,8 +152,7 @@ class Container:
             raise AdapterNotConfiguredError(
                 "VectorIndex adapter is not configured; provide a vault_id to Container"
             )
-        return QdrantLocalVectorIndex(
-            vault_dir=vault_dir(self.layout, self._vault_id.value),
+        return self._metadata_database.vector_index(
             vault_id=self._vault_id,
             embedding_fingerprint=self.embedder.fingerprint,
         )
@@ -407,15 +405,16 @@ class Container:
         )
 
     def close(self) -> None:
-        """Release SQLite and Qdrant resources owned by this container."""
+        """Release SQLite resources owned by this container."""
 
-        if "_metadata_database" in self.__dict__:
-            self._metadata_database.close()
         if "vector_index" in self.__dict__:
-            index = self.vector_index
+            index = self.__dict__.pop("vector_index")
             close = getattr(index, "close", None)
             if callable(close):
                 close()
+        if "_metadata_database" in self.__dict__:
+            self._metadata_database.close()
+            del self.__dict__["_metadata_database"]
         if "_jobs_database" in self.__dict__ and self._vault_id is None:
             self._jobs_database.close()
 

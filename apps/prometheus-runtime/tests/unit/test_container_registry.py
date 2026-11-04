@@ -34,7 +34,7 @@ def test_registry_reuses_each_vault_container_and_isolates_storage(
     assert (layout.vaults / "vault-a" / "metadata.sqlite").exists()
     assert (layout.vaults / "vault-b" / "metadata.sqlite").exists()
     assert index_a is not index_b
-    assert (layout.vaults / "vault-a" / "qdrant").is_dir()
-    assert (layout.vaults / "vault-b" / "qdrant").is_dir()
+    assert metadata_a.exists()
+    assert metadata_b.exists()
 
     registry.close_all()

@@ -1,9 +1,7 @@
-"""Cross-store consistency between the vector index and the SQLite manifest.
+"""Transactional consistency between the vector index and the SQLite manifest.
 
-The vector index and the metadata manifest are two independent stores (Architecture.md,
-section 17, principle 7) that cannot be committed atomically. This module orders the two
-writes so the manifest never claims a Document is indexed unless its vectors are already
-durable, and compensates by removing the vectors again when the manifest write fails.
+Vectors, document/chunk rows, and the lexical index share one SQLite connection, so a
+single UnitOfWork commit covers the full document replace/remove/relocate path.
 """
 
 from __future__ import annotations
@@ -34,32 +32,23 @@ def replace_document_index(
     lexical_index: LexicalIndex | None = None,
     previous_chunk_ids: Sequence[ChunkId] = (),
 ) -> None:
-    """Write vectors first, then commit the manifest; compensate on a manifest failure.
+    """Atomically replace vectors and manifest rows for one document.
 
-    Stale points are removed by known chunk ids (no collection-wide payload scan).
-    New documents pass an empty ``previous_chunk_ids`` and skip deletion entirely.
-    Shared ids between previous and new chunks are left for upsert to overwrite.
-
-    If ``vector_index.upsert`` fails, the manifest is left untouched: the Document keeps
-    whatever state it had before, so a retry starts from a clean slate. If the manifest
-    commit fails after the vectors were written, the just-written vectors are deleted so
-    no unaccounted chunks remain in the vector index.
+    Stale points are removed by known chunk ids. Shared ids between previous and new
+    chunks are left for upsert to overwrite. New documents pass an empty
+    ``previous_chunk_ids`` and skip deletion entirely.
     """
 
     new_ids = {chunk.id for chunk in chunks}
     stale_ids = tuple(chunk_id for chunk_id in previous_chunk_ids if chunk_id not in new_ids)
-    if stale_ids:
-        vector_index.delete_by_ids(stale_ids)
-    vector_index.upsert(document, chunks, vectors)
-    try:
-        with unit_of_work:
-            document_repository.save_indexed(document, chunks, indexed_at)
-            if lexical_index is not None:
-                lexical_index.replace_document(document, chunks)
-            unit_of_work.commit()
-    except Exception:
-        vector_index.delete_by_ids(tuple(chunk.id for chunk in chunks))
-        raise
+    with unit_of_work:
+        if stale_ids:
+            vector_index.delete_by_ids(stale_ids)
+        vector_index.upsert(document, chunks, vectors)
+        document_repository.save_indexed(document, chunks, indexed_at)
+        if lexical_index is not None:
+            lexical_index.replace_document(document, chunks)
+        unit_of_work.commit()
 
 
 def remove_document_index(
@@ -71,13 +60,13 @@ def remove_document_index(
     lexical_index: LexicalIndex | None = None,
     chunk_ids: Sequence[ChunkId] = (),
 ) -> None:
-    """Delete vectors, then the manifest row; idempotent for an already-removed Document."""
+    """Delete vectors and the manifest row; idempotent for an already-removed Document."""
 
-    if chunk_ids:
-        vector_index.delete_by_ids(chunk_ids)
-    else:
-        vector_index.delete_by_document(document_id)
     with unit_of_work:
+        if chunk_ids:
+            vector_index.delete_by_ids(chunk_ids)
+        else:
+            vector_index.delete_by_document(document_id)
         if lexical_index is not None:
             lexical_index.delete_by_document(document_id)
         document_repository.delete(document_id)
@@ -94,15 +83,12 @@ def relocate_document_index(
     unit_of_work: UnitOfWork,
     lexical_index: LexicalIndex | None = None,
 ) -> None:
-    """Update vector payload first and compensate if the manifest update fails."""
+    """Update path metadata for one document inside a single transaction."""
 
-    vector_index.update_document_path(document_id, new_path)
-    try:
-        with unit_of_work:
-            document_repository.update_path(document_id, new_path)
-            if lexical_index is not None:
-                lexical_index.update_document_path(document_id, new_path)
-            unit_of_work.commit()
-    except Exception:
-        vector_index.update_document_path(document_id, old_path)
-        raise
+    del old_path  # retained in signature for call-site compatibility
+    with unit_of_work:
+        vector_index.update_document_path(document_id, new_path)
+        document_repository.update_path(document_id, new_path)
+        if lexical_index is not None:
+            lexical_index.update_document_path(document_id, new_path)
+        unit_of_work.commit()

@@ -47,13 +47,12 @@ def test_statistics_reflect_saved_documents_and_last_indexed_at(tmp_path: Path) 
     database.close()
 
 
-def test_index_size_includes_the_qdrant_directory_without_querying_it(
+def test_index_size_includes_sidecar_files_under_vault_dir(
     tmp_path: Path,
 ) -> None:
     database = MetadataDatabase(tmp_path)
-    qdrant_dir = tmp_path / "qdrant"
-    qdrant_dir.mkdir()
-    (qdrant_dir / "storage.bin").write_bytes(b"x" * 128)
+    sidecar = tmp_path / "extra.bin"
+    sidecar.write_bytes(b"x" * 128)
 
     statistics = database.statistics.read()
 

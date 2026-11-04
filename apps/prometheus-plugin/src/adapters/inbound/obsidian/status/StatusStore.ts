@@ -176,17 +176,16 @@ export class StatusStore {
     await this.runAction(async (signal) => {
       this.indexingStartedAtMs = Date.now();
       this.lastUploadTotal = 0;
-      await this.deps.startInitialSync(signal, (progress) => {
-        if (progress.total > 0) {
-          this.lastUploadTotal = progress.total;
-        }
+      // Full vault rebuild via POST /reindex (force=true). Incremental sync cannot
+      // proceed while the stored index fingerprint is incompatible.
+      await this.deps.startReindex(signal, (job) => {
         const elapsedMs =
           this.indexingStartedAtMs === null ? 0 : Date.now() - this.indexingStartedAtMs;
         this.indexingProgress = estimateIndexingProgress({
-          phase: progress.phase,
-          processed: progress.processed,
-          total: progress.total > 0 ? progress.total : this.lastUploadTotal,
-          jobProgress: this.status?.activeJob?.progress ?? 0,
+          phase: "job",
+          processed: 0,
+          total: this.lastUploadTotal,
+          jobProgress: job.progress,
           elapsedMs,
         });
         this.notify();

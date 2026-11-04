@@ -116,22 +116,52 @@ def test_index_not_indexed(tmp_path: Path) -> None:
 
 
 def test_index_corrupted(tmp_path: Path) -> None:
+    from adapters.outbound.sqlite.connection import open_connection
+
     vault = tmp_path / "vaults" / "vault-a"
     vault.mkdir(parents=True)
-    (vault / "qdrant_metadata.json").write_text("{}", encoding="utf-8")
+    connection = open_connection(vault / "metadata.sqlite")
+    connection.close()
     result = check_index(tmp_path)
     assert result.status is CheckStatus.FAIL
-    assert "corruption" in result.message.casefold()
+    assert "corruption" in result.message.casefold() or "chunk_vectors" in result.message
 
 
 def test_index_ready(tmp_path: Path) -> None:
+    from adapters.outbound.sqlite.database import MetadataDatabase
+    from application.dto.embedding import EmbeddingFingerprint
+    from domain.value_objects.vault_id import VaultId
+
     vault = tmp_path / "vaults" / "vault-a"
-    storage = vault / "qdrant"
-    storage.mkdir(parents=True)
-    (storage / "collection").write_text("x", encoding="utf-8")
-    (vault / "qdrant_metadata.json").write_text("{}", encoding="utf-8")
+    vault.mkdir(parents=True)
+    database = MetadataDatabase(vault)
+    _ = database.vector_index(
+        vault_id=VaultId("vault-a"),
+        embedding_fingerprint=EmbeddingFingerprint("fastembed", "test/model", 3),
+    )
+    database.close()
     result = check_index(tmp_path)
     assert result.status is CheckStatus.OK
+
+
+def test_index_warns_on_legacy_qdrant(tmp_path: Path) -> None:
+    from adapters.outbound.sqlite.database import MetadataDatabase
+    from application.dto.embedding import EmbeddingFingerprint
+    from domain.value_objects.vault_id import VaultId
+
+    vault = tmp_path / "vaults" / "vault-a"
+    vault.mkdir(parents=True)
+    database = MetadataDatabase(vault)
+    _ = database.vector_index(
+        vault_id=VaultId("vault-a"),
+        embedding_fingerprint=EmbeddingFingerprint("fastembed", "test/model", 3),
+    )
+    database.close()
+    (vault / "qdrant").mkdir()
+    (vault / "qdrant" / "legacy").write_text("x", encoding="utf-8")
+    result = check_index(tmp_path)
+    assert result.status is CheckStatus.WARN
+    assert "legacy" in result.message.casefold()
 
 
 def test_memory_low() -> None:

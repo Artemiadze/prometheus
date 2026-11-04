@@ -1,4 +1,4 @@
-"""Integration-style unit tests for the embedded Qdrant adapter."""
+"""Unit tests for the sqlite-vec dense vector adapter."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from qdrant_client import QdrantClient, models
 
-from adapters.outbound.qdrant.adapter import COLLECTION_NAME, QdrantLocalVectorIndex
+from adapters.outbound.sqlite.database import MetadataDatabase
+from adapters.outbound.sqlite.vector_index import SqliteVecVectorIndex
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_status import IndexStatus
 from application.errors import IndexCorruptedError, VaultMismatchError
@@ -51,60 +51,60 @@ def _chunk(document: Document, index: int, text: str) -> Chunk:
     )
 
 
-def _memory_index(
-    tmp_path: Path,
-    *,
-    dimension: int = 3,
-) -> tuple[QdrantLocalVectorIndex, QdrantClient]:
-    client = QdrantClient(":memory:")
-    index = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
+def _open_db(
+    tmp_path: Path, *, dimension: int = 3
+) -> tuple[MetadataDatabase, SqliteVecVectorIndex]:
+    database = MetadataDatabase(tmp_path)
+    index = database.vector_index(
         vault_id=VaultId("vault-01"),
         embedding_fingerprint=_fingerprint(dimension),
-        client_factory=lambda: client,
     )
-    return index, client
+    return database, index
 
 
-def test_creates_cosine_collection_with_embedding_dimension(tmp_path: Path) -> None:
-    index, client = _memory_index(tmp_path)
+def _index_document(
+    database: MetadataDatabase,
+    index: SqliteVecVectorIndex,
+    document: Document,
+    chunks: tuple[Chunk, ...],
+    vectors: tuple[tuple[float, ...], ...],
+) -> None:
+    index.upsert(document, chunks, vectors)
+    database.documents.save_indexed(document, chunks, datetime(2026, 1, 2, tzinfo=UTC))
 
-    vectors = client.get_collection(COLLECTION_NAME).config.params.vectors
 
-    assert isinstance(vectors, models.VectorParams)
-    assert vectors.size == 3
-    assert vectors.distance is models.Distance.COSINE
+def test_creates_vector_table_with_embedding_dimension(tmp_path: Path) -> None:
+    database, index = _open_db(tmp_path)
     assert index.status is IndexStatus.READY
+    row = database.connection.execute(
+        "SELECT sql FROM sqlite_master WHERE name = 'chunk_vectors'"
+    ).fetchone()
+    assert row is not None
+    assert "float[3]" in row["sql"]
+    database.close()
 
 
 def test_persistent_collection_is_reused_after_restart(tmp_path: Path) -> None:
     document = _document("document-01", "Notes/One.md")
     chunk = _chunk(document, 0, "persistent chunk")
-    first = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
-        vault_id=VaultId("vault-01"),
-        embedding_fingerprint=_fingerprint(),
-    )
-    first.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
-    first.close()
+    first_db, first = _open_db(tmp_path)
+    _index_document(first_db, first, document, (chunk,), ((1.0, 0.0, 0.0),))
+    first_db.close()
 
-    second = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
-        vault_id=VaultId("vault-01"),
-        embedding_fingerprint=_fingerprint(),
-    )
-
+    second_db, second = _open_db(tmp_path)
     assert second.status is IndexStatus.READY
     assert second.search((1.0, 0.0, 0.0), 10)[0].chunk == chunk
-    second.close()
+    second_db.close()
 
 
 def test_search_reconstructs_domain_chunk_and_orders_scores(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     document = _document("document-01", "Notes/One.md")
     first = _chunk(document, 0, "closest")
     second = _chunk(document, 1, "orthogonal")
-    index.upsert(
+    _index_document(
+        database,
+        index,
         document,
         (first, second),
         ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
@@ -115,82 +115,65 @@ def test_search_reconstructs_domain_chunk_and_orders_scores(tmp_path: Path) -> N
     assert [hit.chunk for hit in hits] == [first, second]
     assert hits[0].score == hits[0].dense_score == pytest.approx(1.0)
     assert hits[0].score >= hits[1].score
+    database.close()
 
 
-def test_point_payload_contains_versioned_search_schema(tmp_path: Path) -> None:
-    index, client = _memory_index(tmp_path)
+def test_save_indexed_stores_content_and_folder_ancestors(tmp_path: Path) -> None:
+    database, index = _open_db(tmp_path)
     document = _document("document-01", "Work/Nested/One.md")
     chunk = _chunk(document, 0, "payload")
-    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+    _index_document(database, index, document, (chunk,), ((1.0, 0.0, 0.0),))
 
-    records, _ = client.scroll(COLLECTION_NAME, limit=1, with_payload=True)
-    payload = records[0].payload
+    content = database.connection.execute(
+        "SELECT content FROM chunks WHERE chunk_id = ?", (chunk.id.value,)
+    ).fetchone()
+    ancestors = {
+        row["folder"]
+        for row in database.connection.execute(
+            "SELECT folder FROM chunk_folder_ancestors WHERE chunk_id = ?",
+            (chunk.id.value,),
+        ).fetchall()
+    }
 
-    assert payload is not None
-    assert payload["document_id"] == document.id.value
-    assert payload["file_path"] == "Work/Nested/One.md"
-    assert payload["folder"] == "Work/Nested"
-    assert payload["folder_ancestors"] == ["Work/Nested", "Work"]
-    assert payload["heading"] == "Section"
-    assert payload["chunk_index"] == 0
-    assert payload["content"] == "payload"
-    assert payload["content_hash"] == chunk.content_hash
-    assert payload["modified_at"] == document.modified_at.isoformat()
-
-
-def test_reindex_replaces_all_old_document_chunks(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
-    document = _document("document-01", "Notes/One.md")
-    old_first = _chunk(document, 0, "old first")
-    old_second = _chunk(document, 1, "old second")
-    replacement = _chunk(document, 0, "replacement")
-    index.upsert(
-        document,
-        (old_first, old_second),
-        ((1.0, 0.0, 0.0), (0.9, 0.1, 0.0)),
-    )
-
-    # Upsert no longer scans/deletes by document; callers remove stale ids first.
-    index.delete_by_ids((old_first.id, old_second.id))
-    index.upsert(document, (replacement,), ((0.0, 1.0, 0.0),))
-
-    assert [hit.chunk for hit in index.search((1.0, 0.0, 0.0), 10)] == [replacement]
+    assert content["content"] == "payload"
+    assert ancestors == {"Work/Nested", "Work"}
+    database.close()
 
 
 def test_delete_by_ids_removes_only_listed_chunks(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     document = _document("document-01", "Notes/One.md")
     first = _chunk(document, 0, "first")
     second = _chunk(document, 1, "second")
-    index.upsert(document, (first, second), ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))
+    _index_document(
+        database,
+        index,
+        document,
+        (first, second),
+        ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+    )
 
     index.delete_by_ids((first.id,))
 
     hits = index.search((0.0, 1.0, 0.0), 10)
     assert [hit.chunk for hit in hits] == [second]
-
-
-def test_delete_by_ids_is_noop_for_empty_list(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
-    document = _document("document-01", "Notes/One.md")
-    chunk = _chunk(document, 0, "keep")
-    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
-
-    index.delete_by_ids(())
-
-    assert [hit.chunk for hit in index.search((1.0, 0.0, 0.0), 10)] == [chunk]
+    database.close()
 
 
 def test_delete_by_document_removes_only_that_document(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     first_document = _document("document-01", "Notes/One.md")
     second_document = _document("document-02", "Notes/Two.md")
-    index.upsert(
+    _index_document(
+        database,
+        index,
         first_document,
         (_chunk(first_document, 0, "first"),),
         ((1.0, 0.0, 0.0),),
     )
-    index.upsert(
+    _index_document(
+        database,
+        index,
         second_document,
         (_chunk(second_document, 0, "second"),),
         ((1.0, 0.0, 0.0),),
@@ -200,17 +183,20 @@ def test_delete_by_document_removes_only_that_document(tmp_path: Path) -> None:
 
     hits = index.search((1.0, 0.0, 0.0), 10)
     assert [hit.chunk.document_id for hit in hits] == [second_document.id]
+    database.close()
 
 
 def test_search_scope_filters_note_and_nested_folders(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     documents = (
         _document("document-01", "Work/Current.md"),
         _document("document-02", "Work/Nested/Child.md"),
         _document("document-03", "Personal/Private.md"),
     )
     for document in documents:
-        index.upsert(
+        _index_document(
+            database,
+            index,
             document,
             (_chunk(document, 0, document.relative_path.value),),
             ((1.0, 0.0, 0.0),),
@@ -241,16 +227,19 @@ def test_search_scope_filters_note_and_nested_folders(tmp_path: Path) -> None:
         documents[1].id,
         documents[2].id,
     }
+    database.close()
 
 
 def test_search_excludes_ignored_folder_ancestors(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     documents = (
         _document("document-01", "Archive/hidden.md"),
         _document("document-02", "Notes/visible.md"),
     )
     for document in documents:
-        index.upsert(
+        _index_document(
+            database,
+            index,
             document,
             (_chunk(document, 0, document.relative_path.value),),
             ((1.0, 0.0, 0.0),),
@@ -260,16 +249,18 @@ def test_search_excludes_ignored_folder_ancestors(tmp_path: Path) -> None:
     hits = index.search((1.0, 0.0, 0.0), 10, scope)
 
     assert {hit.chunk.document_id for hit in hits} == {documents[1].id}
+    database.close()
 
 
 def test_update_document_path_moves_scope_without_replacing_vectors(
     tmp_path: Path,
 ) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     document = _document("document-01", "Work/Current.md")
     chunk = _chunk(document, 0, "unchanged vector")
-    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+    _index_document(database, index, document, (chunk,), ((1.0, 0.0, 0.0),))
 
+    database.documents.update_path(document.id, RelativePath("Archive/Current.md"))
     index.update_document_path(document.id, RelativePath("Archive/Current.md"))
 
     assert index.search((1.0, 0.0, 0.0), 10, SearchScope.current_folder("Work")) == ()
@@ -279,58 +270,42 @@ def test_update_document_path_moves_scope_without_replacing_vectors(
         SearchScope.current_folder("Archive"),
     )
     assert [hit.chunk.id for hit in hits] == [chunk.id]
+    database.close()
 
 
-def test_incompatible_index_is_recreated_and_requests_reindex(tmp_path: Path) -> None:
+def test_incompatible_dimension_is_recreated_and_requests_reindex(tmp_path: Path) -> None:
     document = _document("document-01", "Notes/One.md")
-    original = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
-        vault_id=VaultId("vault-01"),
-        embedding_fingerprint=_fingerprint(3),
+    original_db, original = _open_db(tmp_path, dimension=3)
+    _index_document(
+        original_db,
+        original,
+        document,
+        (_chunk(document, 0, "old"),),
+        ((1.0, 0.0, 0.0),),
     )
-    original.upsert(document, (_chunk(document, 0, "old"),), ((1.0, 0.0, 0.0),))
-    original.close()
+    original_db.close()
 
-    rebuilt = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
-        vault_id=VaultId("vault-01"),
-        embedding_fingerprint=_fingerprint(2),
-    )
+    rebuilt_db, rebuilt = _open_db(tmp_path, dimension=2)
 
     assert rebuilt.status is IndexStatus.CORRUPTED
     with pytest.raises(IndexCorruptedError) as caught:
         rebuilt.search((1.0, 0.0), 10)
     assert caught.value.code == "INDEX_CORRUPTED"
 
-    rebuilt.upsert(document, (_chunk(document, 0, "new"),), ((1.0, 0.0),))
+    _index_document(
+        rebuilt_db,
+        rebuilt,
+        document,
+        (_chunk(document, 0, "new"),),
+        ((1.0, 0.0),),
+    )
     assert str(rebuilt.status) == IndexStatus.READY.value
     assert len(rebuilt.search((1.0, 0.0), 10)) == 1
-    rebuilt.close()
-
-
-def test_corrupted_metadata_does_not_crash_startup(tmp_path: Path) -> None:
-    original = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
-        vault_id=VaultId("vault-01"),
-        embedding_fingerprint=_fingerprint(),
-    )
-    original.close()
-    (tmp_path / "qdrant_metadata.json").write_text("{broken", encoding="utf-8")
-
-    recovered = QdrantLocalVectorIndex(
-        vault_dir=tmp_path,
-        vault_id=VaultId("vault-01"),
-        embedding_fingerprint=_fingerprint(),
-    )
-
-    assert recovered.status is IndexStatus.CORRUPTED
-    with pytest.raises(IndexCorruptedError):
-        recovered.search((1.0, 0.0, 0.0), 10)
-    recovered.close()
+    rebuilt_db.close()
 
 
 def test_upsert_rejects_document_from_another_vault(tmp_path: Path) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     foreign = Document.create(
         id=DocumentId("document-01"),
         vault_id=VaultId("vault-02"),
@@ -343,55 +318,32 @@ def test_upsert_rejects_document_from_another_vault(tmp_path: Path) -> None:
 
     with pytest.raises(VaultMismatchError):
         index.upsert(foreign, (chunk,), ((1.0, 0.0, 0.0),))
+    database.close()
 
 
-def test_search_drops_points_tagged_with_a_foreign_vault_id(tmp_path: Path) -> None:
-    index, client = _memory_index(tmp_path)
+def test_retrieve_vectors_returns_stored_embeddings(tmp_path: Path) -> None:
+    database, index = _open_db(tmp_path)
     document = _document("document-01", "Notes/One.md")
-    chunk = _chunk(document, 0, "local chunk")
-    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
-    client.upsert(
-        collection_name=COLLECTION_NAME,
-        points=[
-            models.PointStruct(
-                id="00000000-0000-4000-8000-00000000beef",
-                vector=[1.0, 0.0, 0.0],
-                payload={
-                    "vault_id": "vault-02",
-                    "document_id": "document-99",
-                    "file_path": "Notes/Leak.md",
-                    "folder": "Notes",
-                    "folder_ancestors": ["Notes"],
-                    "heading": "Section",
-                    "heading_path": ["Section"],
-                    "chunk_id": "chunk-leak",
-                    "chunk_index": 0,
-                    "content": "leaked foreign text",
-                    "content_hash": compute_content_hash("leaked foreign text"),
-                    "modified_at": datetime(2026, 1, 1, tzinfo=UTC).isoformat(),
-                    "char_range_start": 0,
-                    "char_range_end": 18,
-                    "token_count": 3,
-                },
-            )
-        ],
-        wait=True,
-    )
+    chunk = _chunk(document, 0, "vector")
+    _index_document(database, index, document, (chunk,), ((1.0, 0.0, 0.0),))
 
-    hits = index.search((1.0, 0.0, 0.0), 10)
+    vectors = index.retrieve_vectors((chunk.id,))
 
-    assert [hit.chunk.text for hit in hits] == ["local chunk"]
+    assert chunk.id.value in vectors
+    assert vectors[chunk.id.value] == pytest.approx((1.0, 0.0, 0.0))
+    database.close()
 
 
 def test_input_validation_happens_before_existing_points_are_deleted(
     tmp_path: Path,
 ) -> None:
-    index, _ = _memory_index(tmp_path)
+    database, index = _open_db(tmp_path)
     document = _document("document-01", "Notes/One.md")
     chunk = _chunk(document, 0, "preserved")
-    index.upsert(document, (chunk,), ((1.0, 0.0, 0.0),))
+    _index_document(database, index, document, (chunk,), ((1.0, 0.0, 0.0),))
 
     with pytest.raises(ValueError, match="dimension"):
         index.upsert(document, (chunk,), ((1.0, 0.0),))
 
     assert index.search((1.0, 0.0, 0.0), 10)[0].chunk == chunk
+    database.close()

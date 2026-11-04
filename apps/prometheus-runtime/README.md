@@ -20,8 +20,8 @@ uv run prometheus-runtime serve --session-token "$PROMETHEUS_SESSION_TOKEN"
 - **Origin / CORS:** browser Origins are limited to `app://obsidian.md`,
   `capacitor://localhost`, and loopback `http(s)://localhost|127.0.0.1|::1`.
   Foreign Origins and `Origin: null` receive `CROSS_ORIGIN_FORBIDDEN`.
-- **Vault isolation:** each Vault gets its own SQLite + Qdrant directory; vector
-  payloads are tagged with `vault_id` and cross-vault writes are rejected.
+- **Vault isolation:** each Vault gets its own ``metadata.sqlite`` (manifest, FTS5,
+  sqlite-vec). Cross-vault writes are rejected by the scoped vector adapter.
 - **Offline guard:** in normal operation outbound sockets/DNS are limited to
   loopback. Set `PROMETHEUS_EMBEDDING_ALLOW_DOWNLOAD=true` only for first-run
   model download; the guard is skipped in that setup mode.

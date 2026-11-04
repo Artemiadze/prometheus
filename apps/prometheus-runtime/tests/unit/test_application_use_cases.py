@@ -1,7 +1,7 @@
 """Acceptance-level unit tests for use cases on fakes.
 
 Covers indexing idempotency, insufficient_context without LLM generate,
-and search without any LanguageModel calls. No Qdrant, FastEmbed, or Ollama.
+and search without any LanguageModel calls. No sqlite-vec, FastEmbed, or Ollama.
 """
 
 from __future__ import annotations
