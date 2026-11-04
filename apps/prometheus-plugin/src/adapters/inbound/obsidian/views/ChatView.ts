@@ -572,9 +572,12 @@ export class ChatView extends ItemView {
       }, 3000);
     };
     copyBtn.addEventListener("click", () => {
-      void navigator.clipboard.writeText(text).then(showCopied).catch(() => {
-        /* keep copy icon when clipboard write fails */
-      });
+      void navigator.clipboard
+        .writeText(text)
+        .then(showCopied)
+        .catch(() => {
+          /* keep copy icon when clipboard write fails */
+        });
     });
   }
 

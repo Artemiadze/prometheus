@@ -161,7 +161,10 @@ button.prometheus-chat-tabs__new:active {
 button.prometheus-chat-tabs__new:hover,
 button.prometheus-chat-tabs__new:focus {
   color: var(--text-normal);
-  border-color: var(--background-modifier-border-hover, var(--background-modifier-border)) !important;
+  border-color: var(
+    --background-modifier-border-hover,
+    var(--background-modifier-border)
+  ) !important;
 }
 
 .prometheus-search-view__input {
