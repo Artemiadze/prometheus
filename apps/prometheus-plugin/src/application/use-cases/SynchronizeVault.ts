@@ -106,10 +106,7 @@ export class SynchronizeVault {
               revision,
             });
           } catch (error) {
-            if (
-              error instanceof RuntimeApiError &&
-              error.code === "INDEX_REBUILD_REQUIRED"
-            ) {
+            if (error instanceof RuntimeApiError && error.code === "INDEX_REBUILD_REQUIRED") {
               this.notifier.warning(
                 "Index rebuild required — use Status → Reindex vault (incremental sync cannot update an incompatible index).",
               );
