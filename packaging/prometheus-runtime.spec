@@ -34,22 +34,20 @@ hiddenimports: list[str] = [
     "uvicorn.lifespan",
     "uvicorn.lifespan.on",
     "pydantic.deprecated.decorator",
-    "qdrant_client",
-    "qdrant_client.local",
-    "qdrant_client.http",
-    "qdrant_client.http.models",
+    "sqlite_vec",
     "fastembed",
     "onnxruntime",
     "tokenizers",
 ]
 
-for package in ("onnxruntime", "tokenizers", "fastembed", "qdrant_client"):
+for package in ("onnxruntime", "tokenizers", "fastembed", "sqlite_vec"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(package)
     datas += pkg_datas
     binaries += pkg_binaries
     hiddenimports += pkg_hidden
 
 binaries += collect_dynamic_libs("onnxruntime")
+binaries += collect_dynamic_libs("sqlite_vec")
 
 a = Analysis(
     [str(_RUNTIME_SRC / "bootstrap" / "cli.py")],
@@ -69,6 +67,7 @@ a = Analysis(
         "IPython",
         "notebook",
         "tkinter",
+        "qdrant_client",
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

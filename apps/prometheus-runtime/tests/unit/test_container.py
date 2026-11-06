@@ -15,8 +15,8 @@ from adapters.outbound.fastembed.adapter import FastEmbedAdapter
 from adapters.outbound.fastembed.reranker import FastEmbedReranker
 from adapters.outbound.filesystem.data_dir import ensure_layout
 from adapters.outbound.ollama.adapter import OllamaLanguageModel
-from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.document_repository import SqliteDocumentRepository
+from adapters.outbound.sqlite.vector_index import SqliteVecVectorIndex
 from application.ports.embedder import Embedder
 from bootstrap.config import RuntimeSettings
 from bootstrap.container import Container
@@ -117,9 +117,9 @@ def test_default_vector_index_is_scoped_to_configured_vault(tmp_path: Path) -> N
 
     vector_index = container.vector_index
 
-    assert isinstance(vector_index, QdrantLocalVectorIndex)
-    assert (tmp_path / "vaults" / "vault-01" / "qdrant").is_dir()
-    vector_index.close()
+    assert isinstance(vector_index, SqliteVecVectorIndex)
+    assert (tmp_path / "vaults" / "vault-01" / "metadata.sqlite").exists()
+    container.close()
 
 
 def test_default_document_repository_is_scoped_to_configured_vault(

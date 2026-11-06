@@ -88,12 +88,25 @@ _MIGRATION_5 = (
     "ALTER TABLE chunks ADD COLUMN heading_occurrence INTEGER",
 )
 
+_MIGRATION_6 = (
+    "ALTER TABLE chunks ADD COLUMN content TEXT NOT NULL DEFAULT ''",
+    """
+    CREATE TABLE chunk_folder_ancestors (
+        chunk_id TEXT NOT NULL REFERENCES chunks (chunk_id) ON DELETE CASCADE,
+        folder TEXT NOT NULL,
+        PRIMARY KEY (chunk_id, folder)
+    )
+    """,
+    "CREATE INDEX chunk_folder_ancestors_folder_idx ON chunk_folder_ancestors (folder)",
+)
+
 MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (1, _MIGRATION_1),
     (2, _MIGRATION_2),
     (3, _MIGRATION_3),
     (4, _MIGRATION_4),
     (5, _MIGRATION_5),
+    (6, _MIGRATION_6),
 )
 
 LATEST_VERSION = MIGRATIONS[-1][0]

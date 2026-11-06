@@ -12,7 +12,7 @@ from application.dto.statistics import IndexStatistics
 
 
 class SqliteIndexStatisticsReader:
-    """Serve manifest aggregates plus an on-disk size walk, never touching Qdrant."""
+    """Serve manifest aggregates plus an on-disk size walk of the vault directory."""
 
     def __init__(self, connection: sqlite3.Connection, vault_dir: Path) -> None:
         self._connection = connection

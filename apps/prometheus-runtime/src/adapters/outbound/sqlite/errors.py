@@ -35,6 +35,13 @@ class LexicalIndexUnavailableError(PrometheusError):
     default_message = "Lexical search requires SQLite FTS5 support"
 
 
+class VectorExtensionUnavailableError(PrometheusError):
+    """Raised when the sqlite-vec extension cannot be loaded."""
+
+    code = "VECTOR_EXTENSION_UNAVAILABLE"
+    default_message = "Dense vector search requires the sqlite-vec SQLite extension"
+
+
 def wrap_driver_errors[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     """Translate ``sqlite3.Error`` into the stable :class:`MetadataStoreError`."""
 

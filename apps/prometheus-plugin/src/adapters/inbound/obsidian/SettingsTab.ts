@@ -260,7 +260,7 @@ export class SettingsTab extends PluginSettingTab {
       cls: "prometheus-settings__section-title",
     });
     const storage = containerEl.createDiv({ cls: "prometheus-settings__section" });
-    new Setting(storage).setName("Store").setDesc("Qdrant Local");
+    new Setting(storage).setName("Store").setDesc("SQLite (sqlite-vec)");
     new Setting(storage).setName("Path").setDesc(state.dataRootPath);
     const indexSize = state.service?.indexSizeBytes;
     new Setting(storage)

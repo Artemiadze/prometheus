@@ -7,7 +7,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from adapters.outbound.qdrant.adapter import QdrantLocalVectorIndex
 from adapters.outbound.sqlite.database import MetadataDatabase
 from application.dto.embedding import EmbeddingFingerprint
 from application.dto.index_fingerprint import IndexFingerprint
@@ -27,7 +26,7 @@ from domain.value_objects.vault_id import VaultId
 REBUILD_DIRNAME = "rebuild"
 PREVIOUS_DIRNAME = ".previous"
 PROMOTE_MARKER = ".promote.lock"
-_ACTIVE_NAMES = ("metadata.sqlite", "qdrant", "qdrant_metadata.json")
+_ACTIVE_NAMES = ("metadata.sqlite",)
 
 _PHASE_PREVIOUS = "previous"
 _PHASE_ACTIVE = "active"
@@ -175,8 +174,7 @@ class FilesystemIndexRebuildWorkspace:
         _remove_path(staging_dir)
         staging_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         database = MetadataDatabase(staging_dir)
-        vector_index = QdrantLocalVectorIndex(
-            vault_dir=staging_dir,
+        vector_index = database.vector_index(
             vault_id=self._vault_id,
             embedding_fingerprint=self._embedding,
         )

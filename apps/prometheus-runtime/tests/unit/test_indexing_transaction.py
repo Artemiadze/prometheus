@@ -1,4 +1,4 @@
-"""Tests for cross-store consistency between vectors and the manifest (PRM-39)."""
+"""Tests for single-transaction indexing between vectors and the manifest."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def _chunk(document: Document, text: str = "chunk text") -> Chunk:
     )
 
 
-def test_replace_document_index_writes_vectors_before_the_manifest() -> None:
+def test_replace_document_index_writes_vectors_and_manifest_in_one_uow() -> None:
     vector_index = FakeVectorIndex()
     repository = FakeDocumentRepository()
     unit_of_work = FakeUnitOfWork()
@@ -92,9 +92,10 @@ def test_replace_document_index_writes_vectors_before_the_manifest() -> None:
     assert state.indexed_at == indexed_at
     hits = vector_index.search((1.0, 0.0), limit=10)
     assert [hit.chunk for hit in hits] == [chunk]
+    assert unit_of_work.committed
 
 
-def test_replace_document_index_compensates_when_manifest_commit_fails() -> None:
+def test_replace_document_index_rolls_back_uow_when_manifest_fails() -> None:
     vector_index = FakeVectorIndex()
     repository = _FailingDocumentRepository()
     unit_of_work = FakeUnitOfWork()
@@ -112,9 +113,9 @@ def test_replace_document_index_compensates_when_manifest_commit_fails() -> None
             unit_of_work=unit_of_work,
         )
 
-    assert vector_index.search((1.0, 0.0), limit=10) == ()
     assert repository.get_state(document.id) is None
     assert unit_of_work.rolled_back
+    assert unit_of_work.entered
 
 
 def test_replace_document_index_deletes_only_stale_previous_chunk_ids() -> None:
@@ -205,10 +206,11 @@ def test_replace_document_index_leaves_manifest_untouched_when_vectors_fail() ->
         )
 
     assert repository.get_state(document.id) is None
-    assert not unit_of_work.entered
+    assert unit_of_work.entered
+    assert unit_of_work.rolled_back
 
 
-def test_remove_document_index_deletes_vectors_then_manifest() -> None:
+def test_remove_document_index_deletes_vectors_and_manifest() -> None:
     vector_index = FakeVectorIndex()
     repository = FakeDocumentRepository()
     unit_of_work = FakeUnitOfWork()

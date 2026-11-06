@@ -1,3 +1,4 @@
+import { RuntimeApiError } from "../../domain/errors";
 import type { JobInfo, VaultSnapshotEntry } from "../dto/rag";
 import type { Clock } from "../ports/Clock";
 import type { Notifier } from "../ports/Notifier";
@@ -105,6 +106,12 @@ export class SynchronizeVault {
               revision,
             });
           } catch (error) {
+            if (error instanceof RuntimeApiError && error.code === "INDEX_REBUILD_REQUIRED") {
+              this.notifier.warning(
+                "Index rebuild required — use Status → Reindex vault (incremental sync cannot update an incompatible index).",
+              );
+              return this.finishEarly(entries.length, failures, options);
+            }
             const message = error instanceof Error ? error.message : "upsert failed";
             failures.push({ path: file.path.value, message });
             this.notifier.warning(`Failed to index ${file.path.value}`);
@@ -160,5 +167,26 @@ export class SynchronizeVault {
     const job = await this.rag.getJob(jobId, signal);
     this.activeJobId = null;
     return job;
+  }
+
+  private finishEarly(
+    processed: number,
+    failures: readonly SyncVaultFileFailure[],
+    options: SynchronizeVaultOptions,
+  ): SyncVaultResult {
+    options.onProgress?.({
+      phase: "completed",
+      processed,
+      total: processed,
+    });
+    return {
+      job: {
+        jobId: "skipped-rebuild-required",
+        status: "completed",
+        progress: 1,
+        error: null,
+      },
+      failures,
+    };
   }
 }

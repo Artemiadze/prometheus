@@ -43,7 +43,7 @@ RAG-расширения для Obsidian. Архитектура основан�
 │  │      Prometheus Runtime      │────────────────────┐      │
 │  │                              │                    ▼      │
 │  │ Parser / Chunker / Retrieval │           ┌────────────┐  │
-│  │ FastEmbed / Qdrant Local     │           │   Ollama   │  │
+│  │ FastEmbed / sqlite-vec       │           │   Ollama   │  │
 │  └──────────────────────────────┘           │ Local LLM  │  │
 │                                             └────────────┘  │
 └─────────────────────────────────────────────────────────────┘
@@ -66,14 +66,14 @@ Adapters → Application → Domain
 
 - Domain не зависит от фреймворков и способов хранения.
 - Application зависит от Domain и абстрактных ports.
-- Adapters реализуют ports с помощью Obsidian API, FastAPI, Qdrant,
+- Adapters реализуют ports с помощью Obsidian API, FastAPI, SQLite/sqlite-vec,
   FastEmbed, Ollama и файловой системы.
 - Bootstrap связывает абстракции с конкретными реализациями.
 
 ### 3.2. Use cases вместо технологий
 
 Центром backend является не последовательность технологических сервисов
-`QdrantService → FastEmbedService → OllamaService`, а бизнес-сценарии:
+`VectorStoreService → FastEmbedService → OllamaService`, а бизнес-сценарии:
 
 ```text
 AnswerQuestion
@@ -87,7 +87,7 @@ AnswerQuestion
 
 ```text
 Embedder      ← FastEmbed
-VectorIndex   ← Qdrant Local
+VectorIndex   ← sqlite-vec (в metadata.sqlite)
 LanguageModel ← Ollama
 ```
 
@@ -285,7 +285,6 @@ apps/prometheus-runtime/
 │   │   │   ├── routes/
 │   │   │   └── schemas/
 │   │   └── outbound/
-│   │       ├── qdrant/
 │   │       ├── fastembed/
 │   │       ├── ollama/
 │   │       ├── markdown/
@@ -392,9 +391,7 @@ Heading-aware chunker
         ↓
 FastEmbed
         ↓
-Qdrant upsert
-        ↓
-SQLite manifest update
+sqlite-vec upsert + SQLite manifest/FTS update (одна транзакция)
 ```
 
 Операция индексации должна быть идемпотентной. Повторный запрос с тем же
@@ -431,7 +428,7 @@ Answer + sources
 `PROMETHEUS_RETRIEVAL_MODE` (`dense` | `hybrid`, по умолчанию `dense`).
 
 ```text
-                 ┌─ Dense search (Qdrant)
+                 ┌─ Dense search (sqlite-vec)
 Query ───────────┤
                  └─ BM25 lexical search (SQLite FTS5)   [только hybrid]
                           ↓
@@ -460,7 +457,7 @@ Parser/chunker/payload schema version = 3; смена версии требуе�
 Игнорируемые папки Vault хранятся в SQLite (`vault_ignored_folders`), задаются
 плагином через `GET/PUT /v1/vaults/{vaultId}/settings/ignored-folders`.
 `.obsidian/` исключается всегда. Такие пути не индексируются; при поиске
-исключение применяется фильтрами Qdrant (`must_not` по `folder_ancestors`) и FTS5,
+исключение применяется SQL-фильтрами по `chunk_folder_ancestors` и FTS5,
 а не постобработкой результатов.
 
 Один и тот же retrieval use case должен использоваться как Chat, так и обычным
@@ -537,8 +534,7 @@ prometheus/
 │   └── embeddings/
 ├── vaults/
 │   └── <vault-id>/
-│       ├── metadata.sqlite
-│       └── qdrant/
+│       └── metadata.sqlite
 ├── state/
 │   └── runtime.json
 └── logs/
@@ -547,9 +543,9 @@ prometheus/
 Распределение данных:
 
 - Vault хранит исходные Markdown-файлы;
-- SQLite хранит документы, revisions, hashes, jobs и состояние индексации;
+- SQLite хранит документы, revisions, hashes, jobs, состояние индексации и текст chunks;
 - SQLite FTS5 (`chunks_fts` в `metadata.sqlite`) хранит lexical BM25-индекс по тексту chunks;
-- Qdrant хранит vectors и поисковый payload chunks;
+- sqlite-vec (`chunk_vectors` в `metadata.sqlite`) хранит dense embeddings;
 - plugin `data.json` хранит только настройки UI и runtime;
 - история чата в MVP не сохраняется;
 - в будущем история может сохраняться только через явную opt-in настройку.
@@ -638,7 +634,7 @@ Managed binary размещается вне Vault. Custom path остаётся
 - domain errors — нарушенные инварианты;
 - application errors — недостаточный контекст, конфликт revision, индекс не
   готов;
-- adapter errors — Ollama недоступна, Qdrant повреждён, модель отсутствует;
+- adapter errors — Ollama недоступна, vector index повреждён, модель отсутствует;
 - presentation errors — безопасное сообщение для пользователя.
 
 HTTP adapter преобразует внутреннюю ошибку в стабильный код:
@@ -661,9 +657,9 @@ runtime, выбрать установленную модель, повтори�
 
 ### Backend
 
-- unit tests Domain и use cases без FastAPI, Qdrant и Ollama;
+- unit tests Domain и use cases без FastAPI, sqlite-vec и Ollama;
 - fake implementations application ports;
-- integration tests Qdrant Local, SQLite, FastEmbed и Ollama adapter;
+- integration tests sqlite-vec/SQLite, FastEmbed и Ollama adapter;
 - OpenAPI contract tests;
 - end-to-end tests indexing → search → answer;
 - migration и index compatibility tests.
@@ -697,7 +693,7 @@ runtime, выбрать установленную модель, повтори�
 2. Plugin UI и управление managed/custom runtime.
 3. Document synchronization и инкрементальная индексация.
 4. Markdown-aware chunking.
-5. FastEmbed и Qdrant Local adapters.
+5. FastEmbed и sqlite-vec adapters.
 6. Dense semantic search.
 7. Ollama adapter и grounded answers.
 8. Переход к заметкам-источникам.
@@ -727,7 +723,7 @@ runtime, выбрать установленную модель, повтори�
 4. Ports находятся в Application Layer.
 5. Vault является источником истины, индекс можно полностью восстановить.
 6. Plugin читает Vault, Runtime не обходит его файловую систему.
-7. SQLite хранит manifest, Qdrant — vector index.
+7. SQLite хранит manifest, FTS5 и dense vector index (sqlite-vec).
 8. Любая операция с данными выполняется в контексте конкретного Vault.
 9. LLM является заменяемым output adapter, а не основой архитектуры.
 10. Retrieval используется совместно Semantic Search и Chat.

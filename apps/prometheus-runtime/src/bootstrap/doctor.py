@@ -224,18 +224,35 @@ def check_index(data_dir: Path) -> DoctorCheck:
         )
 
     problems: list[str] = []
+    warnings: list[str] = []
     ready = 0
     for vault_dir in sorted(vault_dirs):
-        metadata = vault_dir / "qdrant_metadata.json"
-        storage = vault_dir / "qdrant"
-        has_meta = metadata.is_file()
-        has_storage = storage.is_dir() and any(storage.iterdir())
-        if has_meta and not has_storage:
-            problems.append(f"{vault_dir.name}: metadata without qdrant storage")
-        elif has_storage and not has_meta:
-            problems.append(f"{vault_dir.name}: qdrant storage without metadata")
-        elif has_meta and has_storage:
-            ready += 1
+        sqlite_path = vault_dir / "metadata.sqlite"
+        legacy_qdrant = vault_dir / "qdrant"
+        legacy_meta = vault_dir / "qdrant_metadata.json"
+        if legacy_qdrant.exists() or legacy_meta.exists():
+            warnings.append(f"{vault_dir.name}: legacy Qdrant files present (delete and reindex)")
+        if not sqlite_path.is_file():
+            continue
+        try:
+            import sqlite3
+
+            from adapters.outbound.sqlite.connection import load_sqlite_vec
+
+            connection = sqlite3.connect(f"file:{sqlite_path}?mode=ro", uri=True)
+            try:
+                load_sqlite_vec(connection)
+                row = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'chunk_vectors'"
+                ).fetchone()
+                if row is None:
+                    problems.append(f"{vault_dir.name}: metadata.sqlite missing chunk_vectors")
+                else:
+                    ready += 1
+            finally:
+                connection.close()
+        except Exception as error:
+            problems.append(f"{vault_dir.name}: cannot open metadata.sqlite ({error})")
 
     if problems:
         return DoctorCheck(
@@ -245,11 +262,21 @@ def check_index(data_dir: Path) -> DoctorCheck:
             recommendation="Run a full reindex from the plugin Status view.",
         )
     if ready == 0:
+        message = f"Found {len(vault_dirs)} vault dir(s) but none look indexed"
+        if warnings:
+            message += "; " + "; ".join(warnings)
         return DoctorCheck(
             name="index",
             status=CheckStatus.WARN,
-            message=f"Found {len(vault_dirs)} vault dir(s) but none look indexed",
+            message=message,
             recommendation="Run a full sync/index from the plugin.",
+        )
+    if warnings:
+        return DoctorCheck(
+            name="index",
+            status=CheckStatus.WARN,
+            message=f"{ready} vault index(es) look present; " + "; ".join(warnings),
+            recommendation="Remove legacy qdrant/ directories and run a full reindex.",
         )
     return DoctorCheck(
         name="index",

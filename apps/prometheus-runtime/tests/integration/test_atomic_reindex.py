@@ -185,7 +185,7 @@ def test_crash_after_moving_active_to_previous_is_recoverable(tmp_path: Path) ->
     vault_path = vault_dir(ensure_layout(tmp_path), VAULT.value)
     previous = vault_path / PREVIOUS_DIRNAME
     previous.mkdir(mode=0o700)
-    for name in ("metadata.sqlite", "qdrant", "qdrant_metadata.json"):
+    for name in ("metadata.sqlite",):
         source = vault_path / name
         if source.exists():
             source.rename(previous / name)

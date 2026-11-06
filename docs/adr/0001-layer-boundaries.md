@@ -23,7 +23,7 @@ types owned by `application`; adapter-specific request and response types do not
 that boundary. `adapters` implement ports, and `bootstrap` is the only composition root.
 
 Import Linter enforces both the layer order and explicit bans on FastAPI, Uvicorn,
-HTTPX, FastEmbed, Qdrant Client, and pydantic-settings in inner layers. The `make arch`
+HTTPX, FastEmbed, sqlite drivers/extensions, and pydantic-settings in inner layers. The `make arch`
 target runs these contracts locally and in CI.
 
 ## Consequences

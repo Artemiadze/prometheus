@@ -1,4 +1,4 @@
-"""SQLite-backed manifest repository (documents + chunks, never note text)."""
+"""SQLite-backed manifest repository (documents + chunks including chunk text)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,17 @@ from domain.entities.document import Document
 from domain.value_objects.chunk_id import ChunkId
 from domain.value_objects.document_id import DocumentId
 from domain.value_objects.relative_path import RelativePath
+
+
+def folder_ancestors(path: RelativePath) -> list[str]:
+    """Return parent folder paths from nearest to root (same order as legacy Qdrant payload)."""
+
+    ancestors: list[str] = []
+    current = path.parent
+    while current is not None:
+        ancestors.append(current.value)
+        current = current.parent
+    return ancestors
 
 
 class SqliteDocumentRepository:
@@ -117,8 +128,8 @@ class SqliteDocumentRepository:
             INSERT INTO chunks (
                 chunk_id, document_id, chunk_index, heading_path,
                 char_start, char_end, token_count, content_hash,
-                heading_line, heading_occurrence
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                heading_line, heading_occurrence, content
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -132,10 +143,20 @@ class SqliteDocumentRepository:
                     chunk.content_hash,
                     chunk.heading_line,
                     chunk.heading_occurrence,
+                    chunk.text,
                 )
                 for chunk in chunks
             ],
         )
+        ancestors = folder_ancestors(document.relative_path)
+        if chunks and ancestors:
+            self._connection.executemany(
+                """
+                INSERT INTO chunk_folder_ancestors (chunk_id, folder)
+                VALUES (?, ?)
+                """,
+                [(chunk.id.value, folder) for chunk in chunks for folder in ancestors],
+            )
 
     @wrap_driver_errors
     def update_path(
@@ -147,6 +168,28 @@ class SqliteDocumentRepository:
             "UPDATE documents SET relative_path = ? WHERE document_id = ?",
             (relative_path.value, document_id.value),
         )
+        chunk_ids = [
+            row["chunk_id"]
+            for row in self._connection.execute(
+                "SELECT chunk_id FROM chunks WHERE document_id = ?",
+                (document_id.value,),
+            ).fetchall()
+        ]
+        if not chunk_ids:
+            return
+        self._connection.executemany(
+            "DELETE FROM chunk_folder_ancestors WHERE chunk_id = ?",
+            [(chunk_id,) for chunk_id in chunk_ids],
+        )
+        ancestors = folder_ancestors(relative_path)
+        if ancestors:
+            self._connection.executemany(
+                """
+                INSERT INTO chunk_folder_ancestors (chunk_id, folder)
+                VALUES (?, ?)
+                """,
+                [(chunk_id, folder) for chunk_id in chunk_ids for folder in ancestors],
+            )
 
     @wrap_driver_errors
     def delete(self, document_id: DocumentId) -> None:
