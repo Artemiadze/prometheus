@@ -32,7 +32,8 @@ export class SettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("prometheus-settings");
 
-    new Setting(containerEl).setName("Prometheus Settings").setHeading();
+    // No top-level heading: Obsidian already shows the plugin name in the sidebar,
+    // and directory review forbids "settings" / plugin name in Setting headings.
 
     if (state.actionError) {
       containerEl.createDiv({
