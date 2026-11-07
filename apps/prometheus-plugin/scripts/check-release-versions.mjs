@@ -14,7 +14,7 @@ function readTomlVersion(path) {
   const text = readFileSync(path, "utf8");
   const match = text.match(/^version\s*=\s*"([^"]+)"/m);
   if (!match) {
-    throw new Error(`version not found in ${path}`); 
+    throw new Error(`version not found in ${path}`);
   }
   return match[1];
 }
@@ -69,7 +69,7 @@ if (manifest.minAppVersion !== "1.5.0") {
 if (!manifest.author || !manifest.authorUrl) {
   console.error("manifest.json must set author and authorUrl for release");
   process.exit(1);
-} 
+}
 
 if (manifest.id !== "prometheus") {
   console.error(`manifest id mismatch: ${manifest.id}`);
