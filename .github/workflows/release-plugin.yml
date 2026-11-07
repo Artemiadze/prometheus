@@ -1,0 +1,81 @@
+name: Release Plugin
+
+# Obsidian Community Plugin tags = manifest version (no "v" prefix).
+# Runtime releases stay on v* via release-runtime.yml.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/prometheus-plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/prometheus-plugin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches manifest version
+        working-directory: .
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          MANIFEST_VERSION="$(python3 -c "import json; print(json.load(open('apps/prometheus-plugin/manifest.json'))['version'])")"
+          ROOT_VERSION="$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")"
+          test "$TAG" = "$MANIFEST_VERSION"
+          test "$TAG" = "$ROOT_VERSION"
+          echo "tag=${TAG} matches plugin and root manifests"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check production bundle
+        run: node scripts/check-prod-bundle.mjs
+
+      - name: Sync root manifest for the Obsidian directory
+        working-directory: .
+        run: cp apps/prometheus-plugin/manifest.json manifest.json
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          gh release create "$tag" \
+            --title="$tag" \
+            --notes "Prometheus Obsidian plugin ${tag}.
+
+          Install assets for Community Plugins / manual install:
+          - \`main.js\`
+          - \`manifest.json\`
+          - \`styles.css\`
+
+          Managed runtime binaries are on tag \`v${tag}\` (see Release Runtime)." \
+            "apps/prometheus-plugin/main.js" \
+            "apps/prometheus-plugin/manifest.json" \
+            "apps/prometheus-plugin/styles.css"

@@ -31,6 +31,8 @@ function readTsExport(path, name) {
 const expected = "0.1.0";
 const packageJson = readJson(join(packageRoot, "package.json"));
 const manifest = readJson(join(packageRoot, "manifest.json"));
+const rootManifest = readJson(join(repoRoot, "manifest.json"));
+const versionsJson = readJson(join(repoRoot, "versions.json"));
 const runtimeVersion = readTomlVersion(join(repoRoot, "apps/prometheus-runtime/pyproject.toml"));
 const runtimeReleaseVersion = readTsExport(
   join(packageRoot, "src/adapters/outbound/runtime/runtimeRelease.ts"),
@@ -43,7 +45,8 @@ const requiredRange = readTsExport(
 
 const checks = [
   ["package.json", packageJson.version],
-  ["manifest.json", manifest.version],
+  ["apps/.../manifest.json", manifest.version],
+  ["root manifest.json", rootManifest.version],
   ["prometheus-runtime pyproject.toml", runtimeVersion],
   ["RUNTIME_RELEASE_VERSION", runtimeReleaseVersion],
 ];
@@ -73,6 +76,18 @@ if (!manifest.author || !manifest.authorUrl) {
 
 if (manifest.id !== "prometheus") {
   console.error(`manifest id mismatch: ${manifest.id}`);
+  process.exit(1);
+}
+
+if (JSON.stringify(rootManifest) !== JSON.stringify(manifest)) {
+  console.error("root manifest.json must match apps/prometheus-plugin/manifest.json");
+  process.exit(1);
+}
+
+if (versionsJson[expected] !== manifest.minAppVersion) {
+  console.error(
+    `versions.json mismatch: versions["${expected}"]=${versionsJson[expected]} expected=${manifest.minAppVersion}`,
+  );
   process.exit(1);
 }
 
