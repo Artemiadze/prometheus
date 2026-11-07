@@ -2,14 +2,19 @@ import { isRuntimeVersionCompatible } from "../../../application/services/Runtim
 
 /**
  * Release artifact policy for the managed runtime downloader.
- * Final release host is owned by PRM-77 / PLG-87; this base URL is a placeholder.
+ *
+ * Production assets are published by `.github/workflows/release-runtime.yml` to
+ * GitHub Releases. URLs resolve as:
+ *   `{BASE}/v{VERSION}/{fileName}`
+ *   `{BASE}/v{VERSION}/{fileName}.sha256`
  *
  * Override for local mirrors / private hosts:
  *   PROMETHEUS_RUNTIME_RELEASE_BASE_URL=http://127.0.0.1:8766/runtime
  *
  * Assumption: each platform publishes a single executable file (no archive extraction).
  */
-export const RUNTIME_RELEASE_BASE_URL = "https://releases.prometheus.local/runtime";
+export const RUNTIME_RELEASE_BASE_URL =
+  "https://github.com/Artemiadze/prometheus/releases/download";
 
 /** Must stay within REQUIRED_RUNTIME_RANGE; validated in unit tests. */
 export const RUNTIME_RELEASE_VERSION = "0.1.0";

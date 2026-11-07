@@ -26,6 +26,19 @@ describe("runtimeRelease", () => {
     expect(descriptor.checksumUrl).toContain(".sha256");
   });
 
+  it("uses GitHub Releases download base by default", () => {
+    const descriptor = resolveReleaseDescriptor("linux", "x64");
+    expect(descriptor.binaryUrl).toBe(
+      "https://github.com/Artemiadze/prometheus/releases/download/v0.1.0/prometheus-runtime-linux-x64",
+    );
+    expect(descriptor.checksumUrl).toBe(
+      "https://github.com/Artemiadze/prometheus/releases/download/v0.1.0/prometheus-runtime-linux-x64.sha256",
+    );
+    expect(RUNTIME_RELEASE_BASE_URL).toBe(
+      "https://github.com/Artemiadze/prometheus/releases/download",
+    );
+  });
+
   it("allows PROMETHEUS_RUNTIME_RELEASE_BASE_URL override", () => {
     expect(resolveReleaseBaseUrl({})).toBe(RUNTIME_RELEASE_BASE_URL.replace(/\/$/, ""));
     expect(

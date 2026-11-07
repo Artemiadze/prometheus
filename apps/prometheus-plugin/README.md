@@ -28,8 +28,12 @@ If `TEST_VAULT` is unset, watch mode still rebuilds `main.js` and prints a warni
 
 ## Local Obsidian testing (manual)
 
-Until Community Plugin / GitHub release hosting is wired (PLG-E16 / PRM-77), install
-the frozen runtime yourself and load the plugin from a vault folder.
+Until a `v0.1.0` GitHub Release with runtime assets exists, install the frozen
+runtime yourself (or point
+`PROMETHEUS_RUNTIME_RELEASE_BASE_URL` at a local mirror) and load the plugin
+from a vault folder. Production downloads use:
+
+`https://github.com/Artemiadze/prometheus/releases/download/v{VERSION}/…`
 
 ### 1. Ollama
 
