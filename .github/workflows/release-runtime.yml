@@ -18,7 +18,8 @@ jobs:
             target: linux-x64
           - os: windows-latest
             target: win-x64
-          - os: macos-13
+          # macos-13 was retired Dec 2025; macos-15-intel is the Intel replacement (until ~Fall 2027).
+          - os: macos-15-intel
             target: macos-x64
           - os: macos-14
             target: macos-arm64
