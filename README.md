@@ -123,6 +123,7 @@ Yes. Advanced and development setups can point the plugin at a custom `prometheu
 
 ## Documentation
 
+- **Site:** [artemiadze.github.io/prometheus](https://artemiadze.github.io/prometheus/) ([source](./website/))
 - [Architecture](./docs/Architecture.md)
 - [Project analytics / requirements](./docs/Project_analytics.md)
 - [Plugin development notes](./apps/prometheus-plugin/README.md)

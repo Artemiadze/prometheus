@@ -122,6 +122,7 @@ Prometheus не должен дописывать ответ из общих з�
 
 ## Документация
 
+- **Сайт:** [artemiadze.github.io/prometheus](https://artemiadze.github.io/prometheus/) ([исходники](./website/))
 - [Архитектура](./docs/Architecture.md)
 - [Аналитика / требования](./docs/Project_analytics.md)
 - [Заметки по разработке плагина](./apps/prometheus-plugin/README.md)

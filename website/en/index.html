@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Prometheus — a local AI assistant for Obsidian: semantic search over your notes, grounded answers with sources, no cloud APIs.">
+  <title>Prometheus — local AI for Obsidian</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="../index.html">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="x-default" href="../index.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Primary">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu">Menu</button>
+      <div class="nav-links" data-nav-links>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#privacy">Privacy</a>
+        <a href="how-it-works.html">Docs</a>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <a href="../index.html" hreflang="ru" lang="ru">RU</a>
+          <a class="is-active" href="index.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero reveal">
+    <div class="wrap">
+      <div class="hero-logo">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M32 6c2.4 7.6-.4 12.8-4.8 17.6-3.2 3.4-6.8 6.4-6.8 12.2 0 8.4 6.2 14.2 11.6 14.2 2.2 0 4.2-.6 5.8-1.8-.4 3-.2 5.6.8 7.8 7.6-3 12.6-10.2 12.6-18.4 0-9.6-6.4-15.6-10.2-20.8C37.6 12.4 34.8 9.2 32 6z" fill="currentColor"/>
+          <path d="M30.4 28.4c1.4 3.8-.2 6.4-2.4 8.6-1.6 1.6-3.2 3-3.2 5.8 0 4.2 3 7 5.8 7 .8 0 1.6-.2 2.2-.6-.2 1.4 0 2.6.4 3.8 3.8-1.6 6.2-5.2 6.2-9.4 0-4.8-3.2-7.8-5.2-10.6-1.4-1.8-2.8-3.4-3.8-4.6z" fill="#7dd3fc"/>
+          <path d="M31.2 38.4c.6 1.8 0 3-1 4-.8.8-1.6 1.4-1.6 2.6 0 2 1.4 3.2 2.8 3.2.4 0 .8 0 1-.2 0 .6 0 1.2.2 1.8 1.8-.8 3-2.4 3-4.4 0-2.2-1.6-3.6-2.6-5-.6-.8-1.4-1.6-1.8-2z" fill="#4ade80"/>
+        </svg>
+        <div class="wordmark">Prometheus</div>
+      </div>
+      <p class="slogan">Your notes. Your models. Your machine.</p>
+      <h1>AI chat over your Obsidian vault — <span class="accent">local only</span>.</h1>
+      <p class="lede">
+        Ask questions in natural language. Prometheus searches your notes by meaning,
+        answers only from what it finds, and shows the sources — with no cloud LLM or embedding APIs.
+      </p>
+      <p class="aside-note">Community Plugin + local sidecar Runtime + Ollama. Desktop only.</p>
+      <div class="hero-cta">
+        <a class="btn btn-green" href="setup.html">Get started</a>
+        <a class="btn btn-ghost" href="how-it-works.html">How it works</a>
+      </div>
+      <div class="pill-row">
+        <span class="pill"><span class="dot" aria-hidden="true"></span> Local First</span>
+        <span class="pill">Offline First</span>
+        <span class="pill">Apache-2.0</span>
+        <span class="pill">Ollama</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="section section-alt" id="features">
+    <div class="wrap reveal">
+      <p class="eyebrow">Capabilities</p>
+      <h2 class="h">One plugin — full local RAG</h2>
+      <p class="sub">
+        UI in Obsidian, heavy work in the managed Runtime, generation through your Ollama model.
+        Everything stays on your machine.
+      </p>
+      <div class="feature-grid">
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          </div>
+          <h3>Grounded chat</h3>
+          <p>Answers only from retrieved vault chunks. If context is thin, Prometheus says so instead of inventing facts.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </div>
+          <h3>Semantic search</h3>
+          <p>Find notes by meaning, not only exact keywords. Retrieval works without generating a full chat reply.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7h10M7 12h7M7 17h10"/><path d="M4 4h16v16H4z"/></svg>
+          </div>
+          <h3>Cited sources</h3>
+          <p>Every answer links back to notes and headings. Open the source in Obsidian and verify it yourself.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg>
+          </div>
+          <h3>Automatic indexing</h3>
+          <p>Markdown is chunked and embedded locally. Later edits update the index incrementally.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/></svg>
+          </div>
+          <h3>Note context</h3>
+          <p>Add specific notes to the prompt with the <code>/</code> picker when you need tighter context.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+          </div>
+          <h3>Search scopes</h3>
+          <p>UI scopes: Auto, whole Vault, current note, or current folder — narrow retrieval to the task.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+          <h3>Streaming &amp; cancel</h3>
+          <p>Answers stream in. Cancel generation, restart the runtime, or reindex the vault when needed.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z"/></svg>
+          </div>
+          <h3>Managed Runtime</h3>
+          <p>The plugin downloads and runs the sidecar outside the vault, verifies checksum and version — or point it at your own binary.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+          </div>
+          <h3>Any Ollama model</h3>
+          <p>Pick any local model you already have installed. Prometheus is not locked to a single LLM.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-dots" id="look">
+    <div class="wrap reveal center">
+      <p class="eyebrow">Interface</p>
+      <h2 class="h">Obsidian chat with cited sources</h2>
+      <p class="sub">Ask about Git, architecture, or your own notes — the answer is grounded in the vault, not the model’s general knowledge.</p>
+      <figure class="shot-frame">
+        <img src="../assets/img/main-screen.png" width="1853" height="1056" alt="Prometheus chat answering a question from vault notes with cited sources">
+      </figure>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="how">
+    <div class="wrap reveal">
+      <p class="eyebrow">How it works</p>
+      <h2 class="h">From question to cited answer</h2>
+      <p class="sub">Three local processes: a thin Obsidian plugin, Prometheus Runtime, and Ollama.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <h3>Semantic search</h3>
+            <p>Runtime embeds the query and retrieves relevant chunks from sqlite-vec (optional hybrid + rerank).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <h3>Grounded prompt</h3>
+            <p>Only retrieved fragments enter the context. Grounding policy forbids filling gaps from model trivia.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <h3>Local generation</h3>
+            <p>Ollama generates on localhost. The plugin streams the text and shows sources you can open.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline" aria-label="Architecture diagram">
+        <pre><span class="dim">Obsidian Community Plugin</span>  <span class="hi">(TypeScript UI)</span>
+            │  127.0.0.1
+            ▼
+<span class="hot">Prometheus Runtime</span>  <span class="dim">chunking · FastEmbed · sqlite-vec · retrieval</span>
+            │  localhost
+            ▼
+         <span class="hi">Ollama</span> → local LLM
+            │
+            ▼
+     Answer + note sources</pre>
+      </div>
+
+      <p style="margin-top: 22px;">
+        <a class="btn btn-garnet" href="how-it-works.html">Full architecture walkthrough</a>
+      </p>
+    </div>
+  </section>
+
+  <section class="section" id="privacy">
+    <div class="wrap reveal">
+      <p class="eyebrow">Privacy</p>
+      <h2 class="h">After setup, Wi‑Fi can stay off</h2>
+      <p class="sub">Base mode uses no cloud LLMs, cloud embeddings, or third-party note uploads.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Stays on your device</th>
+              <th>Not used in base mode</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="ok">Vault Markdown</td>
+              <td class="no">Cloud LLM APIs</td>
+            </tr>
+            <tr>
+              <td class="ok">Embeddings &amp; vector index</td>
+              <td class="no">Cloud embedding APIs</td>
+            </tr>
+            <tr>
+              <td class="ok">Chat prompts &amp; answers</td>
+              <td class="no">Third-party note upload</td>
+            </tr>
+            <tr>
+              <td class="ok">Ollama model weights</td>
+              <td class="no">Hosted “Prometheus cloud”</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt" id="docs">
+    <div class="wrap reveal">
+      <p class="eyebrow">Documentation</p>
+      <h2 class="h">Features and setup in depth</h2>
+      <p class="sub">From quick install to RAG pipeline details and FAQ.</p>
+      <div class="doc-grid">
+        <a class="doc-card" href="setup.html">
+          <h3>Setup</h3>
+          <p>Ollama, plugin, managed Runtime, Ready status, and your first question.</p>
+        </a>
+        <a class="doc-card" href="how-it-works.html">
+          <h3>How it works</h3>
+          <p>Process architecture, indexing, retrieval, and grounded generation.</p>
+        </a>
+        <a class="doc-card" href="features.html">
+          <h3>Features</h3>
+          <p>Chat, Search, scopes, Settings, Status, diagnostics, and 0.1 boundaries.</p>
+        </a>
+        <a class="doc-card" href="faq.html">
+          <h3>FAQ</h3>
+          <p>Offline use, mobile, cloud, custom binary, and “not in my notes”.</p>
+        </a>
+      </div>
+
+      <div class="cta-band">
+        <h2 class="h">Prometheus is yours.</h2>
+        <p class="sub">Open source, Apache-2.0. No sales team, no demo request.</p>
+        <div class="cta-actions">
+          <a class="btn btn-green" href="setup.html">Install</a>
+          <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub repository</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span>
+        <a href="https://github.com/Artemiadze/prometheus">GitHub</a>
+        ·
+        <a href="faq.html">FAQ</a>
+        ·
+        <a href="https://github.com/Artemiadze/prometheus/blob/main/LICENSE">Apache-2.0</a>
+      </span>
+    </div>
+  </footer>
+
+  <script src="../assets/js/site.js"></script>
+</body>
+</html>

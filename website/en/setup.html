@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Install Prometheus: Ollama, Community Plugin, managed Runtime, and your first vault question.">
+  <title>Setup — Prometheus</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="../setup.html">
+  <link rel="alternate" hreflang="en" href="setup.html">
+  <link rel="alternate" hreflang="x-default" href="../setup.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Primary">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu">Menu</button>
+      <div class="nav-links" data-nav-links>
+        <a href="index.html#features">Features</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="features.html">Features guide</a>
+        <a class="is-active" href="setup.html">Setup</a>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <a href="../setup.html" hreflang="ru" lang="ru">RU</a>
+          <a class="is-active" href="setup.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-side" aria-label="Documentation">
+      <h2>Docs</h2>
+      <a href="how-it-works.html">How it works</a>
+      <a href="features.html">Features</a>
+      <a class="is-active" href="setup.html">Setup</a>
+      <a href="faq.html">FAQ</a>
+      <a href="index.html">← Home</a>
+    </aside>
+
+    <main class="docs-main">
+      <h1>Setup</h1>
+      <p class="docs-lead">
+        Five steps to your first grounded answer over your notes. Prometheus is
+        desktop-only: you need Obsidian on a computer, not the mobile apps.
+      </p>
+
+      <h2>1. Install Ollama and a model</h2>
+      <p>
+        Download and install <a href="https://ollama.com" rel="noopener">Ollama</a>.
+        For ordinary laptops we recommend:
+      </p>
+      <pre><code>ollama pull qwen3:4b-instruct-2507-q4_K_M</code></pre>
+      <p>
+        Any other installed model works too — pick it later in Chat / Settings.
+      </p>
+
+      <h2>2. Install the Prometheus plugin</h2>
+      <ul>
+        <li><strong>Community Plugins</strong> — find <code>Prometheus</code> in the Obsidian catalog (once the release is published);</li>
+        <li>or install from a GitHub release / local build
+          (<code>main.js</code>, <code>manifest.json</code>, <code>styles.css</code>).</li>
+      </ul>
+      <div class="callout callout-warn">
+        <strong>Do not</strong> put the Runtime binary, models, or vector index inside the vault
+        or <code>.obsidian/plugins</code> — they must stay out of Sync and Git.
+      </div>
+
+      <h2>3. Install Prometheus Runtime</h2>
+      <p>
+        On first setup, let the plugin download the managed binary
+        <strong>outside the vault</strong>. The plugin verifies version and checksum.
+      </p>
+      <p>
+        Advanced / dev: in Settings → Runtime choose <strong>Custom binary</strong>
+        and set an absolute path to your <code>prometheus-runtime</code>.
+      </p>
+
+      <h2>4. Open chat</h2>
+      <ul>
+        <li>ribbon icon;</li>
+        <li>or Command Palette → <em>Open Prometheus Chat</em>.</li>
+      </ul>
+      <p>Re-run the onboarding wizard from the Command Palette if you need it again.</p>
+
+      <h2>5. Wait for Ready and ask</h2>
+      <p>
+        The status bar should show <strong>Prometheus: Ready</strong>.
+        The first vault index can take a while — that is expected.
+      </p>
+      <p>Example questions:</p>
+      <ul>
+        <li>“How do I create a branch, switch to it, and push?”</li>
+        <li>“Where did I describe the release process?”</li>
+        <li>“Summarize this architecture note” (with Current note scope).</li>
+      </ul>
+
+      <h2>After setup</h2>
+      <ul>
+        <li>You can go offline: chat and search stay local.</li>
+        <li>Note edits update the index incrementally.</li>
+        <li>If something breaks, open Status / Diagnostics and Restart runtime or Reindex vault.</li>
+      </ul>
+
+      <div class="cta-band" style="margin-top: 36px;">
+        <h2 class="h">Want the architecture next?</h2>
+        <p class="sub">Process layout, indexing, and grounding are on the next page.</p>
+        <div class="cta-actions">
+          <a class="btn btn-green" href="how-it-works.html">How it works</a>
+          <a class="btn btn-ghost" href="faq.html">FAQ</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span><a href="index.html">Home</a> · <a href="faq.html">FAQ</a></span>
+    </div>
+  </footer>
+  <script src="../assets/js/site.js"></script>
+</body>
+</html>

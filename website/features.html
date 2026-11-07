@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Функционал Prometheus 0.1: Chat, Search, scopes, Settings, Status, diagnostics и границы релиза.">
+  <title>Функционал — Prometheus</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="features.html">
+  <link rel="alternate" hreflang="en" href="en/features.html">
+  <link rel="alternate" hreflang="x-default" href="features.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Основная навигация">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Меню">Меню</button>
+      <div class="nav-links" data-nav-links>
+        <a href="index.html#features">Функции</a>
+        <a href="how-it-works.html">Как работает</a>
+        <a class="is-active" href="features.html">Функционал</a>
+        <a href="setup.html">Установка</a>
+        <div class="lang-switch" role="group" aria-label="Язык">
+          <a class="is-active" href="features.html" hreflang="ru" lang="ru">RU</a>
+          <a href="en/features.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-side" aria-label="Разделы документации">
+      <h2>Документация</h2>
+      <a href="how-it-works.html">Как работает</a>
+      <a class="is-active" href="features.html">Функционал</a>
+      <a href="setup.html">Установка</a>
+      <a href="faq.html">FAQ</a>
+      <a href="index.html">← На главную</a>
+    </aside>
+
+    <main class="docs-main">
+      <h1>Функционал</h1>
+      <p class="docs-lead">
+        Ниже — продуктовые возможности релиза <strong>0.1</strong>: что есть в UI,
+        как этим пользоваться и что сознательно оставлено на потом.
+      </p>
+
+      <h2>Chat</h2>
+      <ul>
+        <li>Многоходовый чат с локальной LLM через Ollama.</li>
+        <li>Стриминг ответа и возможность отменить генерацию.</li>
+        <li>Цитирование источников: переход к заметке / heading в Obsidian.</li>
+        <li>Выбор модели из уже установленных в Ollama.</li>
+        <li>Добавление конкретных заметок в контекст через <code>/</code> note picker.</li>
+        <li>Несколько вкладок чата в панели плагина.</li>
+      </ul>
+      <div class="callout">
+        История чата в 0.1 хранится в памяти сессии и не персистится между перезапусками Obsidian.
+      </div>
+
+      <h2>Search</h2>
+      <ul>
+        <li>Отдельная панель семантического поиска без обязательного вызова LLM.</li>
+        <li>Результаты — релевантные фрагменты с оценкой и навигацией в заметку.</li>
+        <li>Тот же retrieval pipeline, что и у Chat (dense; опционально hybrid / rerank).</li>
+      </ul>
+
+      <h2>Области поиска (scopes)</h2>
+      <p>В UI доступны:</p>
+      <ul>
+        <li><strong>Auto</strong> — разумный выбор области по контексту работы;</li>
+        <li><strong>Vault</strong> — весь хранилище;</li>
+        <li><strong>Current note</strong> — только активная заметка;</li>
+        <li><strong>Current folder</strong> — папка текущей заметки.</li>
+      </ul>
+      <p>
+        Scope <code>selected_folders</code> есть на уровне API/domain, но отдельного UI
+        выбора нескольких папок в 0.1 нет.
+      </p>
+
+      <h2>Status</h2>
+      <ul>
+        <li>Статус runtime и индексации в отдельной панели и в status bar Obsidian.</li>
+        <li>Состояние <strong>Prometheus: Ready</strong> означает, что можно задавать вопросы.</li>
+        <li>Команды перезапуска runtime и полной переиндексации vault.</li>
+      </ul>
+
+      <h2>Settings</h2>
+      <h3>Runtime</h3>
+      <ul>
+        <li>Режим <strong>Managed</strong> — плагин скачивает binary с checksum и управляет процессом.</li>
+        <li>Режим <strong>Custom binary</strong> — свой путь к <code>prometheus-runtime</code>.</li>
+        <li>Install / Update / Restart runtime.</li>
+      </ul>
+      <h3>Indexing &amp; embeddings</h3>
+      <ul>
+        <li>Параметры индексации и игнорируемые папки.</li>
+        <li>Локальные embeddings через FastEmbed (без cloud embedding API).</li>
+      </ul>
+      <h3>LLM</h3>
+      <ul>
+        <li>Выбор модели Ollama.</li>
+        <li>В базовом режиме только локальный Ollama — без BYOK / cloud providers.</li>
+      </ul>
+      <h3>Privacy &amp; diagnostics</h3>
+      <ul>
+        <li>Диагностический отчёт с маскированием чувствительных полей (redacted).</li>
+        <li>Буфер недавних событий для отладки.</li>
+      </ul>
+
+      <h2>Команды Command Palette</h2>
+      <ul>
+        <li>Open Prometheus Chat</li>
+        <li>Open Prometheus Search</li>
+        <li>Open Prometheus Status</li>
+        <li>Open onboarding wizard</li>
+        <li>Open diagnostics</li>
+        <li>Reindex vault / Restart runtime (когда доступны)</li>
+      </ul>
+
+      <h2>Onboarding</h2>
+      <p>
+        При первом запуске мастер помогает установить managed Runtime, проверить
+        Ollama и дождаться Ready. После этого можно работать офлайн.
+      </p>
+
+      <h2>В scope 0.1</h2>
+      <ul>
+        <li>Desktop-only Community Plugin</li>
+        <li>Managed Runtime + custom path</li>
+        <li>Local RAG: Markdown sync, chunking, FastEmbed, sqlite-vec + FTS5</li>
+        <li>Grounded answers через Ollama</li>
+        <li>Cited sources, streaming, cancel, ignored folders, diagnostics</li>
+      </ul>
+
+      <h2>Вне scope 0.1</h2>
+      <ul>
+        <li>Установка Ollama самим плагином</li>
+        <li>UI для multi-folder scope</li>
+        <li>Персистентная история чата</li>
+        <li>Альтернативные LLM runtimes (llama.cpp и т.п.) и cloud providers</li>
+        <li>Obsidian Mobile</li>
+      </ul>
+
+      <h2>Дальше</h2>
+      <p>
+        <a href="setup.html">Установка и первый запуск →</a><br>
+        <a href="faq.html">Частые вопросы →</a>
+      </p>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span><a href="index.html">Главная</a> · <a href="faq.html">FAQ</a></span>
+    </div>
+  </footer>
+  <script src="assets/js/site.js"></script>
+</body>
+</html>

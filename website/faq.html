@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FAQ Prometheus: облако, офлайн, mobile, grounding, custom runtime.">
+  <title>FAQ — Prometheus</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="faq.html">
+  <link rel="alternate" hreflang="en" href="en/faq.html">
+  <link rel="alternate" hreflang="x-default" href="faq.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Основная навигация">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Меню">Меню</button>
+      <div class="nav-links" data-nav-links>
+        <a href="index.html#features">Функции</a>
+        <a href="how-it-works.html">Как работает</a>
+        <a href="features.html">Функционал</a>
+        <a href="setup.html">Установка</a>
+        <div class="lang-switch" role="group" aria-label="Язык">
+          <a class="is-active" href="faq.html" hreflang="ru" lang="ru">RU</a>
+          <a href="en/faq.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-side" aria-label="Разделы документации">
+      <h2>Документация</h2>
+      <a href="how-it-works.html">Как работает</a>
+      <a href="features.html">Функционал</a>
+      <a href="setup.html">Установка</a>
+      <a class="is-active" href="faq.html">FAQ</a>
+      <a href="index.html">← На главную</a>
+    </aside>
+
+    <main class="docs-main">
+      <h1>Частые вопросы</h1>
+      <p class="docs-lead">Короткие ответы на то, что чаще всего спрашивают про локальный режим и границы продукта.</p>
+
+      <div class="faq">
+        <details open>
+          <summary>Отправляет ли Prometheus мои заметки в облако?</summary>
+          <p>
+            Нет. В базовом продукте индексация, поиск и генерация идут локально через
+            Prometheus Runtime и Ollama. Заметки не уходят в OpenAI, Anthropic, Google
+            и подобные сервисы.
+          </p>
+        </details>
+        <details>
+          <summary>Работает ли офлайн?</summary>
+          <p>
+            Да, после установки binary Runtime и моделей для embeddings / LLM.
+            Дальнейший чат и поиск интернет не требуют.
+          </p>
+        </details>
+        <details>
+          <summary>Есть ли поддержка мобильных устройств?</summary>
+          <p>
+            Нет. Prometheus только для desktop: sidecar Runtime и локальный процесс
+            Ollama недоступны в мобильных приложениях Obsidian.
+          </p>
+        </details>
+        <details>
+          <summary>Что если ответа нет в моих заметках?</summary>
+          <p>
+            Prometheus не должен дописывать ответ из общих знаний модели и сообщит,
+            что в vault недостаточно информации (<code>insufficient_context</code>).
+          </p>
+        </details>
+        <details>
+          <summary>Можно ли указать свой binary Runtime?</summary>
+          <p>
+            Да. В Settings → Runtime выберите Custom binary и укажите абсолютный путь
+            к <code>prometheus-runtime</code> вместо managed-загрузки.
+          </p>
+        </details>
+        <details>
+          <summary>Нужно ли ставить Ollama отдельно?</summary>
+          <p>
+            Да. В 0.1 плагин не устанавливает Ollama за вас: скачайте Ollama, сделайте
+            <code>ollama pull …</code> и выберите модель в Chat / Settings.
+          </p>
+        </details>
+        <details>
+          <summary>Где хранится индекс?</summary>
+          <p>
+            Векторный индекс и служебные данные Runtime живут вне vault (и вне
+            <code>.obsidian/plugins</code>), чтобы не попадать в Obsidian Sync и Git.
+            Исходный Markdown остаётся в vault.
+          </p>
+        </details>
+        <details>
+          <summary>Чем Chat отличается от Search?</summary>
+          <p>
+            Search возвращает релевантные фрагменты без вызова LLM. Chat делает
+            retrieval и затем grounded-генерацию ответа с цитированием источников.
+          </p>
+        </details>
+        <details>
+          <summary>Под какой лицензией проект?</summary>
+          <p>
+            <a href="https://github.com/Artemiadze/prometheus/blob/main/LICENSE" rel="noopener">Apache License 2.0</a>.
+          </p>
+        </details>
+      </div>
+
+      <div class="cta-band" style="margin-top: 40px;">
+        <h2 class="h">Нужны детали архитектуры?</h2>
+        <p class="sub">В репозитории также есть Architecture.md и release notes 0.1.</p>
+        <div class="cta-actions">
+          <a class="btn btn-green" href="how-it-works.html">Как работает</a>
+          <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span><a href="index.html">Главная</a> · <a href="setup.html">Установка</a></span>
+    </div>
+  </footer>
+  <script src="assets/js/site.js"></script>
+</body>
+</html>

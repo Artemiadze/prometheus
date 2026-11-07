@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Как устроен Prometheus: плагин Obsidian, Runtime, индексация, retrieval и grounded generation через Ollama.">
+  <title>Как работает — Prometheus</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="how-it-works.html">
+  <link rel="alternate" hreflang="en" href="en/how-it-works.html">
+  <link rel="alternate" hreflang="x-default" href="how-it-works.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Основная навигация">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Меню">Меню</button>
+      <div class="nav-links" data-nav-links>
+        <a href="index.html#features">Функции</a>
+        <a class="is-active" href="how-it-works.html">Как работает</a>
+        <a href="features.html">Функционал</a>
+        <a href="setup.html">Установка</a>
+        <div class="lang-switch" role="group" aria-label="Язык">
+          <a class="is-active" href="how-it-works.html" hreflang="ru" lang="ru">RU</a>
+          <a href="en/how-it-works.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-side" aria-label="Разделы документации">
+      <h2>Документация</h2>
+      <a class="is-active" href="how-it-works.html">Как работает</a>
+      <a href="features.html">Функционал</a>
+      <a href="setup.html">Установка</a>
+      <a href="faq.html">FAQ</a>
+      <a href="index.html">← На главную</a>
+    </aside>
+
+    <main class="docs-main">
+      <h1>Как работает Prometheus</h1>
+      <p class="docs-lead">
+        Prometheus — это не «чат с моделью поверх Obsidian», а локальный RAG:
+        индекс ваших Markdown-заметок, поиск по смыслу и генерация ответа строго
+        по найденному контексту.
+      </p>
+
+      <h2>Три процесса на вашей машине</h2>
+      <ol>
+        <li><strong>Prometheus Plugin</strong> — Community Plugin: Chat, Search, Settings, Status, доступ к Vault API и жизненный цикл runtime.</li>
+        <li><strong>Prometheus Runtime</strong> — локальный sidecar: parsing, chunking, embeddings, sqlite-vec, retrieval, grounded prompt.</li>
+        <li><strong>Ollama</strong> — внешний локальный runtime для выбранной вами LLM.</li>
+      </ol>
+
+      <div class="pipeline" aria-label="Схема процессов">
+        <pre>┌─────────────────────────────────────────────────────────────┐
+│                     Компьютер пользователя                  │
+│                                                             │
+│  ┌──────────────────────────────┐                           │
+│  │     Prometheus Plugin        │                           │
+│  │ Chat / Search / Settings     │                           │
+│  └──────────────┬───────────────┘                           │
+│                 │ HTTP на 127.0.0.1                         │
+│                 ▼                                           │
+│  ┌──────────────────────────────┐       localhost           │
+│  │      Prometheus Runtime      │────────────────────┐      │
+│  │ Parser / Chunker / Retrieval │                    ▼      │
+│  │ FastEmbed / sqlite-vec       │           ┌────────────┐  │
+│  └──────────────────────────────┘           │   Ollama   │  │
+│                                             │ Local LLM  │  │
+│                                             └────────────┘  │
+└─────────────────────────────────────────────────────────────┘</pre>
+      </div>
+
+      <div class="callout">
+        <strong>Важно:</strong> HTTP между плагином и Runtime — это IPC на
+        <code>127.0.0.1</code>, а не публичный сетевой API. Интернет после
+        установки runtime и моделей не нужен.
+      </div>
+
+      <h2>Что делает плагин</h2>
+      <p>Плагин остаётся тонким. Он:</p>
+      <ul>
+        <li>рисует UI чата, поиска, статуса и настроек;</li>
+        <li>читает Markdown через Obsidian Vault API;</li>
+        <li>слушает события <code>create</code> / <code>modify</code> / <code>rename</code> / <code>delete</code>;</li>
+        <li>скачивает, проверяет и запускает managed Runtime (или подключает custom binary);</li>
+        <li>открывает заметку и heading по ссылке-источнику;</li>
+        <li>передаёт документы и вопросы в Runtime по localhost.</li>
+      </ul>
+      <p>Плагин <em>не</em> считает embeddings, не хранит vector index и не вызывает LLM напрямую.</p>
+
+      <h2>Индексация vault</h2>
+      <p>Когда меняется заметка, плагин с debounce читает файл и отправляет документ в Runtime:</p>
+      <ol>
+        <li>проверка Vault ID, Document ID и revision;</li>
+        <li>пропуск, если <code>content_hash</code> не изменился;</li>
+        <li>разбор Markdown и heading-aware chunking;</li>
+        <li>генерация embeddings через FastEmbed;</li>
+        <li>атомарный upsert в sqlite-vec + обновление SQLite manifest / FTS.</li>
+      </ol>
+      <p>
+        Операция идемпотентна: повтор с тем же hash не пересчитывает embeddings.
+        Rename сохраняет Document ID, delete чистит chunks и vectors.
+      </p>
+
+      <h2>Query / RAG pipeline</h2>
+      <h3>Ответ на вопрос (Chat)</h3>
+      <ol>
+        <li>embedding запроса;</li>
+        <li>dense search (по умолчанию) по sqlite-vec;</li>
+        <li>опционально hybrid dense + BM25 (FTS5) через weighted RRF;</li>
+        <li>опциональный reranker (cross-encoder);</li>
+        <li>отбор контекста под token budget;</li>
+        <li>grounded prompt → Ollama → стриминг ответа + источники.</li>
+      </ol>
+
+      <h3>Семантический поиск (Search)</h3>
+      <p>
+        Тот же retrieval-компонент, но без вызова LLM: вы получаете список
+        релевантных фрагментов и можете открыть заметки напрямую.
+      </p>
+
+      <div class="callout">
+        Режим retrieval задаётся окружением Runtime:
+        <code>PROMETHEUS_RETRIEVAL_MODE=dense|hybrid</code>.
+        Reranker включается отдельно через <code>PROMETHEUS_RERANKER_ENABLED</code>.
+      </div>
+
+      <h2>Grounding policy</h2>
+      <p>
+        Модели явно указывается опираться только на переданный контекст.
+        Если найденных chunks недостаточно, Runtime возвращает состояние
+        <code>insufficient_context</code> — продукт должен сказать об этом
+        пользователю, а не заполнять пробелы «общими знаниями» модели.
+      </p>
+
+      <h2>Где лежат данные</h2>
+      <ul>
+        <li><strong>Vault Markdown</strong> — единственный источник истины, внутри Obsidian vault.</li>
+        <li><strong>Runtime binary, embeddings index, модели</strong> — вне vault и вне
+          <code>.obsidian/plugins</code>, чтобы не попадать в Obsidian Sync / Git.</li>
+        <li><strong>Ollama model weights</strong> — в каталоге Ollama на вашей машине.</li>
+      </ul>
+
+      <h2>Дальше</h2>
+      <p>
+        <a href="features.html">Описание функционала UI →</a><br>
+        <a href="setup.html">Пошаговая установка →</a>
+      </p>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span><a href="index.html">Главная</a> · <a href="faq.html">FAQ</a></span>
+    </div>
+  </footer>
+  <script src="assets/js/site.js"></script>
+</body>
+</html>

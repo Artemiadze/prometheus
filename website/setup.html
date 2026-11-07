@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Установка Prometheus: Ollama, Community Plugin, managed Runtime и первый вопрос по vault.">
+  <title>Установка — Prometheus</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="setup.html">
+  <link rel="alternate" hreflang="en" href="en/setup.html">
+  <link rel="alternate" hreflang="x-default" href="setup.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Основная навигация">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Меню">Меню</button>
+      <div class="nav-links" data-nav-links>
+        <a href="index.html#features">Функции</a>
+        <a href="how-it-works.html">Как работает</a>
+        <a href="features.html">Функционал</a>
+        <a class="is-active" href="setup.html">Установка</a>
+        <div class="lang-switch" role="group" aria-label="Язык">
+          <a class="is-active" href="setup.html" hreflang="ru" lang="ru">RU</a>
+          <a href="en/setup.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-side" aria-label="Разделы документации">
+      <h2>Документация</h2>
+      <a href="how-it-works.html">Как работает</a>
+      <a href="features.html">Функционал</a>
+      <a class="is-active" href="setup.html">Установка</a>
+      <a href="faq.html">FAQ</a>
+      <a href="index.html">← На главную</a>
+    </aside>
+
+    <main class="docs-main">
+      <h1>Установка</h1>
+      <p class="docs-lead">
+        Пять шагов до первого grounded-ответа по вашим заметкам. Prometheus —
+        desktop-only: нужен Obsidian на компьютере, не мобильное приложение.
+      </p>
+
+      <h2>1. Установите Ollama и модель</h2>
+      <p>
+        Скачайте и установите <a href="https://ollama.com" rel="noopener">Ollama</a>.
+        Для обычных ноутбуков рекомендуем:
+      </p>
+      <pre><code>ollama pull qwen3:4b-instruct-2507-q4_K_M</code></pre>
+      <p>
+        Можно использовать любую другую уже установленную модель — выберите её
+        позже в Chat / Settings.
+      </p>
+
+      <h2>2. Установите плагин Prometheus</h2>
+      <ul>
+        <li><strong>Community Plugins</strong> — найдите <code>Prometheus</code> в каталоге Obsidian (когда релиз опубликован);</li>
+        <li>или установите из GitHub release / локальной сборки
+          (<code>main.js</code>, <code>manifest.json</code>, <code>styles.css</code>).</li>
+      </ul>
+      <div class="callout callout-warn">
+        <strong>Не кладите</strong> Runtime binary, модели и vector index внутрь vault
+        или <code>.obsidian/plugins</code> — они не должны попадать в Sync и Git.
+      </div>
+
+      <h2>3. Установите Prometheus Runtime</h2>
+      <p>
+        При первой настройке позвольте плагину скачать managed-бинарник
+        <strong>вне vault</strong>. Плагин проверяет версию и checksum.
+      </p>
+      <p>
+        Advanced / dev: в Settings → Runtime выберите <strong>Custom binary</strong>
+        и укажите абсолютный путь к своему <code>prometheus-runtime</code>.
+      </p>
+
+      <h2>4. Откройте чат</h2>
+      <ul>
+        <li>иконка на ribbon;</li>
+        <li>или Command Palette → <em>Open Prometheus Chat</em>.</li>
+      </ul>
+      <p>При необходимости пройдите onboarding wizard ещё раз из Command Palette.</p>
+
+      <h2>5. Дождитесь Ready и спросите</h2>
+      <p>
+        В status bar должно появиться <strong>Prometheus: Ready</strong>.
+        Первая индексация vault может занять время — это нормально.
+      </p>
+      <p>Примеры вопросов:</p>
+      <ul>
+        <li>«Как создать ветку, переключиться на неё и отправить изменения?»</li>
+        <li>«Где у меня описан процесс релиза?»</li>
+        <li>«Кратко суммируй заметку про архитектуру» (с scope Current note).</li>
+      </ul>
+
+      <h2>После установки</h2>
+      <ul>
+        <li>Можно отключить интернет: чат и поиск идут локально.</li>
+        <li>Правки заметок подхватываются инкрементально.</li>
+        <li>При проблемах откройте Status / Diagnostics и при необходимости Restart runtime или Reindex vault.</li>
+      </ul>
+
+      <div class="cta-band" style="margin-top: 36px;">
+        <h2 class="h">Готовы разобрать устройство?</h2>
+        <p class="sub">Схема процессов, индексация и grounding — на следующей странице.</p>
+        <div class="cta-actions">
+          <a class="btn btn-green" href="how-it-works.html">Как работает</a>
+          <a class="btn btn-ghost" href="faq.html">FAQ</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span><a href="index.html">Главная</a> · <a href="faq.html">FAQ</a></span>
+    </div>
+  </footer>
+  <script src="assets/js/site.js"></script>
+</body>
+</html>
