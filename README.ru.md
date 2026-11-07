@@ -1,8 +1,10 @@
 <h1 align="center">Prometheus</h1>
 
-<p align="center"><strong>**English:** README.md · **Русский:** [README.ru.md](./README.ru.md)</strong></p>
-
 <p align="center"><strong>Локальный AI-чат по вашему vault в Obsidian</strong></p>
+
+--- 
+
+**English:** README.md · **Русский:** [README.ru.md](./README.ru.md)
 
 Задавайте вопросы на естественном языке. Prometheus ищет заметки по смыслу, отвечает только по найденному и показывает источники — всё на вашем компьютере.
 

@@ -1,8 +1,10 @@
 <h1 align="center">Prometheus</h1>
 
-<p align="center"><strong>**English:** README.md · **Русский:** [README.ru.md](./README.ru.md)</strong></p>
-
 <p align="center"><strong>Self-hosted AI assistant for your Obsidian notes</strong></p>
+
+---
+
+**English:** README.md · **Русский:** [README.ru.md](./README.ru.md)
 
 Ask questions in natural language. Prometheus searches your notes by meaning, answers only from what it finds, and shows the sources — all on your machine.
 
