@@ -7,7 +7,10 @@ Run on **Windows**, **Linux**, and **macOS**. Record results in the release task
 ## Environment
 
 - [ ] Fresh vault (or dedicated test vault) with at least 20 Markdown notes
-- [ ] Ollama installed with the default model from Settings
+- [ ] Ollama installed; for ordinary laptops prefer
+      `qwen3:4b-instruct-2507-q4_K_M` (`ollama pull qwen3:4b-instruct-2507-q4_K_M`),
+      then select it in Chat / Settings (runtime default tag is still `qwen3:4b`
+      until the user picks a model)
 - [ ] Plugin built from the release tag (`make plugin-build` / Community Plugin zip)
 
 ## Onboarding
@@ -26,6 +29,7 @@ Run on **Windows**, **Linux**, and **macOS**. Record results in the release task
 - [ ] Ignored folders are skipped in snapshot and status counts
 - [ ] Manual reindex from Status / Settings completes
 - [ ] Cancel active indexing job stops progress and returns UI to idle
+- [ ] File menu **Reindex this note in Prometheus** updates that note only
 
 ## Chat
 
@@ -33,13 +37,13 @@ Run on **Windows**, **Linux**, and **macOS**. Record results in the release task
 - [ ] New chat tab (+), switch tabs, close tab (always at least one tab remains)
 - [ ] Model picker in composer lists local models; selection updates Status LLM row
 - [ ] Scope pill (Auto / Vault / Current note / Current folder) affects retrieval
-- [ ] Short question shows validation error (too short)
+- [ ] Short question (under 3 characters after trim) shows validation error (too short)
 - [ ] Valid question streams / returns an answer with sources
 - [ ] Copy message on user question and assistant answer copies the message text
 - [ ] Insufficient-context answer shows the hint, not a hard failure
 - [ ] Opening a source navigates to the note (and heading when present)
 - [ ] Cancel mid-request returns to idle without a stuck spinner
-- [ ] “Ask about this note” from file menu pins scope for one message
+- [ ] File menu **Ask Prometheus about this note** pins scope for one message
 
 ## Search
 
@@ -47,7 +51,7 @@ Run on **Windows**, **Linux**, and **macOS**. Record results in the release task
 - [ ] Queries under 3 characters show too-short state
 - [ ] Valid query shows results; nonsense query shows empty state
 - [ ] Scope modes (vault / note / folder) change results as expected
-- [ ] “Search in folder” from file menu pins folder scope
+- [ ] File menu **Search this folder in Prometheus** pins folder scope
 - [ ] Opening a hit navigates to the note
 
 ## Errors and recovery
@@ -55,6 +59,8 @@ Run on **Windows**, **Linux**, and **macOS**. Record results in the release task
 - [ ] With runtime stopped, Chat/Search show a recoverable error (install/start CTA)
 - [ ] Disable network access → install/update is blocked with Privacy guidance
 - [ ] Incompatible runtime version surfaces update guidance (do not hang)
+- [ ] Legacy `qdrant/` data under the vault data dir is reported by doctor / status
+      with guidance to full reindex (sqlite-vec; no automatic migration)
 - [ ] Diagnostics report opens and redacts note text / session tokens
 - [ ] Verbose logging off by default; when on, console has no note body text
 
