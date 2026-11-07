@@ -32,7 +32,7 @@ export class SettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("prometheus-settings");
 
-    containerEl.createEl("h2", { text: "Prometheus Settings" });
+    new Setting(containerEl).setName("Prometheus Settings").setHeading();
 
     if (state.actionError) {
       containerEl.createDiv({
@@ -50,10 +50,7 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   private renderRuntime(containerEl: HTMLElement, state: SettingsViewState): void {
-    containerEl.createEl("h3", {
-      text: "Runtime",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("Runtime").setHeading();
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)
@@ -138,10 +135,7 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   private renderIndexing(containerEl: HTMLElement, state: SettingsViewState): void {
-    containerEl.createEl("h3", {
-      text: "Indexing",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("Indexing").setHeading();
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)
@@ -242,10 +236,7 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   private renderEmbeddings(containerEl: HTMLElement, state: SettingsViewState): void {
-    containerEl.createEl("h3", {
-      text: "Embeddings",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("Embeddings").setHeading();
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section).setName("Provider").setDesc("FastEmbed");
@@ -255,10 +246,7 @@ export class SettingsTab extends PluginSettingTab {
       text: "Changing the embedding model requires a full reindex.",
     });
 
-    containerEl.createEl("h3", {
-      text: "Vector storage",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("Vector storage").setHeading();
     const storage = containerEl.createDiv({ cls: "prometheus-settings__section" });
     new Setting(storage).setName("Store").setDesc("SQLite (sqlite-vec)");
     new Setting(storage).setName("Path").setDesc(state.dataRootPath);
@@ -276,10 +264,7 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   private renderLlm(containerEl: HTMLElement, state: SettingsViewState): void {
-    containerEl.createEl("h3", {
-      text: "LLM",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("LLM").setHeading();
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section).setName("Runtime").setDesc("Ollama (local)");
@@ -375,10 +360,7 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   private renderPrivacy(containerEl: HTMLElement, state: SettingsViewState): void {
-    containerEl.createEl("h3", {
-      text: "Privacy",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("Privacy").setHeading();
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)
@@ -404,10 +386,7 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   private renderDiagnostics(containerEl: HTMLElement, state: SettingsViewState): void {
-    containerEl.createEl("h3", {
-      text: "Diagnostics",
-      cls: "prometheus-settings__section-title",
-    });
+    new Setting(containerEl).setName("Diagnostics").setHeading();
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)

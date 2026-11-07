@@ -224,8 +224,8 @@ export class ChatView extends ItemView {
     if (!textarea) {
       return;
     }
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    textarea.setCssProps({ height: "auto" });
+    textarea.setCssProps({ height: `${Math.min(textarea.scrollHeight, 200)}px` });
   }
 
   private async submitFromInput(): Promise<void> {

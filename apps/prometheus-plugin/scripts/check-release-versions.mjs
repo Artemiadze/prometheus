@@ -28,8 +28,30 @@ function readTsExport(path, name) {
   return match[1];
 }
 
-const expected = "0.1.0";
+/** Semver MAJOR.MINOR.PATCH only (matches RuntimeVersion.ts). */
+function parseSemver(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (!match) {
+    return null;
+  }
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function isInRuntimeRange(version, rangeLiteral) {
+  // Current product range is ">=0.1.0,<0.2.0" — keep check aligned with RuntimeVersion.ts.
+  if (rangeLiteral !== ">=0.1.0,<0.2.0") {
+    return false;
+  }
+  const parsed = parseSemver(version);
+  return parsed !== null && parsed.major === 0 && parsed.minor === 1;
+}
+
 const packageJson = readJson(join(packageRoot, "package.json"));
+const pluginVersion = packageJson.version;
 const manifest = readJson(join(packageRoot, "manifest.json"));
 const rootManifest = readJson(join(repoRoot, "manifest.json"));
 const versionsJson = readJson(join(repoRoot, "versions.json"));
@@ -43,24 +65,36 @@ const requiredRange = readTsExport(
   "REQUIRED_RUNTIME_RANGE",
 );
 
-const checks = [
+const pluginChecks = [
   ["package.json", packageJson.version],
   ["apps/.../manifest.json", manifest.version],
   ["root manifest.json", rootManifest.version],
-  ["prometheus-runtime pyproject.toml", runtimeVersion],
-  ["RUNTIME_RELEASE_VERSION", runtimeReleaseVersion],
 ];
 
-const mismatches = checks.filter(([, value]) => value !== expected);
-if (mismatches.length > 0) {
-  for (const [label, value] of mismatches) {
-    console.error(`Version mismatch: ${label}=${value} expected=${expected}`);
+const pluginMismatches = pluginChecks.filter(([, value]) => value !== pluginVersion);
+if (pluginMismatches.length > 0) {
+  for (const [label, value] of pluginMismatches) {
+    console.error(`Plugin version mismatch: ${label}=${value} expected=${pluginVersion}`);
   }
   process.exit(1);
 }
 
 if (requiredRange !== ">=0.1.0,<0.2.0") {
   console.error(`REQUIRED_RUNTIME_RANGE mismatch: ${requiredRange}`);
+  process.exit(1);
+}
+
+if (runtimeVersion !== runtimeReleaseVersion) {
+  console.error(
+    `Runtime version mismatch: pyproject=${runtimeVersion} RUNTIME_RELEASE_VERSION=${runtimeReleaseVersion}`,
+  );
+  process.exit(1);
+}
+
+if (!isInRuntimeRange(runtimeReleaseVersion, requiredRange)) {
+  console.error(
+    `RUNTIME_RELEASE_VERSION ${runtimeReleaseVersion} is outside ${requiredRange}`,
+  );
   process.exit(1);
 }
 
@@ -74,6 +108,13 @@ if (!manifest.author || !manifest.authorUrl) {
   process.exit(1);
 }
 
+if (manifest.authorUrl.includes("/prometheus")) {
+  console.error(
+    "authorUrl must be a personal/org profile URL, not the plugin repository",
+  );
+  process.exit(1);
+}
+
 if (manifest.id !== "prometheus") {
   console.error(`manifest id mismatch: ${manifest.id}`);
   process.exit(1);
@@ -84,13 +125,13 @@ if (JSON.stringify(rootManifest) !== JSON.stringify(manifest)) {
   process.exit(1);
 }
 
-if (versionsJson[expected] !== manifest.minAppVersion) {
+if (versionsJson[pluginVersion] !== manifest.minAppVersion) {
   console.error(
-    `versions.json mismatch: versions["${expected}"]=${versionsJson[expected]} expected=${manifest.minAppVersion}`,
+    `versions.json mismatch: versions["${pluginVersion}"]=${versionsJson[pluginVersion]} expected=${manifest.minAppVersion}`,
   );
   process.exit(1);
 }
 
 console.log(
-  `release version matrix OK (${expected}); range ${requiredRange}; author=${manifest.author}`,
+  `release version matrix OK (plugin=${pluginVersion}, runtime=${runtimeReleaseVersion}); range ${requiredRange}; author=${manifest.author}`,
 );

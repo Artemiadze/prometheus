@@ -1,10 +1,10 @@
 {
   "id": "prometheus",
   "name": "Prometheus",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.5.0",
   "description": "Local-first AI chat and semantic search over your Vault. No cloud APIs.",
   "author": "Artyom Vlasov",
-  "authorUrl": "https://github.com/Artemiadze/prometheus",
+  "authorUrl": "https://github.com/Artemiadze",
   "isDesktopOnly": true
 }
