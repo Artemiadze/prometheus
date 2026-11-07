@@ -20,6 +20,10 @@ describe("runtimeRelease", () => {
     expect(detectReleaseTarget("darwin", "arm64")).toBe("macos-arm64");
   });
 
+  it("rejects macOS Intel (no onnxruntime x86_64 wheels)", () => {
+    expect(() => detectReleaseTarget("darwin", "x64")).toThrow(/Apple Silicon/);
+  });
+
   it("builds release URLs", () => {
     const descriptor = resolveReleaseDescriptor("linux", "x64", "https://example.test/runtime");
     expect(descriptor.binaryUrl).toContain("prometheus-runtime-linux-x64");

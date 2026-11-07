@@ -13,12 +13,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-RELEASE_TARGETS = frozenset({"linux-x64", "win-x64", "macos-x64", "macos-arm64"})
+# macOS Intel is intentionally omitted: onnxruntime >=1.24 has no x86_64 macOS wheels.
+RELEASE_TARGETS = frozenset({"linux-x64", "win-x64", "macos-arm64"})
 
 ARTIFACT_NAMES: dict[str, str] = {
     "linux-x64": "prometheus-runtime-linux-x64",
     "win-x64": "prometheus-runtime.exe",
-    "macos-x64": "prometheus-runtime-macos-x64",
     "macos-arm64": "prometheus-runtime-macos-arm64",
 }
 
@@ -43,7 +43,12 @@ def detect_release_target() -> str:
     if system == "windows":
         return "win-x64"
     if system == "darwin":
-        return "macos-arm64" if machine in {"arm64", "aarch64"} else "macos-x64"
+        if machine in {"arm64", "aarch64"}:
+            return "macos-arm64"
+        raise RuntimeError(
+            f"Unsupported macOS architecture for release artifacts: {machine}. "
+            "Apple Silicon (arm64) only; onnxruntime dropped Intel macOS wheels."
+        )
     if system == "linux":
         if machine in {"x86_64", "amd64"}:
             return "linux-x64"

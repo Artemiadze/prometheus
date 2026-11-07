@@ -9,7 +9,9 @@ if [[ -z "${PROMETHEUS_RELEASE_TARGET:-}" ]]; then
   if [[ "$ARCH" == "arm64" ]]; then
     export PROMETHEUS_RELEASE_TARGET="macos-arm64"
   else
-    export PROMETHEUS_RELEASE_TARGET="macos-x64"
+    echo "Unsupported macOS architecture: ${ARCH}. Apple Silicon (arm64) only." >&2
+    echo "onnxruntime no longer publishes Intel macOS wheels." >&2
+    exit 1
   fi
 fi
 

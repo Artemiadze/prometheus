@@ -12,6 +12,9 @@ import { isRuntimeVersionCompatible } from "../../../application/services/Runtim
  *   PROMETHEUS_RUNTIME_RELEASE_BASE_URL=http://127.0.0.1:8766/runtime
  *
  * Assumption: each platform publishes a single executable file (no archive extraction).
+ *
+ * Supported targets: linux-x64, win-x64, macos-arm64.
+ * macOS Intel (x86_64) is unsupported: onnxruntime dropped those wheels at 1.24+.
  */
 export const RUNTIME_RELEASE_BASE_URL =
   "https://github.com/Artemiadze/prometheus/releases/download";
@@ -19,7 +22,7 @@ export const RUNTIME_RELEASE_BASE_URL =
 /** Must stay within REQUIRED_RUNTIME_RANGE; validated in unit tests. */
 export const RUNTIME_RELEASE_VERSION = "0.1.0";
 
-export type ReleaseTarget = "linux-x64" | "win-x64" | "macos-x64" | "macos-arm64";
+export type ReleaseTarget = "linux-x64" | "win-x64" | "macos-arm64";
 
 export type RuntimeReleaseDescriptor = {
   readonly binaryUrl: string;
@@ -43,7 +46,13 @@ export function detectReleaseTarget(platform: NodeJS.Platform, arch: string): Re
     return "win-x64";
   }
   if (platform === "darwin") {
-    return arch === "arm64" ? "macos-arm64" : "macos-x64";
+    if (arch === "arm64") {
+      return "macos-arm64";
+    }
+    throw new Error(
+      `Managed Prometheus Runtime is not available on macOS ${arch}. ` +
+        "Apple Silicon (arm64) is required; onnxruntime no longer ships Intel macOS wheels.",
+    );
   }
   return "linux-x64";
 }
@@ -54,8 +63,6 @@ export function releaseFileName(target: ReleaseTarget): string {
       return "prometheus-runtime.exe";
     case "linux-x64":
       return "prometheus-runtime-linux-x64";
-    case "macos-x64":
-      return "prometheus-runtime-macos-x64";
     case "macos-arm64":
       return "prometheus-runtime-macos-arm64";
     default: {

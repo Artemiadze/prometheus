@@ -18,9 +18,7 @@ jobs:
             target: linux-x64
           - os: windows-latest
             target: win-x64
-          # macos-13 was retired Dec 2025; macos-15-intel is the Intel replacement (until ~Fall 2027).
-          - os: macos-15-intel
-            target: macos-x64
+          # Apple Silicon only: onnxruntime >=1.24 dropped macOS x86_64 wheels.
           - os: macos-14
             target: macos-arm64
     runs-on: ${{ matrix.os }}
@@ -49,7 +47,6 @@ jobs:
           case "${{ matrix.target }}" in
             linux-x64) name="prometheus-runtime-linux-x64" ;;
             win-x64) name="prometheus-runtime.exe" ;;
-            macos-x64) name="prometheus-runtime-macos-x64" ;;
             macos-arm64) name="prometheus-runtime-macos-arm64" ;;
             *) echo "unknown target"; exit 1 ;;
           esac
@@ -130,15 +127,15 @@ jobs:
             Artifacts (onefile) and matching `.sha256` checksums (GNU format):
             - `prometheus-runtime-linux-x64`
             - `prometheus-runtime.exe`
-            - `prometheus-runtime-macos-x64`
             - `prometheus-runtime-macos-arm64`
+
+            macOS Intel (x86_64) is not supported: `onnxruntime` no longer publishes
+            Intel macOS wheels.
           files: |
             release-assets/prometheus-runtime-linux-x64
             release-assets/prometheus-runtime-linux-x64.sha256
             release-assets/prometheus-runtime.exe
             release-assets/prometheus-runtime.exe.sha256
-            release-assets/prometheus-runtime-macos-x64
-            release-assets/prometheus-runtime-macos-x64.sha256
             release-assets/prometheus-runtime-macos-arm64
             release-assets/prometheus-runtime-macos-arm64.sha256
           fail_on_unmatched_files: true
