@@ -19,7 +19,8 @@ jobs:
           - os: windows-latest
             target: win-x64
           # Apple Silicon only: onnxruntime >=1.24 dropped macOS x86_64 wheels.
-          - os: macos-14
+          # macos-14 was retired Nov 2026; pin macos-15 (arm64).
+          - os: macos-15
             target: macos-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
