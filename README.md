@@ -1,6 +1,6 @@
 <h1 align="center">Prometheus</h1>
 
-**English:** README.md · **Русский:** [README.ru.md](./README.ru.md)
+<p align="center"><strong>**English:** README.md · **Русский:** [README.ru.md](./README.ru.md)</strong></p>
 
 <p align="center"><strong>Self-hosted AI assistant for your Obsidian notes</strong></p>
 

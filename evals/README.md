@@ -5,7 +5,7 @@ Offline evaluation suite for retrieval and RAG quality (PRM-E16).
 ## Dataset layout
 
 - `datasets/<name>/manifest.json` — dataset metadata
-- `datasets/<name>/notes/**/*.md` — depersonalized markdown corpus
+- `datasets/<name>/notes/**/<h1 align="center">Prometheus</h1>*.md` — depersonalized markdown corpus
 - `datasets/<name>/questions.jsonl` — labeled questions (answerable and unanswerable)
 
 Regenerate `synthetic_v1` with:
