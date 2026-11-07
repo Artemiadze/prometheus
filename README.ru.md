@@ -135,4 +135,6 @@ Prometheus не должен дописывать ответ из общих з�
 
 ## Автор
 
-Артём Власов
+[Власов Артём](https://github.com/Artemiadze) · [репозиторий](https://github.com/Artemiadze/prometheus)
+
+Состав релиза **0.1** зафиксирован в [`docs/release/0.1.md`](./docs/release/0.1.md).

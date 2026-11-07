@@ -136,4 +136,6 @@ Licensed under the [Apache License 2.0](./LICENSE).
 
 ## Author
 
-Artyom Vlasov
+[Artyom Vlasov](https://github.com/Artemiadze) · [repository](https://github.com/Artemiadze/prometheus)
+
+Release scope for **0.1** is frozen in [`docs/release/0.1.md`](./docs/release/0.1.md).
