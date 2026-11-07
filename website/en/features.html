@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Prometheus 0.1 features: Chat, Search, scopes, Settings, Status, diagnostics, and release boundaries.">
+  <title>Features — Prometheus</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <link rel="alternate" hreflang="ru" href="../features.html">
+  <link rel="alternate" hreflang="en" href="features.html">
+  <link rel="alternate" hreflang="x-default" href="../features.html">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Primary">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3c1.2 3.8-.2 6.4-2.4 8.8-1.6 1.7-3.4 3.2-3.4 6.1 0 4.2 3.1 7.1 5.8 7.1 1.1 0 2.1-.3 2.9-.9-.2 1.5-.1 2.8.4 3.9 3.8-1.5 6.3-5.1 6.3-9.2 0-4.8-3.2-7.8-5.1-10.4C18.8 6.2 17.4 4.6 16 3z" fill="currentColor"/>
+          <path d="M15.2 14.2c.7 1.9-.1 3.2-1.2 4.3-.8.8-1.6 1.5-1.6 2.9 0 2.1 1.5 3.5 2.9 3.5.4 0 .8-.1 1.1-.3-.1.7 0 1.3.2 1.9 1.9-.8 3.1-2.6 3.1-4.7 0-2.4-1.6-3.9-2.6-5.3-.7-.9-1.4-1.7-1.9-2.3z" fill="#7dd3fc"/>
+          <path d="M15.6 19.2c.3.9 0 1.5-.5 2-.4.4-.8.7-.8 1.3 0 1 .7 1.6 1.4 1.6.2 0 .4 0 .5-.1 0 .3 0 .6.1.9.9-.4 1.5-1.2 1.5-2.2 0-1.1-.8-1.8-1.3-2.5-.3-.4-.7-.8-.9-1z" fill="#4ade80"/>
+        </svg>
+        Prometheus
+      </a>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="Menu">Menu</button>
+      <div class="nav-links" data-nav-links>
+        <a href="index.html#features">Features</a>
+        <a href="how-it-works.html">How it works</a>
+        <a class="is-active" href="features.html">Features guide</a>
+        <a href="setup.html">Setup</a>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <a href="../features.html" hreflang="ru" lang="ru">RU</a>
+          <a class="is-active" href="features.html" hreflang="en" lang="en">EN</a>
+        </div>
+        <a class="btn btn-ghost" href="https://github.com/Artemiadze/prometheus" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-side" aria-label="Documentation">
+      <h2>Docs</h2>
+      <a href="how-it-works.html">How it works</a>
+      <a class="is-active" href="features.html">Features</a>
+      <a href="setup.html">Setup</a>
+      <a href="faq.html">FAQ</a>
+      <a href="index.html">← Home</a>
+    </aside>
+
+    <main class="docs-main">
+      <h1>Features</h1>
+      <p class="docs-lead">
+        Product capabilities in release <strong>0.1</strong>: what ships in the UI,
+        how to use it, and what is deliberately deferred.
+      </p>
+
+      <h2>Chat</h2>
+      <ul>
+        <li>Multi-turn chat with a local LLM via Ollama.</li>
+        <li>Streaming answers and cancelable generation.</li>
+        <li>Cited sources: jump to the note / heading in Obsidian.</li>
+        <li>Pick any model already installed in Ollama.</li>
+        <li>Add specific notes via the <code>/</code> note picker.</li>
+        <li>Multiple chat tabs in the plugin panel.</li>
+      </ul>
+      <div class="callout">
+        Chat history in 0.1 lives in session memory and is not persisted across Obsidian restarts.
+      </div>
+
+      <h2>Search</h2>
+      <ul>
+        <li>Separate semantic search panel without requiring an LLM call.</li>
+        <li>Results are ranked fragments with scores and note navigation.</li>
+        <li>Same retrieval pipeline as Chat (dense; optional hybrid / rerank).</li>
+      </ul>
+
+      <h2>Search scopes</h2>
+      <p>Available in the UI:</p>
+      <ul>
+        <li><strong>Auto</strong> — sensible scope from your current context;</li>
+        <li><strong>Vault</strong> — the whole vault;</li>
+        <li><strong>Current note</strong> — only the active note;</li>
+        <li><strong>Current folder</strong> — the folder of the current note.</li>
+      </ul>
+      <p>
+        Scope <code>selected_folders</code> exists at the API/domain layer, but 0.1
+        has no multi-folder picker UI.
+      </p>
+
+      <h2>Status</h2>
+      <ul>
+        <li>Runtime and indexing status in a dedicated panel and the Obsidian status bar.</li>
+        <li><strong>Prometheus: Ready</strong> means you can ask questions.</li>
+        <li>Commands to restart runtime and fully reindex the vault.</li>
+      </ul>
+
+      <h2>Settings</h2>
+      <h3>Runtime</h3>
+      <ul>
+        <li><strong>Managed</strong> — plugin downloads a binary with checksum and owns the process.</li>
+        <li><strong>Custom binary</strong> — your path to <code>prometheus-runtime</code>.</li>
+        <li>Install / Update / Restart runtime.</li>
+      </ul>
+      <h3>Indexing &amp; embeddings</h3>
+      <ul>
+        <li>Indexing options and ignored folders.</li>
+        <li>Local embeddings via FastEmbed (no cloud embedding API).</li>
+      </ul>
+      <h3>LLM</h3>
+      <ul>
+        <li>Choose an Ollama model.</li>
+        <li>Base mode is local Ollama only — no BYOK / cloud providers.</li>
+      </ul>
+      <h3>Privacy &amp; diagnostics</h3>
+      <ul>
+        <li>Diagnostics report with sensitive fields redacted.</li>
+        <li>Recent-events buffer for debugging.</li>
+      </ul>
+
+      <h2>Command Palette</h2>
+      <ul>
+        <li>Open Prometheus Chat</li>
+        <li>Open Prometheus Search</li>
+        <li>Open Prometheus Status</li>
+        <li>Open onboarding wizard</li>
+        <li>Open diagnostics</li>
+        <li>Reindex vault / Restart runtime (when available)</li>
+      </ul>
+
+      <h2>Onboarding</h2>
+      <p>
+        On first launch, a wizard helps install the managed Runtime, check Ollama,
+        and wait for Ready. After that you can work offline.
+      </p>
+
+      <h2>In scope for 0.1</h2>
+      <ul>
+        <li>Desktop-only Community Plugin</li>
+        <li>Managed Runtime + custom path</li>
+        <li>Local RAG: Markdown sync, chunking, FastEmbed, sqlite-vec + FTS5</li>
+        <li>Grounded answers via Ollama</li>
+        <li>Cited sources, streaming, cancel, ignored folders, diagnostics</li>
+      </ul>
+
+      <h2>Out of scope for 0.1</h2>
+      <ul>
+        <li>Plugin-managed Ollama install</li>
+        <li>Multi-folder scope UI</li>
+        <li>Persistent chat history</li>
+        <li>Alternate LLM runtimes (llama.cpp, etc.) and cloud providers</li>
+        <li>Obsidian Mobile</li>
+      </ul>
+
+      <h2>Next</h2>
+      <p>
+        <a href="setup.html">Setup and first run →</a><br>
+        <a href="faq.html">FAQ →</a>
+      </p>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© Prometheus · <a href="https://github.com/Artemiadze">Artyom Vlasov</a></span>
+      <span><a href="index.html">Home</a> · <a href="faq.html">FAQ</a></span>
+    </div>
+  </footer>
+  <script src="../assets/js/site.js"></script>
+</body>
+</html>

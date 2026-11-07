@@ -110,23 +110,22 @@ prometheus/
 │   └── prometheus-runtime/
 │
 ├── contracts/
-│   ├── openapi.yaml
-│   └── examples/
+│   └── openapi.yaml
 │
 ├── evals/
-│   ├── retrieval/
-│   └── rag/
+│   ├── datasets/
+│   ├── scripts/
+│   └── tests/
 │
 ├── packaging/
-│   ├── linux/
-│   ├── windows/
-│   └── macos/
 │
 ├── docs/
 │   ├── Architecture.md
 │   ├── Project_analytics.md
+│   ├── plugin-manual-regression-checklist.md
 │   └── adr/
 │
+├── LICENSE
 └── README.md
 ```
 
@@ -452,10 +451,12 @@ Reranker включается `PROMETHEUS_RERANKER_ENABLED=true` (модель
 Заголовки в индексе несут `heading_line` (0-based строка в заметке) и
 `heading_occurrence` (номер среди заголовков с тем же текстом). API возвращает
 Obsidian-ссылку `link` (`path#heading`) и эти поля в search/chat/stream.
-Parser/chunker/payload schema version = 3; смена версии требует reindex.
+Текущие версии схем индекса: `PARSER_SCHEMA_VERSION = 3`,
+`CHUNKER_ALGORITHM_VERSION = 4`, `PAYLOAD_SCHEMA_VERSION = 4`
+(см. `application/dto/index_fingerprint.py`). Смена любой из них требует reindex.
 
 Игнорируемые папки Vault хранятся в SQLite (`vault_ignored_folders`), задаются
-плагином через `GET/PUT /v1/vaults/{vaultId}/settings/ignored-folders`.
+плагином через `GET/PUT /v1/vaults/{vault_id}/settings/ignored-folders`.
 `.obsidian/` исключается всегда. Такие пути не индексируются; при поиске
 исключение применяется SQL-фильтрами по `chunk_folder_ancestors` и FTS5,
 а не постобработкой результатов.
@@ -473,18 +474,22 @@ GET    /v1/health
 GET    /v1/status
 GET    /v1/models
 
-PUT    /v1/vaults/{vaultId}/documents/{documentId}
-DELETE /v1/vaults/{vaultId}/documents/{documentId}
-POST   /v1/vaults/{vaultId}/sync/complete
+PUT    /v1/vaults/{vault_id}/documents/{document_id}
+DELETE /v1/vaults/{vault_id}/documents/{document_id}
+POST   /v1/vaults/{vault_id}/sync/complete
 
-POST   /v1/vaults/{vaultId}/search
-POST   /v1/vaults/{vaultId}/chat
-POST   /v1/vaults/{vaultId}/chat/stream
-POST   /v1/vaults/{vaultId}/reindex
+GET/PUT /v1/vaults/{vault_id}/settings/ignored-folders
 
-GET    /v1/jobs/{jobId}
-DELETE /v1/jobs/{jobId}
+POST   /v1/vaults/{vault_id}/search
+POST   /v1/vaults/{vault_id}/chat
+POST   /v1/vaults/{vault_id}/chat/stream
+POST   /v1/vaults/{vault_id}/reindex
+
+GET    /v1/jobs/{job_id}
+DELETE /v1/jobs/{job_id}
 ```
+
+Имена path-параметров в OpenAPI — `snake_case` (`vault_id`, `document_id`, `job_id`).
 
 Требования к API:
 
@@ -562,7 +567,8 @@ vector dimension
 parser schema version
 chunking algorithm version
 chunk size and overlap
-payload schema version (включая наличие FTS5 lexical-индекса; текущая версия 2)
+payload schema version (включая наличие FTS5 lexical-индекса и sqlite-vec;
+                        текущая версия 4)
 ```
 
 Изменение embedding-модели, размерности vector или несовместимой схемы требует
@@ -687,32 +693,38 @@ runtime, выбрать установленную модель, повтори�
 
 ## 19. Этапы реализации
 
-### MVP
+Публичный релиз **0.1** заморожен в [`docs/release/0.1.md`](./release/0.1.md)
+(состав MVP, out-of-scope, матрица версий). Ниже — детализация относительно
+архитектуры.
+
+### MVP / 0.1 (реализовано, scope frozen)
 
 1. Базовые Domain и Application слои.
 2. Plugin UI и управление managed/custom runtime.
 3. Document synchronization и инкрементальная индексация.
 4. Markdown-aware chunking.
-5. FastEmbed и sqlite-vec adapters.
-6. Dense semantic search.
-7. Ollama adapter и grounded answers.
-8. Переход к заметкам-источникам.
-9. Runtime status, progress и основные ошибки.
+5. FastEmbed и sqlite-vec adapters (`metadata.sqlite`).
+6. Dense semantic search (режим по умолчанию) и optional hybrid dense + BM25
+   (weighted RRF, `PROMETHEUS_RETRIEVAL_MODE` / `PROMETHEUS_HYBRID_*`).
+7. Optional локальный reranker (`PROMETHEUS_RERANKER_ENABLED`, top-20 → limit).
+8. Ollama adapter и grounded answers.
+9. Источники с переходом к заметке и heading (`path#heading`).
+10. Scopes в UI: Auto / Vault / Current note / Current folder
+    (`selected_folders` есть в API/domain, в UI пока не вынесен).
+11. Streaming ответа (`/chat/stream`) и отмена длительных операций.
+12. Runtime status, progress, ignored folders и основные ошибки.
 
 ### Этап 2
 
-- hybrid dense + BM25 search (реализовано: weighted RRF, настройки `PROMETHEUS_HYBRID_*`);
-- локальный reranker (`PROMETHEUS_RERANKER_ENABLED`, top-20 → limit);
-- current note, folder и selected folders scopes;
-- более точные ссылки на headings;
-- streaming ответа и отмена длительных операций.
+- UI для `selected_folders` scope;
+- улучшение UX поиска и чата (персистентная история — только opt-in);
+- профилирование и адаптация к слабому оборудованию.
 
 ### Этап 3
 
 - альтернативные embedding providers;
 - llama.cpp и другие локальные LLM runtimes;
-- framework для автоматической RAG-оценки;
-- профилирование и адаптация к слабому оборудованию;
+- расширение framework автоматической RAG-оценки;
 - опциональная зашифрованная история чата.
 
 ## 20. Ключевые архитектурные решения

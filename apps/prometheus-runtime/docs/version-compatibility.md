@@ -1,5 +1,7 @@
 # Plugin and runtime version compatibility
 
+Public **0.1** version freeze: see [`docs/release/0.1.md`](../../../docs/release/0.1.md).
+
 Prometheus Runtime accepts Obsidian plugin versions in the range **`>=0.1.0,<0.2.0`**.
 
 ## Negotiation

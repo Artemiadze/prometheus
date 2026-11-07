@@ -1,5 +1,10 @@
 # Отчёт по проекту Prometheus — локального RAG-расширения для Obsidian
 
+Документ фиксирует бизнес-требования и исходный анализ стека. **Актуальная
+реализованная архитектура и ADR** — в `docs/Architecture.md` и `docs/adr/`
+(в частности ADR 0003: dense index = **sqlite-vec** в `metadata.sqlite`, не
+отдельный Qdrant Local).
+
 ## 1. Концепция проекта
 
 **Prometheus** — локальное расширение для Obsidian с AI-чатом и семантическим поиском по заметкам пользователя.
@@ -330,7 +335,7 @@ Chunker
  ↓
 Embedding model
  ↓
-Qdrant
+sqlite-vec (metadata.sqlite)
 ```
 
 После этого полная переиндексация при каждом запуске приложения не требуется.
@@ -362,7 +367,7 @@ chunk changed document
        ↓
 generate embeddings
        ↓
-Qdrant upsert
+sqlite-vec upsert (одна транзакция с FTS/manifest)
 ```
 
 Obsidian API позволяет плагинам подписываться на события приложения и файловой системы Vault.
@@ -473,7 +478,7 @@ Search scope:
 Что я писал про градиентный спуск?
 ```
 
-В Qdrant можно хранить вместе с vector произвольный payload и использовать его при поиске и фильтрации.
+В sqlite-vec / SQLite рядом с vector хранятся payload и метаданные chunks; фильтры (папки, scope) применяются SQL-ом при поиске.
 
 Например:
 
@@ -552,7 +557,7 @@ Top-K
 LLM
 ```
 
-Qdrant должен обеспечивать быстрый retrieval даже при десятках тысяч chunks.
+sqlite-vec должен обеспечивать быстрый retrieval даже при десятках тысяч chunks.
 
 При данном масштабе Vault нагрузка для vector DB небольшая.
 
@@ -630,7 +635,7 @@ Qdrant должен обеспечивать быстрый retrieval даже �
 | RAG backend     | Python                                           |
 | Local interface | FastAPI / localhost                              |
 | Validation      | Pydantic                                         |
-| Vector DB       | Qdrant Local                                     |
+| Vector index    | sqlite-vec (в `metadata.sqlite`) + SQLite FTS5   |
 | Embeddings      | FastEmbed                                        |
 | LLM runtime     | Ollama                                           |
 | LLM             | Qwen / Gemma / другая компактная instruct-модель |
@@ -660,7 +665,7 @@ Python предоставляет удобный доступ к:
 
 ```text
 FastEmbed
-Qdrant Client
+sqlite-vec
 ONNX Runtime
 rerankers
 tokenizers
@@ -848,7 +853,7 @@ LLM Runtime
 Ollama
 
 Model
-qwen3:4b
+qwen3:4b-instruct-2507-q4_K_M   ← рекомендация для обычных ноутбуков
 
 Temperature
 0.1
@@ -857,15 +862,15 @@ Context
 8192
 ```
 
-Qwen3 доступна в Ollama, включая компактную версию `4b`.
+Для обычных ноутбуков рекомендуется quantised instruct-вариант `qwen3:4b-instruct-2507-q4_K_M` (`ollama pull qwen3:4b-instruct-2507-q4_K_M`). Код по умолчанию указывает `qwen3:4b`; пользователь выбирает любую локально установленную модель Ollama.
 
 Другой хороший кандидат для слабого оборудования — Gemma 3 4B. Ollama распространяет 4B-вариант примерно в 3.3 GB в Q4-квантизации; семейство поддерживает большое контекстное окно и множество языков.
 
 Поэтому разумная стратегия:
 
 ```text
-Default:
-Qwen 3 / Gemma 3 class 4B
+Рекомендация для ноутбуков:
+qwen3:4b-instruct-2507-q4_K_M
 
 Better hardware:
 8B–12B model
@@ -890,7 +895,7 @@ FastEmbed
  ↓
 vector
  ↓
-Qdrant
+sqlite-vec (metadata.sqlite)
 ```
 
 В отличие от OpenAI Embeddings API, текст не отправляется в интернет.
@@ -934,15 +939,13 @@ disk size
 
 ---
 
-# 26. Vector DB — Qdrant
+# 26. Vector index — sqlite-vec
 
-В качестве vector database предлагается **Qdrant**.
+В качестве dense vector index выбран **sqlite-vec** (`vec0`) внутри того же
+файла `metadata.sqlite`, где уже хранятся manifest и BM25 (FTS5).
 
-Для проекта не обязательно запускать полноценный Docker-сервер.
-
-Qdrant поддерживает локальный embedded/in-process сценарий; документация отдельно указывает возможность запуска без отдельного сервера.
-
-Это особенно удобно для данного проекта.
+Решение зафиксировано в `docs/adr/0003-sqlite-vec-vector-index.md` и заменяет
+ранее рассматривавшийся отдельный Qdrant Local store.
 
 Архитектура:
 
@@ -951,37 +954,33 @@ Prometheus Runtime
 │
 ├── FastEmbed
 │
-├── Qdrant Local
-│
-└── RAG pipeline
-```
-
-вместо:
-
-```text
-Python
+├── metadata.sqlite
+│     ├── relational tables (documents, chunks, jobs, …)
+│     ├── FTS5 (BM25 / lexical)
+│     └── sqlite-vec chunk_vectors (dense)о
+Docker / отдельный Qdrant Local каталог
   ↓
-Docker
-  ↓
-Qdrant server
+внешний vector DB process
 ```
 
 ---
 
-# 27. Почему Qdrant Local предпочтительнее Qdrant Server
+# 27. Почему sqlite-vec предпочтительнее отдельного vector store
 
-Для нескольких десятков тысяч chunks отдельный сервер избыточен.
+Для нескольких десятков тысяч chunks отдельный vector-сервер или второй
+on-disk engine избыточен.
 
-Использование Qdrant Local даёт:
+Использование sqlite-vec даёт:
 
-* меньше зависимостей;
-* отсутствие Docker;
-* отсутствие отдельного Qdrant-процесса;
-* более простую установку;
-* локальное хранение индекса;
-* тот же общий подход к vector search.
+* один файл индекса на Vault (`metadata.sqlite`);
+* одну транзакцию на indexing (vectors + manifest + FTS);
+* меньше зависимостей и отсутствие Docker / отдельного процесса;
+* более простую упаковку frozen binary (native extension в runtime);
+* приемлемый exact KNN для размеров vault Prometheus.
 
-Qdrant server можно оставить как альтернативный backend для будущих сценариев с очень большими Vault.
+Отдельный vector engine (например Qdrant) можно рассматривать позже только
+для сценариев с существенно большими Vault, если linear KNN перестанет
+хватать.
 
 ---
 
@@ -1017,7 +1016,7 @@ Qdrant server можно оставить как альтернативный ba
 │                      │                            │
 │        ┌─────────────┼─────────────┐              │
 │        ▼             ▼             ▼              │
-│    FastEmbed     Qdrant Local    Ollama Client    │
+│    FastEmbed     sqlite-vec    Ollama Client    │
 │                                      │            │
 └──────────────────────────────────────┼────────────┘
                                        │
@@ -1041,64 +1040,21 @@ Qdrant server можно оставить как альтернативный ba
 
 Основная идея:
 
-> бизнес-логика RAG не должна зависеть от Obsidian, Qdrant, FastEmbed или Ollama.
+> бизнес-логика RAG не должна зависеть от Obsidian, sqlite-vec, FastEmbed или Ollama.
 
-Предлагаемая структура backend:
+Целевая (и реализованная) структура backend — слои
+`domain` / `application` / `adapters` / `bootstrap` внутри
+`apps/prometheus-runtime/src/` (подробное дерево — в `docs/Architecture.md` §6.2
+и ADR 0001):
 
 ```text
-prometheus-runtime/
-│
-├── domain/
-│   │
-│   ├── entities/
-│   │   ├── document.py
-│   │   ├── chunk.py
-│   │   ├── search_result.py
-│   │   └── answer.py
-│   │
-│   └── interfaces/
-│       ├── vector_store.py
-│       ├── embedder.py
-│       ├── llm.py
-│       └── document_store.py
-│
-├── application/
-│   │
-│   ├── use_cases/
-│   │   ├── index_document.py
-│   │   ├── index_vault.py
-│   │   ├── remove_document.py
-│   │   ├── search_notes.py
-│   │   └── answer_question.py
-│   │
-│   └── services/
-│       ├── chunking.py
-│       ├── retrieval.py
-│       └── rag.py
-│
-├── infrastructure/
-│   │
-│   ├── vector_store/
-│   │   └── qdrant_store.py
-│   │
-│   ├── embeddings/
-│   │   └── fastembed_provider.py
-│   │
-│   ├── llm/
-│   │   └── ollama_provider.py
-│   │
-│   └── parser/
-│       └── markdown_parser.py
-│
-└── presentation/
-    │
-    └── api/
-        ├── app.py
-        └── routes/
-            ├── chat.py
-            ├── search.py
-            ├── index.py
-            └── status.py
+apps/prometheus-runtime/src/
+├── domain/          # entities, value objects, grounding policy
+├── application/     # ports + use cases (ports не в domain)
+├── adapters/
+│   ├── inbound/http/
+│   └── outbound/    # fastembed, ollama, markdown, sqlite (+ sqlite-vec), filesystem
+└── bootstrap/       # config, container, CLI
 ```
 
 ---
@@ -1144,7 +1100,7 @@ SearchResult:
 Domain не знает:
 
 ```text
-Qdrant
+sqlite-vec
 FastEmbed
 Ollama
 FastAPI
@@ -1215,7 +1171,7 @@ class LLMProvider(Protocol):
 ```text
 VectorStore
      ↓
-QdrantVectorStore
+SqliteVecVectorIndex
 ```
 
 ```text
@@ -1241,7 +1197,7 @@ llama.cpp
 или:
 
 ```text
-Qdrant
+sqlite-vec
  ↓
 другая vector DB
 ```
@@ -1347,7 +1303,7 @@ FastEmbed
       ↓
 Vectors
       ↓
-Qdrant
+sqlite-vec (+ FTS5 / manifest)
 ```
 
 Для каждого chunk сохраняется:
@@ -1413,7 +1369,7 @@ FastEmbed
       ↓
 Query Vector
       ↓
-Qdrant
+sqlite-vec (+ optional FTS5 hybrid)
       ↓
 Top 10–20 chunks
       ↓
@@ -1759,7 +1715,7 @@ Prometheus
 ● Prometheus service: Running
 ● Vector index: Ready
 ● Ollama: Running
-● LLM: qwen3:4b   (local)
+● LLM: qwen3:4b-instruct-2507-q4_K_M   (local)
 ● Documents: 4,169
 ● Chunks: 27,481
 
@@ -1812,7 +1768,7 @@ Vault not indexed
 ```text
 Local LLM is unavailable.
 
-Ollama is running, but model qwen3:4b
+Ollama is running, but model qwen3:4b-instruct-2507-q4_K_M
 is not installed.
 ```
 
@@ -1872,10 +1828,10 @@ multilingual model
 
 Vector storage
 ────────────────────────
-Qdrant Local
+sqlite-vec in metadata.sqlite
 
 Path
-~/.local/share/prometheus/
+~/.local/share/prometheus/vaults/<vault-id>/
 
 
 LLM
@@ -1884,7 +1840,7 @@ Runtime
 Ollama
 
 Model
-qwen3:4b          ← только из локально установленных
+qwen3:4b-instruct-2507-q4_K_M   ← рекомендация; только локально установленные
 
 Address
 127.0.0.1:11434
@@ -1902,7 +1858,7 @@ Updates only / Disabled
 
 # 49. Хранение данных
 
-Не рекомендуется размещать Qdrant database и binary runtime непосредственно внутри:
+Не рекомендуется размещать `metadata.sqlite` / индекс и binary runtime непосредственно внутри:
 
 ```text
 Vault/
@@ -1939,8 +1895,9 @@ prometheus/
 │
 ├── models/                  # embeddings / кэши моделей
 │
-├── indexes/
+├── vaults/
 │   └── <vault-id>/
+│       └── metadata.sqlite   # manifest, FTS5, sqlite-vec
 │
 ├── state/
 │   ├── index.json
@@ -1971,7 +1928,7 @@ Personal
 У каждого должен быть собственный индекс:
 
 ```text
-indexes/
+vaults/
 ├── 041ace.../
 ├── 193fcb.../
 └── 451afd.../
@@ -2037,7 +1994,7 @@ System
 ├── Prometheus Plugin
 │     └── Runtime manager (download / spawn)
 ├── Prometheus Runtime (local binary)
-├── Qdrant Local
+├── sqlite-vec + SQLite FTS5
 ├── FastEmbed
 │
 └── adapter → Ollama (выбор только локальных моделей)
@@ -2093,7 +2050,7 @@ FastEmbed
 
 Multilingual embeddings
 
-Qdrant Local
+sqlite-vec
 
 Dense vector search
 
@@ -2190,7 +2147,7 @@ Optional encrypted chat history
 │    Chunker       VectorStore    LLMProvider      │
 │                      │              │            │
 │                      ▼              ▼            │
-│               Qdrant Local       Ollama          │
+│               sqlite-vec       Ollama          │
 │                      ▲              │            │
 │                      │              ▼            │
 │                  FastEmbed       Local LLM        │
@@ -2214,7 +2171,7 @@ AnswerQuestion
 То есть неправильно:
 
 ```text
-QdrantService
+VectorStoreService
     ↓
 FastEmbedService
     ↓
@@ -2240,7 +2197,7 @@ Embedder
    → FastEmbed
 
 VectorStore
-   → Qdrant
+   → sqlite-vec
 
 LLMProvider
    → Ollama
@@ -2295,7 +2252,7 @@ Prometheus Runtime (frozen binary, managed sidecar)
 │
 ├── FastEmbed
 │
-├── Qdrant Local
+├── sqlite-vec + SQLite FTS5
 │
 ├── Retrieval
 │
@@ -2310,7 +2267,7 @@ Ollama
 
 Упаковка: Community Plugin остаётся тонким; Prometheus Runtime доставляется first-run download во вне-Vault каталог пользователя; custom binary path — для advanced/dev. In-vault bundle binary не используется.
 
-В качестве стартовой LLM имеет смысл рассматривать компактную multilingual instruct-модель порядка **4B**, например Qwen3 4B или Gemma 3 4B, а само приложение не связывать с конкретной моделью.
+В качестве стартовой LLM для обычных ноутбуков рекомендуется `qwen3:4b-instruct-2507-q4_K_M`; приложение не должно быть жёстко привязано к конкретной модели — пользователь выбирает из установленных в Ollama.
 
 ---
 
@@ -2331,7 +2288,7 @@ Local Chunking
       ↓
 Local FastEmbed
       ↓
-Local Qdrant
+Local sqlite-vec (+ FTS5)
       ↓
 Local Retrieval
       ↓
@@ -2342,7 +2299,7 @@ Answer + Sources
 
 При предполагаемом объёме около **4 169 Markdown-файлов и ~66 МБ исходного текста** нет необходимости создавать облачную или распределённую инфраструктуру.
 
-Qdrant может работать локально без отдельного сервера, FastEmbed позволяет генерировать embeddings локально через ONNX, а Ollama предоставляет localhost API для локальных LLM. Модель выбирается из уже установленных локальных; облачные LLM API в базовом режиме не используются.
+Dense-индекс хранится в sqlite-vec внутри `metadata.sqlite` (вместе с FTS5), FastEmbed генерирует embeddings локально через ONNX, а Ollama предоставляет localhost API для локальных LLM. Модель выбирается из уже установленных локальных; облачные LLM API в базовом режиме не используются. Решение зафиксировано в ADR 0003.
 
 Prometheus Runtime доставляется как managed frozen sidecar (first-run download во вне-Vault каталог) с optional custom binary path; binary внутри папки Community Plugin не кладётся.
 
@@ -2364,7 +2321,7 @@ Context construction
 Local LLM
 ```
 
-Поэтому **Clean Architecture здесь оправдана**: она позволит независимо развивать алгоритмы поиска, менять embedding-модели, Qdrant, способы chunking и локальные LLM, не переписывая центральные use cases приложения.
+Поэтому **Clean Architecture здесь оправдана**: она позволит независимо развивать алгоритмы поиска, менять embedding-модели, vector index, способы chunking и локальные LLM, не переписывая центральные use cases приложения.
 
 Итоговую архитектуру проекта можно сформулировать так:
 
@@ -2375,7 +2332,7 @@ Managed Local Prometheus Runtime (sidecar)
         +
 FastEmbed
         +
-Qdrant Local
+sqlite-vec (+ SQLite FTS5)
         +
 Ollama
         +
