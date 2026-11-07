@@ -92,9 +92,7 @@ if (runtimeVersion !== runtimeReleaseVersion) {
 }
 
 if (!isInRuntimeRange(runtimeReleaseVersion, requiredRange)) {
-  console.error(
-    `RUNTIME_RELEASE_VERSION ${runtimeReleaseVersion} is outside ${requiredRange}`,
-  );
+  console.error(`RUNTIME_RELEASE_VERSION ${runtimeReleaseVersion} is outside ${requiredRange}`);
   process.exit(1);
 }
 
@@ -109,9 +107,7 @@ if (!manifest.author || !manifest.authorUrl) {
 }
 
 if (manifest.authorUrl.includes("/prometheus")) {
-  console.error(
-    "authorUrl must be a personal/org profile URL, not the plugin repository",
-  );
+  console.error("authorUrl must be a personal/org profile URL, not the plugin repository");
   process.exit(1);
 }
 
