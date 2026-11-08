@@ -105,8 +105,8 @@ export class RuntimeHttpClient {
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
     const timeoutMs = request.timeoutMs ?? this.timeoutMs;
-    const armTimer = (): ReturnType<typeof setTimeout> =>
-      setTimeout(() => {
+    const armTimer = (): number =>
+      window.setTimeout(() => {
         timedOut = true;
         controller.abort();
       }, timeoutMs);
@@ -124,7 +124,7 @@ export class RuntimeHttpClient {
       const response = await nodeHttpNdjson(url, {
         ...init,
         onLine: (line) => {
-          clearTimeout(timer);
+          window.clearTimeout(timer);
           timer = armTimer();
           request.onLine(line);
         },
@@ -162,7 +162,7 @@ export class RuntimeHttpClient {
       }
       throw new RuntimeUnavailableError();
     } finally {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       request.signal?.removeEventListener("abort", onCallerAbort);
     }
   }
@@ -197,7 +197,7 @@ export class RuntimeHttpClient {
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
     const timeoutMs = request.timeoutMs ?? this.timeoutMs;
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       timedOut = true;
       controller.abort();
     }, timeoutMs);
@@ -238,7 +238,7 @@ export class RuntimeHttpClient {
       }
       throw new RuntimeUnavailableError();
     } finally {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       request.signal?.removeEventListener("abort", onCallerAbort);
     }
   }

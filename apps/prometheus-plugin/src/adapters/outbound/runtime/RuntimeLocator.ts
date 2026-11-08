@@ -123,17 +123,17 @@ export class RuntimeLocator {
         stdout += String(chunk);
       });
 
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         killProbe(child.pid);
         finish(null);
       }, this.versionProbeTimeoutMs);
 
       child.on("error", () => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         finish(null);
       });
       child.on("close", () => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         const line = stdout.trim().split(/\r?\n/)[0]?.trim() ?? "";
         finish(line.length > 0 ? line : null);
       });
