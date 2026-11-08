@@ -10,7 +10,7 @@ export class SystemClock implements Clock {
       return Promise.reject(new DOMException("The operation was aborted", "AbortError"));
     }
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         cleanup();
         resolve();
       }, ms);
@@ -19,7 +19,7 @@ export class SystemClock implements Clock {
         reject(new DOMException("The operation was aborted", "AbortError"));
       };
       const cleanup = () => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         signal?.removeEventListener("abort", onAbort);
       };
       signal?.addEventListener("abort", onAbort, { once: true });

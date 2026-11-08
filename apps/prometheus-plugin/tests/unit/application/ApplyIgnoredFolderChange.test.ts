@@ -13,13 +13,17 @@ import { NotePath } from "../../../src/domain/value-objects/NotePath";
 import { FakeNotifier } from "../../fakes/FakeNotifier";
 import { FakeRagGateway } from "../../fakes/FakeRagGateway";
 import { FakeSettingsRepository } from "../../fakes/FakeSettingsRepository";
+import { FakeVaultGateway } from "../../fakes/FakeVaultGateway";
 
 describe("effectiveIgnoredFolders / isIgnoredPath", () => {
-  it("always includes .obsidian/", () => {
-    const folders = effectiveIgnoredFolders({
-      ...DEFAULT_PLUGIN_SETTINGS,
-      ignoredFolders: ["Templates/"],
-    });
+  it("always includes Vault configDir", () => {
+    const folders = effectiveIgnoredFolders(
+      {
+        ...DEFAULT_PLUGIN_SETTINGS,
+        ignoredFolders: ["Templates/"],
+      },
+      ".obsidian",
+    );
     expect(folders).toContain(".obsidian/");
     expect(folders).toContain("Templates/");
     expect(isIgnoredPath(".obsidian/config", folders)).toBe(true);
@@ -52,6 +56,7 @@ describe("ApplyIgnoredFolderChange", () => {
       new FakeSettingsRepository({ ...DEFAULT_PLUGIN_SETTINGS, vaultId: "vault-a1" }),
       syncState,
       new FakeNotifier(),
+      new FakeVaultGateway(),
     );
 
     const removed = await useCase.execute({

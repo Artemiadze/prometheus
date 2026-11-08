@@ -164,7 +164,7 @@ export class RuntimeProcess {
 
 function waitForSpawn(child: ChildProcess, delayMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       cleanup();
       if (child.exitCode !== null) {
         reject(new RuntimeStartFailedError("Runtime process exited during startup"));
@@ -181,7 +181,7 @@ function waitForSpawn(child: ChildProcess, delayMs: number): Promise<void> {
       reject(error);
     };
     const cleanup = () => {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       child.off("exit", onExit);
       child.off("error", onError);
     };

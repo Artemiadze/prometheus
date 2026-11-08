@@ -62,7 +62,7 @@ export class SynchronizeVault {
     const batchSize = options.batchSize ?? 50;
 
     options.onProgress?.({ phase: "scanning", processed: 0, total: 0 });
-    const ignored = effectiveIgnoredFolders(settings);
+    const ignored = effectiveIgnoredFolders(settings, this.vault.getConfigDir());
     const snapshot = await this.vault.getVaultSnapshot(signal, ignored);
     const files = snapshot.filter((file) => !isIgnoredPath(file.path.value, ignored));
 

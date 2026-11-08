@@ -1,10 +1,21 @@
-import { PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
+import {
+  PluginSettingTab,
+  Setting,
+  type App,
+  type Plugin,
+  type SettingDefinitionItem,
+} from "obsidian";
 
 import type { SettingsController, SettingsViewState } from "./settings/SettingsController";
 import { formatBytes } from "./settings/formatBytes";
 
+type SectionOptions = {
+  readonly includeHeading?: boolean;
+};
+
 /**
  * Obsidian settings tab for Prometheus (PLG-E11).
+ * Path B: display() for Obsidian &lt; 1.13; getSettingDefinitions() for 1.13+ search/UI.
  */
 export class SettingsTab extends PluginSettingTab {
   private readonly controller: SettingsController;
@@ -16,15 +27,155 @@ export class SettingsTab extends PluginSettingTab {
   }
 
   override display(): void {
-    this.unsubscribe?.();
-    this.unsubscribe = this.controller.subscribe((state) => {
+    this.ensureLiveUpdates((state) => {
       this.render(state);
     });
+  }
+
+  /**
+   * Obsidian 1.13+: declarative definitions for settings search and rendering.
+   * Uses render callbacks because values live in SettingsController, not plugin.settings.
+   */
+  override getSettingDefinitions(): SettingDefinitionItem[] {
+    this.ensureLiveUpdates(() => {
+      this.update();
+    });
+    const state = this.controller.getState();
+    return [
+      ...(state.actionError
+        ? [
+            {
+              name: "Status",
+              desc: state.actionError,
+              searchable: false,
+              render: (setting: Setting) => {
+                setting.descEl.setText(state.actionError ?? "");
+                setting.descEl.addClass("prometheus-settings__error");
+              },
+            },
+          ]
+        : []),
+      {
+        type: "group",
+        name: "Runtime",
+        items: [
+          {
+            name: "Runtime",
+            aliases: [
+              "Prometheus Runtime",
+              "Custom binary path",
+              "Runtime version",
+              "Install / update",
+              "Restart runtime",
+              "Start runtime when Obsidian opens",
+            ],
+            render: (setting) => {
+              setting.settingEl.empty();
+              this.renderRuntime(setting.settingEl, this.controller.getState(), {
+                includeHeading: false,
+              });
+            },
+          },
+        ],
+      },
+      {
+        type: "group",
+        name: "Indexing",
+        items: [
+          {
+            name: "Indexing",
+            aliases: [
+              "Automatic indexing",
+              "Indexing debounce",
+              "Ignored folders",
+              "Chunk size",
+              "Overlap",
+              "Reindex vault",
+            ],
+            render: (setting) => {
+              setting.settingEl.empty();
+              this.renderIndexing(setting.settingEl, this.controller.getState(), {
+                includeHeading: false,
+              });
+            },
+          },
+        ],
+      },
+      {
+        type: "group",
+        name: "Embeddings",
+        items: [
+          {
+            name: "Embeddings",
+            aliases: ["Provider", "Model", "Vector storage", "Store", "Path", "Index size"],
+            render: (setting) => {
+              setting.settingEl.empty();
+              this.renderEmbeddings(setting.settingEl, this.controller.getState(), {
+                includeHeading: false,
+              });
+            },
+          },
+        ],
+      },
+      {
+        type: "group",
+        name: "LLM",
+        items: [
+          {
+            name: "LLM",
+            aliases: ["Model", "Address", "Temperature", "Context size", "Ollama"],
+            render: (setting) => {
+              setting.settingEl.empty();
+              this.renderLlm(setting.settingEl, this.controller.getState(), {
+                includeHeading: false,
+              });
+            },
+          },
+        ],
+      },
+      {
+        type: "group",
+        name: "Privacy",
+        items: [
+          {
+            name: "Privacy",
+            aliases: ["Network access"],
+            render: (setting) => {
+              setting.settingEl.empty();
+              this.renderPrivacy(setting.settingEl, this.controller.getState(), {
+                includeHeading: false,
+              });
+            },
+          },
+        ],
+      },
+      {
+        type: "group",
+        name: "Diagnostics",
+        items: [
+          {
+            name: "Diagnostics",
+            aliases: ["Verbose logging", "Diagnostics report"],
+            render: (setting) => {
+              setting.settingEl.empty();
+              this.renderDiagnostics(setting.settingEl, this.controller.getState(), {
+                includeHeading: false,
+              });
+            },
+          },
+        ],
+      },
+    ];
   }
 
   override hide(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+  }
+
+  private ensureLiveUpdates(onChange: (state: SettingsViewState) => void): void {
+    this.unsubscribe?.();
+    this.unsubscribe = this.controller.subscribe(onChange);
   }
 
   private render(state: SettingsViewState): void {
@@ -50,8 +201,14 @@ export class SettingsTab extends PluginSettingTab {
     this.renderDiagnostics(containerEl, state);
   }
 
-  private renderRuntime(containerEl: HTMLElement, state: SettingsViewState): void {
-    new Setting(containerEl).setName("Runtime").setHeading();
+  private renderRuntime(
+    containerEl: HTMLElement,
+    state: SettingsViewState,
+    options: SectionOptions = {},
+  ): void {
+    if (options.includeHeading !== false) {
+      new Setting(containerEl).setName("Runtime").setHeading();
+    }
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)
@@ -135,8 +292,14 @@ export class SettingsTab extends PluginSettingTab {
       });
   }
 
-  private renderIndexing(containerEl: HTMLElement, state: SettingsViewState): void {
-    new Setting(containerEl).setName("Indexing").setHeading();
+  private renderIndexing(
+    containerEl: HTMLElement,
+    state: SettingsViewState,
+    options: SectionOptions = {},
+  ): void {
+    if (options.includeHeading !== false) {
+      new Setting(containerEl).setName("Indexing").setHeading();
+    }
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)
@@ -236,8 +399,14 @@ export class SettingsTab extends PluginSettingTab {
     });
   }
 
-  private renderEmbeddings(containerEl: HTMLElement, state: SettingsViewState): void {
-    new Setting(containerEl).setName("Embeddings").setHeading();
+  private renderEmbeddings(
+    containerEl: HTMLElement,
+    state: SettingsViewState,
+    options: SectionOptions = {},
+  ): void {
+    if (options.includeHeading !== false) {
+      new Setting(containerEl).setName("Embeddings").setHeading();
+    }
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section).setName("Provider").setDesc("FastEmbed");
@@ -264,8 +433,14 @@ export class SettingsTab extends PluginSettingTab {
       );
   }
 
-  private renderLlm(containerEl: HTMLElement, state: SettingsViewState): void {
-    new Setting(containerEl).setName("LLM").setHeading();
+  private renderLlm(
+    containerEl: HTMLElement,
+    state: SettingsViewState,
+    options: SectionOptions = {},
+  ): void {
+    if (options.includeHeading !== false) {
+      new Setting(containerEl).setName("LLM").setHeading();
+    }
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section).setName("Runtime").setDesc("Ollama (local)");
@@ -360,8 +535,14 @@ export class SettingsTab extends PluginSettingTab {
       });
   }
 
-  private renderPrivacy(containerEl: HTMLElement, state: SettingsViewState): void {
-    new Setting(containerEl).setName("Privacy").setHeading();
+  private renderPrivacy(
+    containerEl: HTMLElement,
+    state: SettingsViewState,
+    options: SectionOptions = {},
+  ): void {
+    if (options.includeHeading !== false) {
+      new Setting(containerEl).setName("Privacy").setHeading();
+    }
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)
@@ -386,8 +567,14 @@ export class SettingsTab extends PluginSettingTab {
     });
   }
 
-  private renderDiagnostics(containerEl: HTMLElement, state: SettingsViewState): void {
-    new Setting(containerEl).setName("Diagnostics").setHeading();
+  private renderDiagnostics(
+    containerEl: HTMLElement,
+    state: SettingsViewState,
+    options: SectionOptions = {},
+  ): void {
+    if (options.includeHeading !== false) {
+      new Setting(containerEl).setName("Diagnostics").setHeading();
+    }
     const section = containerEl.createDiv({ cls: "prometheus-settings__section" });
 
     new Setting(section)

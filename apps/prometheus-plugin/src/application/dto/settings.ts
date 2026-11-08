@@ -63,6 +63,3 @@ export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
   verboseLogging: false,
   runtimeAutostart: false,
 };
-
-/** Always ignored regardless of user settings. */
-export const SYSTEM_IGNORED_FOLDERS: readonly string[] = [".obsidian/"];

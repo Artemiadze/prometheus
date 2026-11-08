@@ -17,4 +17,6 @@ export interface VaultGateway {
   openNote(path: NotePath, options?: OpenNoteOptions, signal?: AbortSignal): Promise<void>;
   getActiveNotePath(): NotePath | null;
   getActiveFolderPath(): NotePath | null;
+  /** Obsidian Vault#configDir (may differ from ".obsidian"). */
+  getConfigDir(): string;
 }

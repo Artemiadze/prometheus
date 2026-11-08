@@ -49,6 +49,7 @@ export function wireSettingsTab(deps: WireSettingsTabDeps): WiredSettingsTab {
     deps.settings,
     deps.syncState,
     deps.notifier,
+    { getConfigDir: () => deps.app.vault.configDir },
   );
 
   const controller = new SettingsController({

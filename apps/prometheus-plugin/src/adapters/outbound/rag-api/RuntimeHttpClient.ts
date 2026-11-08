@@ -64,6 +64,8 @@ export class RuntimeHttpClient {
   private readonly requestIdFactory: () => string;
 
   constructor(private readonly options: RuntimeHttpClientOptions) {
+    // Loopback runtime needs AbortSignal + NDJSON streaming; requestUrl is not a drop-in.
+    // eslint-disable-next-line -- community scanner prefers requestUrl; keep fetch for sidecar
     this.fetchFn = options.fetchFn ?? fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.pluginVersion = options.pluginVersion ?? PLUGIN_VERSION;
@@ -105,8 +107,8 @@ export class RuntimeHttpClient {
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
     const timeoutMs = request.timeoutMs ?? this.timeoutMs;
-    const armTimer = (): ReturnType<typeof setTimeout> =>
-      setTimeout(() => {
+    const armTimer = (): number =>
+      window.setTimeout(() => {
         timedOut = true;
         controller.abort();
       }, timeoutMs);
@@ -124,7 +126,7 @@ export class RuntimeHttpClient {
       const response = await nodeHttpNdjson(url, {
         ...init,
         onLine: (line) => {
-          clearTimeout(timer);
+          window.clearTimeout(timer);
           timer = armTimer();
           request.onLine(line);
         },
@@ -162,7 +164,7 @@ export class RuntimeHttpClient {
       }
       throw new RuntimeUnavailableError();
     } finally {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       request.signal?.removeEventListener("abort", onCallerAbort);
     }
   }
@@ -197,7 +199,7 @@ export class RuntimeHttpClient {
     }
     request.signal?.addEventListener("abort", onCallerAbort, { once: true });
     const timeoutMs = request.timeoutMs ?? this.timeoutMs;
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       timedOut = true;
       controller.abort();
     }, timeoutMs);
@@ -238,7 +240,7 @@ export class RuntimeHttpClient {
       }
       throw new RuntimeUnavailableError();
     } finally {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       request.signal?.removeEventListener("abort", onCallerAbort);
     }
   }

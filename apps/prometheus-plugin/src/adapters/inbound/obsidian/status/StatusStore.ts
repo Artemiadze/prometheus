@@ -336,12 +336,12 @@ function sleepMs(ms: number, signal: AbortSignal): Promise<void> {
     return Promise.reject(new DOMException("The operation was aborted", "AbortError"));
   }
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       signal.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
     const onAbort = (): void => {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       signal.removeEventListener("abort", onAbort);
       reject(new DOMException("The operation was aborted", "AbortError"));
     };

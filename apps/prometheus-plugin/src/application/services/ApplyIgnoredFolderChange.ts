@@ -1,6 +1,7 @@
 import type { Notifier } from "../ports/Notifier";
 import type { RagGateway } from "../ports/RagGateway";
 import type { SettingsRepository } from "../ports/SettingsRepository";
+import type { VaultGateway } from "../ports/VaultGateway";
 import type { DocumentSyncState } from "./DocumentSyncState";
 import { effectiveIgnoredFolders, isIgnoredPath, requireVaultId } from "./settingsHelpers";
 
@@ -19,20 +20,28 @@ export class ApplyIgnoredFolderChange {
     private readonly settings: SettingsRepository,
     private readonly syncState: DocumentSyncState,
     private readonly notifier: Notifier,
+    private readonly vault: Pick<VaultGateway, "getConfigDir">,
   ) {}
 
   async execute(input: ApplyIgnoredFolderChangeInput, signal?: AbortSignal): Promise<number> {
     const settings = await this.settings.get();
     const vaultId = requireVaultId(settings);
+    const configDir = this.vault.getConfigDir();
 
-    const previousEffective = effectiveIgnoredFolders({
-      ...settings,
-      ignoredFolders: input.previousIgnoredFolders,
-    });
-    const nextEffective = effectiveIgnoredFolders({
-      ...settings,
-      ignoredFolders: input.nextIgnoredFolders,
-    });
+    const previousEffective = effectiveIgnoredFolders(
+      {
+        ...settings,
+        ignoredFolders: input.previousIgnoredFolders,
+      },
+      configDir,
+    );
+    const nextEffective = effectiveIgnoredFolders(
+      {
+        ...settings,
+        ignoredFolders: input.nextIgnoredFolders,
+      },
+      configDir,
+    );
 
     let removed = 0;
     for (const record of [...this.syncState.entries()]) {
