@@ -7,6 +7,10 @@
   --prometheus-accent: #4ade80;
   --prometheus-accent-soft: rgba(74, 222, 128, 0.22);
   --prometheus-accent-border: rgba(74, 222, 128, 0.55);
+  --prometheus-send-bg: var(--prometheus-accent);
+  --prometheus-send-bg-hover: #22c55e;
+  --prometheus-send-bg-busy: #ffffff;
+  --prometheus-send-fg: #0a0a0a;
   color: var(--text-normal);
   background-color: var(--background-primary);
   font-family: var(--font-interface);
@@ -84,16 +88,16 @@
   color: var(--text-muted);
 }
 
-button.prometheus-chat-tabs__title,
-button.prometheus-chat-tabs__title:hover,
-button.prometheus-chat-tabs__title:focus,
-button.prometheus-chat-tabs__title:active {
+.prometheus-chat-view button.prometheus-chat-tabs__title,
+.prometheus-chat-view button.prometheus-chat-tabs__title:hover,
+.prometheus-chat-view button.prometheus-chat-tabs__title:focus,
+.prometheus-chat-view button.prometheus-chat-tabs__title:active {
   flex: 1 1 auto;
   min-width: 0;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: none !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: none;
   outline: none;
   color: var(--text-muted);
   cursor: pointer;
@@ -105,21 +109,23 @@ button.prometheus-chat-tabs__title:active {
   text-align: left;
 }
 
-.prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title,
-.prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title:hover,
-.prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title:focus {
+.prometheus-chat-view .prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title,
+.prometheus-chat-view .prometheus-chat-tabs__tab.is-active button.prometheus-chat-tabs__title:hover,
+.prometheus-chat-view
+  .prometheus-chat-tabs__tab.is-active
+  button.prometheus-chat-tabs__title:focus {
   color: var(--text-normal);
 }
 
-button.prometheus-chat-tabs__close,
-button.prometheus-chat-tabs__close:hover,
-button.prometheus-chat-tabs__close:focus,
-button.prometheus-chat-tabs__close:active {
+.prometheus-chat-view button.prometheus-chat-tabs__close,
+.prometheus-chat-view button.prometheus-chat-tabs__close:hover,
+.prometheus-chat-view button.prometheus-chat-tabs__close:focus,
+.prometheus-chat-view button.prometheus-chat-tabs__close:active {
   flex: 0 0 auto;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: none !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: none;
   outline: none;
   color: var(--text-muted);
   cursor: pointer;
@@ -129,8 +135,8 @@ button.prometheus-chat-tabs__close:active {
   justify-content: center;
 }
 
-button.prometheus-chat-tabs__close:hover,
-button.prometheus-chat-tabs__close:focus {
+.prometheus-chat-view button.prometheus-chat-tabs__close:hover,
+.prometheus-chat-view button.prometheus-chat-tabs__close:focus {
   color: var(--text-normal);
 }
 
@@ -139,15 +145,15 @@ button.prometheus-chat-tabs__close:focus {
   height: 12px;
 }
 
-button.prometheus-chat-tabs__new,
-button.prometheus-chat-tabs__new:hover,
-button.prometheus-chat-tabs__new:focus,
-button.prometheus-chat-tabs__new:active {
+.prometheus-chat-view button.prometheus-chat-tabs__new,
+.prometheus-chat-view button.prometheus-chat-tabs__new:hover,
+.prometheus-chat-view button.prometheus-chat-tabs__new:focus,
+.prometheus-chat-view button.prometheus-chat-tabs__new:active {
   flex: 0 0 auto;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: 1px dashed var(--background-modifier-border) !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: 1px dashed var(--background-modifier-border);
   outline: none;
   border-radius: var(--radius-l);
   color: var(--text-muted);
@@ -158,13 +164,10 @@ button.prometheus-chat-tabs__new:active {
   justify-content: center;
 }
 
-button.prometheus-chat-tabs__new:hover,
-button.prometheus-chat-tabs__new:focus {
+.prometheus-chat-view button.prometheus-chat-tabs__new:hover,
+.prometheus-chat-view button.prometheus-chat-tabs__new:focus {
   color: var(--text-normal);
-  border-color: var(
-    --background-modifier-border-hover,
-    var(--background-modifier-border)
-  ) !important;
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
 }
 
 .prometheus-search-view__input {
@@ -234,15 +237,15 @@ button.prometheus-chat-tabs__new:focus {
   flex: 1 1 auto;
 }
 
-button.prometheus-chat-composer__icon-btn,
-button.prometheus-chat-composer__icon-btn:hover,
-button.prometheus-chat-composer__icon-btn:focus,
-button.prometheus-chat-composer__icon-btn:active {
+.prometheus-chat-view button.prometheus-chat-composer__icon-btn,
+.prometheus-chat-view button.prometheus-chat-composer__icon-btn:hover,
+.prometheus-chat-view button.prometheus-chat-composer__icon-btn:focus,
+.prometheus-chat-view button.prometheus-chat-composer__icon-btn:active {
   flex: 0 0 auto;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: none !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: none;
   outline: none;
   color: var(--text-muted);
   cursor: pointer;
@@ -253,8 +256,8 @@ button.prometheus-chat-composer__icon-btn:active {
   border-radius: var(--radius-s);
 }
 
-button.prometheus-chat-composer__icon-btn:hover,
-button.prometheus-chat-composer__icon-btn:focus {
+.prometheus-chat-view button.prometheus-chat-composer__icon-btn:hover,
+.prometheus-chat-view button.prometheus-chat-composer__icon-btn:focus {
   color: var(--text-normal);
 }
 
@@ -263,19 +266,19 @@ button.prometheus-chat-composer__icon-btn:focus {
   min-width: 0;
 }
 
-button.prometheus-chat-composer__send,
-button.prometheus-chat-composer__send:hover,
-button.prometheus-chat-composer__send:focus,
-button.prometheus-chat-composer__send:active {
+.prometheus-chat-view button.prometheus-chat-composer__send,
+.prometheus-chat-view button.prometheus-chat-composer__send:hover,
+.prometheus-chat-view button.prometheus-chat-composer__send:focus,
+.prometheus-chat-view button.prometheus-chat-composer__send:active {
   flex: 0 0 auto;
   width: 28px;
   height: 28px;
   border-radius: 50%;
   border: none;
-  background-color: var(--prometheus-accent, #4ade80) !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  color: #0a0a0a !important;
+  background-color: var(--prometheus-send-bg);
+  background-image: none;
+  box-shadow: none;
+  color: var(--prometheus-send-fg);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -284,38 +287,38 @@ button.prometheus-chat-composer__send:active {
   opacity: 1;
 }
 
-button.prometheus-chat-composer__send:hover {
-  background-color: #22c55e !important;
+.prometheus-chat-view button.prometheus-chat-composer__send:hover {
+  background-color: var(--prometheus-send-bg-hover);
 }
 
-button.prometheus-chat-composer__send.is-busy,
-button.prometheus-chat-composer__send.is-busy:hover,
-button.prometheus-chat-composer__send.is-busy:focus,
-button.prometheus-chat-composer__send.is-busy:active {
-  background-color: #ffffff !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  color: #0a0a0a !important;
+.prometheus-chat-view button.prometheus-chat-composer__send.is-busy,
+.prometheus-chat-view button.prometheus-chat-composer__send.is-busy:hover,
+.prometheus-chat-view button.prometheus-chat-composer__send.is-busy:focus,
+.prometheus-chat-view button.prometheus-chat-composer__send.is-busy:active {
+  background-color: var(--prometheus-send-bg-busy);
+  background-image: none;
+  box-shadow: none;
+  color: var(--prometheus-send-fg);
 }
 
-button.prometheus-chat-composer__send svg {
-  color: inherit !important;
-  stroke: currentColor !important;
+.prometheus-chat-view button.prometheus-chat-composer__send svg {
+  color: inherit;
+  stroke: currentColor;
 }
 
-button.prometheus-chat-pill,
-button.prometheus-chat-pill:hover,
-button.prometheus-chat-pill:focus,
-button.prometheus-chat-pill:active,
-button.prometheus-chat-pill:disabled {
+.prometheus-chat-view button.prometheus-chat-pill,
+.prometheus-chat-view button.prometheus-chat-pill:hover,
+.prometheus-chat-view button.prometheus-chat-pill:focus,
+.prometheus-chat-view button.prometheus-chat-pill:active,
+.prometheus-chat-view button.prometheus-chat-pill:disabled {
   display: inline-flex;
   align-items: center;
   gap: var(--size-2-1);
   max-width: 100%;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: none !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: none;
   outline: none;
   color: var(--text-muted);
   cursor: pointer;
@@ -324,12 +327,12 @@ button.prometheus-chat-pill:disabled {
   border-radius: var(--radius-s);
 }
 
-button.prometheus-chat-pill:hover:not(:disabled),
-button.prometheus-chat-pill:focus:not(:disabled) {
+.prometheus-chat-view button.prometheus-chat-pill:hover:not(:disabled),
+.prometheus-chat-view button.prometheus-chat-pill:focus:not(:disabled) {
   color: var(--text-normal);
 }
 
-button.prometheus-chat-pill:disabled {
+.prometheus-chat-view button.prometheus-chat-pill:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -475,15 +478,30 @@ button.prometheus-chat-pill:disabled {
   display: block;
 }
 
-.prometheus-chat-message__body .prometheus-chat-code > button,
-.prometheus-chat-message__body .prometheus-chat-code > .copy-code-button {
+.prometheus-chat-view .prometheus-chat-message__body .prometheus-chat-code > button,
+.prometheus-chat-view .prometheus-chat-message__body .prometheus-chat-code > .copy-code-button,
+.prometheus-chat-view .prometheus-chat-message__body .prometheus-chat-code > button:hover,
+.prometheus-chat-view
+  .prometheus-chat-message__body
+  .prometheus-chat-code
+  > .copy-code-button:hover,
+.prometheus-chat-view .prometheus-chat-message__body .prometheus-chat-code > button:focus,
+.prometheus-chat-view
+  .prometheus-chat-message__body
+  .prometheus-chat-code
+  > .copy-code-button:focus,
+.prometheus-chat-view .prometheus-chat-message__body .prometheus-chat-code > button:active,
+.prometheus-chat-view
+  .prometheus-chat-message__body
+  .prometheus-chat-code
+  > .copy-code-button:active {
   flex: 0 0 auto;
   margin: 0 0 0 auto;
   align-self: center;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: none !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: none;
   color: var(--text-muted);
   padding: var(--size-2-1);
   cursor: pointer;
@@ -492,10 +510,12 @@ button.prometheus-chat-pill:disabled {
   justify-content: center;
 }
 
-.prometheus-chat-message__body .prometheus-chat-code > button:hover,
-.prometheus-chat-message__body .prometheus-chat-code > .copy-code-button:hover {
+.prometheus-chat-view .prometheus-chat-message__body .prometheus-chat-code > button:hover,
+.prometheus-chat-view
+  .prometheus-chat-message__body
+  .prometheus-chat-code
+  > .copy-code-button:hover {
   color: var(--text-normal);
-  background-color: transparent !important;
 }
 
 /* Fallback when Obsidian keeps the copy control inside <pre>. */
@@ -515,15 +535,22 @@ button.prometheus-chat-pill:disabled {
   min-width: 0;
 }
 
-.prometheus-chat-message__body > pre > .copy-code-button,
-.prometheus-chat-message__body > pre > button,
-.prometheus-chat-message__body p > pre > .copy-code-button,
-.prometheus-chat-message__body li > pre > .copy-code-button {
+.prometheus-chat-view .prometheus-chat-message__body > pre > .copy-code-button,
+.prometheus-chat-view .prometheus-chat-message__body > pre > button,
+.prometheus-chat-view .prometheus-chat-message__body p > pre > .copy-code-button,
+.prometheus-chat-view .prometheus-chat-message__body li > pre > .copy-code-button,
+.prometheus-chat-view .prometheus-chat-message__body > pre > .copy-code-button:hover,
+.prometheus-chat-view .prometheus-chat-message__body > pre > button:hover,
+.prometheus-chat-view .prometheus-chat-message__body > pre > .copy-code-button:focus,
+.prometheus-chat-view .prometheus-chat-message__body > pre > button:focus,
+.prometheus-chat-view .prometheus-chat-message__body > pre > .copy-code-button:active,
+.prometheus-chat-view .prometheus-chat-message__body > pre > button:active {
   flex: 0 0 auto;
   margin-left: auto;
-  background-color: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  border: none;
   color: var(--text-muted);
 }
 
