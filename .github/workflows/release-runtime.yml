@@ -27,9 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           # Prefer Astral mirror; avoid flaky GitHub Releases 504s on setup-uv@v6.
+          # No floating v10 tag exists — pin a concrete release.
           version: "0.13.7"
           enable-cache: true
           github-token: ${{ github.token }}
