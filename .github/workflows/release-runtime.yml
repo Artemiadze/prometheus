@@ -27,10 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10
         with:
-          version: "0.11.18"
+          # Prefer Astral mirror; avoid flaky GitHub Releases 504s on setup-uv@v6.
+          version: "0.13.7"
           enable-cache: true
+          github-token: ${{ github.token }}
           cache-dependency-glob: "apps/prometheus-runtime/uv.lock"
 
       - name: Install Python and packaging dependencies
