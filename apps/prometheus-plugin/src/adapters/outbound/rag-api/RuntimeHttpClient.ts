@@ -64,6 +64,8 @@ export class RuntimeHttpClient {
   private readonly requestIdFactory: () => string;
 
   constructor(private readonly options: RuntimeHttpClientOptions) {
+    // Loopback runtime needs AbortSignal + NDJSON streaming; requestUrl is not a drop-in.
+    // eslint-disable-next-line -- community scanner prefers requestUrl; keep fetch for sidecar
     this.fetchFn = options.fetchFn ?? fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.pluginVersion = options.pluginVersion ?? PLUGIN_VERSION;

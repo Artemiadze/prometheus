@@ -1,4 +1,4 @@
-import type { App, EventRef, TAbstractFile, TFile } from "obsidian";
+import { TFile, type App, type EventRef, type TAbstractFile } from "obsidian";
 
 type VaultListener = (...args: unknown[]) => void;
 
@@ -34,17 +34,14 @@ export function createMockApp(
   let activePath: string | null = null;
 
   function addFile(path: string, content: string, mtime = 0): MockVaultFile {
-    const file = {
-      path,
-      name: path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path,
-      extension: path.includes(".") ? path.slice(path.lastIndexOf(".") + 1) : "",
-      basename: "",
-      parent: null,
-      vault: null,
-      stat: { ctime: mtime, mtime, size: Buffer.byteLength(content, "utf8") },
-      __content: content,
-    } as unknown as MockVaultFile;
+    const file = new TFile() as MockVaultFile;
+    file.path = path;
+    file.name = path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path;
+    file.extension = path.includes(".") ? path.slice(path.lastIndexOf(".") + 1) : "";
     file.basename = file.name.replace(/\.[^.]+$/, "");
+    file.parent = null;
+    file.stat = { ctime: mtime, mtime, size: Buffer.byteLength(content, "utf8") };
+    file.__content = content;
     files.set(path, file);
     return file;
   }

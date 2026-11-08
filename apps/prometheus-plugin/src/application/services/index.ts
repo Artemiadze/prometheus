@@ -20,5 +20,10 @@ export {
   isRuntimeVersionCompatible,
   REQUIRED_RUNTIME_RANGE,
 } from "./RuntimeVersion";
-export { effectiveIgnoredFolders, isIgnoredPath, requireVaultId } from "./settingsHelpers";
+export {
+  effectiveIgnoredFolders,
+  isIgnoredPath,
+  normalizeConfigDirPrefix,
+  requireVaultId,
+} from "./settingsHelpers";
 export { wireVaultIndexing, type WireVaultIndexingDeps } from "./wireVaultIndexing";

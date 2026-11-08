@@ -490,7 +490,7 @@ export class ChatView extends ItemView {
     await MarkdownRenderer.render(this.app, markdown, body, "", component);
     layoutCodeCopyButtons(body);
     // Obsidian may attach copy controls just after render.
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       if (this.messageRoots.get(key) === root) {
         layoutCodeCopyButtons(body);
       }

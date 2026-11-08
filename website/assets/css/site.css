@@ -226,9 +226,11 @@ img { max-width: 100%; display: block; }
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(56, 189, 248, 0.08) 1px, transparent 1.4px);
-  background-size: 24px 24px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%);
+  background-image:
+    radial-gradient(ellipse 70% 60% at 50% 35%, rgba(56, 189, 248, 0.1) 0%, transparent 70%),
+    radial-gradient(circle, rgba(56, 189, 248, 0.08) 1px, transparent 1.4px);
+  background-size: auto, 24px 24px;
+  opacity: 0.85;
   pointer-events: none;
 }
 

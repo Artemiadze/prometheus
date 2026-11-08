@@ -1,4 +1,4 @@
-import type { App, EventRef, TAbstractFile, TFile } from "obsidian";
+import { TFile, type App, type EventRef, type TAbstractFile } from "obsidian";
 
 import type {
   OpenNoteOptions,
@@ -194,6 +194,10 @@ export class ObsidianVaultGateway implements VaultGateway {
     return note?.parent ?? null;
   }
 
+  getConfigDir(): string {
+    return this.app.vault.configDir;
+  }
+
   private resolveMarkdownFile(pathValue: string): TFile | null {
     const abstract = this.app.vault.getAbstractFileByPath(pathValue);
     return asMarkdownFile(abstract);
@@ -201,15 +205,10 @@ export class ObsidianVaultGateway implements VaultGateway {
 }
 
 function asMarkdownFile(file: TAbstractFile | null): TFile | null {
-  // Duck-type TFile: obsidian package is types-only (no runtime TFile for instanceof).
-  if (!file || !("stat" in file) || !("extension" in file)) {
+  if (!(file instanceof TFile) || file.extension !== "md") {
     return null;
   }
-  const tfile = file as TFile;
-  if (tfile.extension !== "md") {
-    return null;
-  }
-  return tfile;
+  return file;
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

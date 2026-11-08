@@ -127,6 +127,10 @@ export class FakeVaultGateway implements VaultGateway {
   getActiveFolderPath(): NotePath | null {
     return this.activeFolder;
   }
+
+  getConfigDir(): string {
+    return ".obsidian";
+  }
 }
 
 function toPath(path: NotePath | string): NotePath {

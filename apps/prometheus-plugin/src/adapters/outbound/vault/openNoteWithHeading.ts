@@ -1,4 +1,4 @@
-import type { App, Editor, TAbstractFile, TFile } from "obsidian";
+import { TFile, type App, type Editor, type TAbstractFile } from "obsidian";
 
 import type { OpenNoteOptions } from "../../../application/dto/vault";
 import type { NotePath } from "../../../domain/value-objects/NotePath";
@@ -41,7 +41,7 @@ export async function openNoteWithHeading(
 }
 
 function isMarkdownFile(file: TAbstractFile | null): file is TFile {
-  return Boolean(file && "stat" in file && (file as TFile).extension === "md");
+  return file instanceof TFile && file.extension === "md";
 }
 
 function scrollEditorToHeading(app: App, file: TFile, heading: string): void {

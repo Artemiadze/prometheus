@@ -58,7 +58,7 @@ export class RequestReindex {
       }
     }
 
-    const ignored = effectiveIgnoredFolders(settings);
+    const ignored = effectiveIgnoredFolders(settings, this.vault.getConfigDir());
     const snapshot = await this.vault.getVaultSnapshot(signal, ignored);
     const documents: ReindexDocumentInput[] = [];
 

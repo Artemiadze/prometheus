@@ -16,7 +16,7 @@ export function layoutCodeCopyButtons(root: HTMLElement): void {
 
     const innerButton = findCopyButton(pre);
     const siblingButton =
-      innerButton === null && pre.nextElementSibling instanceof HTMLElement
+      innerButton === null && pre.nextElementSibling?.instanceOf(HTMLElement)
         ? asCopyButton(pre.nextElementSibling)
         : null;
     const button = innerButton ?? siblingButton;
@@ -24,8 +24,7 @@ export function layoutCodeCopyButtons(root: HTMLElement): void {
       continue;
     }
 
-    const wrap = document.createElement("div");
-    wrap.className = "prometheus-chat-code";
+    const wrap = createDiv({ cls: "prometheus-chat-code" });
     parent.insertBefore(wrap, pre);
     wrap.appendChild(pre);
     wrap.appendChild(button);
@@ -34,7 +33,7 @@ export function layoutCodeCopyButtons(root: HTMLElement): void {
 
 function findCopyButton(pre: HTMLElement): HTMLElement | null {
   for (const child of Array.from(pre.children)) {
-    if (!(child instanceof HTMLElement)) {
+    if (!child.instanceOf(HTMLElement)) {
       continue;
     }
     const match = asCopyButton(child);

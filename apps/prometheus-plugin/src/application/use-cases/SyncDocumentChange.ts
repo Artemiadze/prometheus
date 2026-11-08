@@ -41,7 +41,7 @@ export class SyncDocumentChange {
   ): Promise<void> {
     const settings = await this.settings.get();
     const vaultId = requireVaultId(settings);
-    const ignored = effectiveIgnoredFolders(settings);
+    const ignored = effectiveIgnoredFolders(settings, this.vault.getConfigDir());
     const force = options?.force === true;
 
     for (const event of events) {
