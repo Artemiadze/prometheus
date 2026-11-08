@@ -1,6 +1,7 @@
 import packageMetadata from "../../../../package.json";
 
-import { nodeHttpNdjson } from "../runtime/nodeHttpFetch";
+import { nodeHttpFetch, nodeHttpNdjson } from "../runtime/nodeHttpFetch";
+import type { FetchFn } from "../runtime/RuntimeDownloader";
 import type { RuntimeSessionRegistry } from "../../../application/services/RuntimeSessionRegistry";
 import {
   isAbortError,
@@ -19,7 +20,8 @@ export type RuntimeResponseDecoder<T> = (payload: unknown, requestId: string | n
 export type RuntimeHttpClientOptions = {
   readonly sessions: RuntimeSessionRegistry;
   readonly getHealthBaseUrl: () => string;
-  readonly fetchFn?: typeof fetch;
+  /** Defaults to Node HTTP; Chromium `fetch` is unreliable on loopback. */
+  readonly fetchFn?: FetchFn;
   readonly timeoutMs?: number;
   readonly pluginVersion?: string;
   readonly requestIdFactory?: () => string;
@@ -58,15 +60,14 @@ export const CHAT_REQUEST_TIMEOUT_MS = 120_000;
  * It owns timeout/cancellation, protected headers and versioned error envelopes.
  */
 export class RuntimeHttpClient {
-  private readonly fetchFn: typeof fetch;
+  private readonly fetchFn: FetchFn;
   private readonly timeoutMs: number;
   private readonly pluginVersion: string;
   private readonly requestIdFactory: () => string;
 
   constructor(private readonly options: RuntimeHttpClientOptions) {
-    // Loopback runtime needs AbortSignal + NDJSON streaming; requestUrl is not a drop-in.
-    // eslint-disable-next-line -- community scanner prefers requestUrl; keep fetch for sidecar
-    this.fetchFn = options.fetchFn ?? fetch;
+    // Prefer Node HTTP: requestUrl/Chromium fetch cannot stream NDJSON with AbortSignal on loopback.
+    this.fetchFn = options.fetchFn ?? nodeHttpFetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.pluginVersion = options.pluginVersion ?? PLUGIN_VERSION;
     this.requestIdFactory = options.requestIdFactory ?? (() => crypto.randomUUID());
